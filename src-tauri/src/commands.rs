@@ -56,8 +56,8 @@ pub async fn send_message(
         .get_messages(conversation_id)
         .map_err(|e| e.to_string())?;
 
-    // Send to OpenAI
-    let ai_response = app_state.openai_service
+    // Send to Local LLM
+    let ai_response = app_state.llm_service
         .send_message(messages)
         .await
         .map_err(|e| e.to_string())?;

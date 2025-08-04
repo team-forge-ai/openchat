@@ -24,4 +24,6 @@ dist-ssr
 *.sln
 *.sw?
 
+models/
+
 src-tauri/target
