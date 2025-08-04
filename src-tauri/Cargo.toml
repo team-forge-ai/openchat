@@ -28,8 +28,8 @@ qwen3-inference = { path = "../qwen3-rs/qwen3-inference" }
 anyhow = "1.0"
 once_cell = "1"
 byteorder = "1.5"
-rusqlite = { version = "0.31.0", features = ["bundled"] }
 chrono = { version = "0.4", features = ["serde"] }
+sqlx = { version = "0.7", default-features = false, features = ["sqlite", "runtime-tokio-rustls"] }
 
 tauri-plugin-shell = "2.0.0-beta.3"
 tauri-plugin-sql = { version = "2.0.0-beta.8", features = ["sqlite"] }

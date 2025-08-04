@@ -1,9 +1,7 @@
 mod commands;
-mod database;
 mod llm;
 mod models;
 
-use database::Database;
 use llm::LocalLLMService;
 
 use std::{path::PathBuf, sync::Arc};
@@ -13,28 +11,12 @@ use tokio::sync::Mutex;
 
 // Constants
 const MODEL_FILENAME: &str = "qwen3-0.6b-quantized.bin";
-const DB_FILENAME: &str = "openchat.db";
 
 pub struct AppState {
-    pub database: Database,
     pub llm_service: LocalLLMService,
 }
 
 type AppResult<T> = Result<T, Box<dyn std::error::Error>>;
-
-/// Initialize the database in the app data directory
-fn initialize_database(app: &App) -> AppResult<Database> {
-    let app_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("Failed to get app data directory: {}", e))?;
-
-    std::fs::create_dir_all(&app_dir)
-        .map_err(|e| format!("Failed to create app data directory: {}", e))?;
-
-    let db_path = app_dir.join(DB_FILENAME);
-    Database::new(&db_path).map_err(|e| format!("Failed to initialize database: {}", e).into())
-}
 
 /// Resolve the model file path using Tauri's BaseDirectory system
 fn resolve_model_path(app: &App) -> PathBuf {
@@ -76,13 +58,9 @@ fn initialize_llm_service(app: &App) -> LocalLLMService {
 
 /// Create and configure the application state
 fn create_app_state(app: &App) -> AppResult<Arc<Mutex<AppState>>> {
-    let database = initialize_database(app)?;
     let llm_service = initialize_llm_service(app);
 
-    let app_state = Arc::new(Mutex::new(AppState {
-        database,
-        llm_service,
-    }));
+    let app_state = Arc::new(Mutex::new(AppState { llm_service }));
 
     Ok(app_state)
 }
