@@ -4,6 +4,7 @@ mod models;
 
 use llm::LocalLLMService;
 
+use sqlx::SqlitePool;
 use std::{path::PathBuf, sync::Arc};
 use tauri::{path::BaseDirectory, App, Manager};
 use tauri_plugin_sql::{Migration, MigrationKind};
@@ -112,6 +113,11 @@ pub fn run() {
 
             // Register the state with Tauri
             app.manage(app_state);
+
+            // Initialise a global SqlitePool managed by Tauri
+            let pool = SqlitePool::connect_lazy("sqlite:openchat.db")
+                .expect("Failed to create SqlitePool");
+            app.manage(pool);
 
             Ok(())
         })

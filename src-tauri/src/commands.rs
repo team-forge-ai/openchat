@@ -8,15 +8,12 @@ use std::sync::Arc;
 use tauri::State;
 use tokio::sync::Mutex;
 
-const DB_URL: &str = "sqlite://openchat.db";
-
-async fn get_pool() -> Result<SqlitePool, String> {
-    SqlitePool::connect(DB_URL).await.map_err(|e| e.to_string())
-}
-
 #[tauri::command]
-pub async fn create_conversation(title: String) -> Result<Conversation, String> {
-    let pool = get_pool().await?;
+pub async fn create_conversation(
+    title: String,
+    pool: State<'_, SqlitePool>,
+) -> Result<Conversation, String> {
+    let pool = pool.inner();
     let now = Utc::now().to_rfc3339();
 
     let row: SqliteRow = sqlx::query(
@@ -25,7 +22,7 @@ pub async fn create_conversation(title: String) -> Result<Conversation, String> 
     .bind(&title)
     .bind(&now)
     .bind(&now)
-    .fetch_one(&pool)
+    .fetch_one(pool)
     .await
     .map_err(|e| e.to_string())?;
 
@@ -40,13 +37,13 @@ pub async fn create_conversation(title: String) -> Result<Conversation, String> 
 }
 
 #[tauri::command]
-pub async fn get_conversations() -> Result<Vec<Conversation>, String> {
-    let pool = get_pool().await?;
+pub async fn get_conversations(pool: State<'_, SqlitePool>) -> Result<Vec<Conversation>, String> {
+    let pool = pool.inner();
 
     let rows = sqlx::query(
         "SELECT id, title, created_at, updated_at FROM conversations ORDER BY updated_at DESC",
     )
-    .fetch_all(&pool)
+    .fetch_all(pool)
     .await
     .map_err(|e| e.to_string())?;
 
@@ -64,14 +61,17 @@ pub async fn get_conversations() -> Result<Vec<Conversation>, String> {
 }
 
 #[tauri::command]
-pub async fn get_messages(conversation_id: i64) -> Result<Vec<Message>, String> {
-    let pool = get_pool().await?;
+pub async fn get_messages(
+    conversation_id: i64,
+    pool: State<'_, SqlitePool>,
+) -> Result<Vec<Message>, String> {
+    let pool = pool.inner();
 
     let rows = sqlx::query(
         "SELECT id, conversation_id, role, content, created_at FROM messages WHERE conversation_id = ? ORDER BY id",
     )
     .bind(conversation_id)
-    .fetch_all(&pool)
+    .fetch_all(pool)
     .await
     .map_err(|e| e.to_string())?;
 
@@ -93,9 +93,10 @@ pub async fn get_messages(conversation_id: i64) -> Result<Vec<Message>, String> 
 pub async fn send_message(
     conversation_id: i64,
     content: String,
+    pool: State<'_, SqlitePool>,
     state: State<'_, Arc<Mutex<AppState>>>,
 ) -> Result<Message, String> {
-    let pool = get_pool().await?;
+    let pool = pool.inner();
     let now = Utc::now().to_rfc3339();
 
     // Insert user message
@@ -105,7 +106,7 @@ pub async fn send_message(
     .bind(conversation_id)
     .bind(&content)
     .bind(&now)
-    .execute(&pool)
+    .execute(pool)
     .await
     .map_err(|e| e.to_string())?;
 
@@ -114,7 +115,7 @@ pub async fn send_message(
         "SELECT id, role, content, created_at FROM messages WHERE conversation_id = ? ORDER BY id",
     )
     .bind(conversation_id)
-    .fetch_all(&pool)
+    .fetch_all(pool)
     .await
     .map_err(|e| e.to_string())?;
 
@@ -146,7 +147,7 @@ pub async fn send_message(
     .bind(conversation_id)
     .bind(&ai_response)
     .bind(&ai_now)
-    .fetch_one(&pool)
+    .fetch_one(pool)
     .await
     .map_err(|e| e.to_string())?;
 
