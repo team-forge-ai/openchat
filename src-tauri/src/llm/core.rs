@@ -4,7 +4,7 @@ use once_cell::sync::OnceCell;
 use qwen3_inference::{Sampler, Tokenizer, Transformer, TransformerBuilder};
 use std::path::PathBuf;
 use std::sync::{
-    atomic::{AtomicBool, AtomicUsize, Ordering},
+    atomic::{AtomicBool, AtomicUsize},
     Arc, Mutex,
 };
 use std::time::Instant;

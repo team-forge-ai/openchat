@@ -8,6 +8,7 @@ use llm::LocalLLMService;
 
 use std::{path::PathBuf, sync::Arc};
 use tauri::{path::BaseDirectory, App, Manager};
+use tauri_plugin_sql::{Migration, MigrationKind};
 use tokio::sync::Mutex;
 
 // Constants
@@ -92,6 +93,39 @@ pub fn run() {
     dotenvy::dotenv().ok();
 
     tauri::Builder::default()
+        .plugin(
+            tauri_plugin_sql::Builder::default()
+                .add_migrations(
+                    "sqlite:openchat.db",
+                    vec![
+                        Migration {
+                            version: 1,
+                            description: "create_conversations",
+                            sql: "CREATE TABLE IF NOT EXISTS conversations (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                title TEXT NOT NULL,
+                                created_at TEXT NOT NULL,
+                                updated_at TEXT NOT NULL
+                            );",
+                            kind: MigrationKind::Up,
+                        },
+                        Migration {
+                            version: 2,
+                            description: "create_messages",
+                            sql: "CREATE TABLE IF NOT EXISTS messages (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                conversation_id INTEGER NOT NULL,
+                                role TEXT NOT NULL,
+                                content TEXT NOT NULL,
+                                created_at TEXT NOT NULL,
+                                FOREIGN KEY (conversation_id) REFERENCES conversations (id)
+                            );",
+                            kind: MigrationKind::Up,
+                        },
+                    ],
+                )
+                .build(),
+        )
         .plugin(tauri_plugin_log::Builder::default().build())
         .setup(|app| {
             // Create and configure application state
