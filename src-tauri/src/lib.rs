@@ -115,16 +115,22 @@ pub fn run() {
             app.manage(app_state);
 
             // Initialise a global SqlitePool managed by Tauri
-            let pool = SqlitePool::connect_lazy("sqlite:openchat.db")
-                .expect("Failed to create SqlitePool");
+            let db_path = app
+                .path()
+                .app_data_dir()
+                .map_err(|e| format!("failed to get app data dir: {e}"))?;
+            std::fs::create_dir_all(&db_path).ok();
+            let db_file = db_path.join("openchat.db");
+            let conn_str = format!("sqlite://{}?mode=rwc", db_file.display());
+            let pool =
+                tauri::async_runtime::block_on(async { SqlitePool::connect(&conn_str).await })
+                    .expect("Failed to create SqlitePool");
             app.manage(pool);
 
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             commands::create_conversation,
-            commands::get_conversations,
-            commands::get_messages,
             commands::send_message
         ])
         .run(tauri::generate_context!())

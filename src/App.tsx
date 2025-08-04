@@ -1,75 +1,38 @@
+import { useQueryClient } from '@tanstack/react-query'
 import { invoke } from '@tauri-apps/api/core'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
 import { ChatWindow } from '@/components/ChatWindow'
 import { ConversationList } from '@/components/ConversationList'
-import type { Conversation, Message } from '@/types'
+import { useConversations } from '@/hooks/use-conversations'
+import { useMessages } from '@/hooks/use-messages'
+import type { Message } from '@/types'
 import './App.css'
 
 function App() {
-  const [conversations, setConversations] = useState<Conversation[]>([])
+  const queryClient = useQueryClient()
+
   const [selectedConversationId, setSelectedConversationId] = useState<
     number | null
   >(null)
-  const [messages, setMessages] = useState<Message[]>([])
-  const [isLoading, setIsLoading] = useState(false)
-  const [isLoadingConversations, setIsLoadingConversations] = useState(true)
 
-  // Load conversations on app start
-  useEffect(() => {
-    void loadConversations()
-  }, [])
+  // data hooks
+  const { data: conversations = [], isFetching: isLoadingConversations } =
+    useConversations()
 
-  // Load messages when conversation is selected
-  useEffect(() => {
-    if (selectedConversationId) {
-      void loadMessages(selectedConversationId)
-    } else {
-      setMessages([])
-    }
-  }, [selectedConversationId])
+  const { data: messages = [], isFetching: isLoadingMessages } = useMessages(
+    selectedConversationId ?? null,
+  )
 
-  const loadConversations = async () => {
-    try {
-      setIsLoadingConversations(true)
-      const loadedConversations: Conversation[] =
-        await invoke('get_conversations')
-      setConversations(loadedConversations)
-    } catch (error) {
-      console.error('Failed to load conversations:', error)
-    } finally {
-      setIsLoadingConversations(false)
-    }
-  }
-
-  const loadMessages = async (conversationId: number) => {
-    try {
-      const loadedMessages: Message[] = await invoke('get_messages', {
-        conversationId,
-      })
-      setMessages(loadedMessages)
-    } catch (error) {
-      console.error('Failed to load messages:', error)
-    }
-  }
+  const isLoading = isLoadingMessages
 
   const createConversation = async () => {
-    try {
-      setIsLoading(true)
-      const newConversation: Conversation = await invoke(
-        'create_conversation',
-        {
-          title: `New Chat ${new Date().toLocaleString()}`,
-        },
-      )
-
-      setConversations((prev) => [newConversation, ...prev])
-      setSelectedConversationId(newConversation.id)
-    } catch (error) {
-      console.error('Failed to create conversation:', error)
-    } finally {
-      setIsLoading(false)
-    }
+    const newConv = await invoke<any>('create_conversation', {
+      title: `New Chat ${new Date().toLocaleString()}`,
+    })
+    // refresh list and select new
+    await queryClient.invalidateQueries({ queryKey: ['conversations'] })
+    setSelectedConversationId(newConv.id)
   }
 
   const sendMessage = async (content: string) => {
@@ -77,43 +40,32 @@ function App() {
       return
     }
 
-    try {
-      setIsLoading(true)
-
-      // Add user message to UI immediately
-      const userMessage: Message = {
-        id: Date.now(), // Temporary ID
-        conversation_id: selectedConversationId,
-        role: 'user',
-        content,
-        created_at: new Date().toISOString(),
-      }
-      setMessages((prev) => [...prev, userMessage])
-
-      // Send message to backend
-      const aiMessage: Message = await invoke('send_message', {
-        conversationId: selectedConversationId,
-        content,
-      })
-
-      // Replace temporary user message and add AI response
-      setMessages((prev) => {
-        const withoutTemp = prev.filter((m) => m.id !== userMessage.id)
-        return [...withoutTemp, aiMessage]
-      })
-
-      // Reload messages to get the actual user message with proper ID
-      await loadMessages(selectedConversationId)
-
-      // Update conversations list to reflect new activity
-      await loadConversations()
-    } catch (error) {
-      console.error('Failed to send message:', error)
-      // Remove the temporary user message on error
-      setMessages((prev) => prev.filter((m) => m.id !== Date.now()))
-    } finally {
-      setIsLoading(false)
+    // optimistic UI insert
+    const tempMsg: Message = {
+      id: Date.now(),
+      conversation_id: selectedConversationId,
+      role: 'user',
+      content,
+      created_at: new Date().toISOString(),
     }
+
+    queryClient.setQueryData<Message[]>(
+      ['messages', selectedConversationId],
+      (old = []) => [...old, tempMsg],
+    )
+
+    await invoke('send_message', {
+      conversationId: selectedConversationId,
+      content,
+    })
+
+    // refresh caches
+    await Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: ['messages', selectedConversationId],
+      }),
+      queryClient.invalidateQueries({ queryKey: ['conversations'] }),
+    ])
   }
 
   return (
@@ -123,7 +75,7 @@ function App() {
         selectedConversationId={selectedConversationId}
         onSelectConversation={setSelectedConversationId}
         onCreateConversation={createConversation}
-        isLoading={isLoading || isLoadingConversations}
+        isLoading={isLoadingConversations}
       />
 
       <ChatWindow
