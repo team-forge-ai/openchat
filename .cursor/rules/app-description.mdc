@@ -1,0 +1,7 @@
+---
+alwaysApply: true
+---
+
+# Project Context
+
+OpenChat is a rust/Tauri desktop app that allows you to chat with LLMs.
