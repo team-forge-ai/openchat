@@ -22,7 +22,7 @@ use tauri::{path::BaseDirectory, App, Manager};
 use tokio::sync::Mutex;
 
 // Constants
-const MODEL_FILENAME: &str = "qwen3-0.6b-quantized.bin";
+const MODEL_FILENAME: &str = "Qwen3-8B-gs64.bin";
 
 pub struct AppState {
     pub llm_service: LocalLLMService,
