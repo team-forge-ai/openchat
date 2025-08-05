@@ -3,8 +3,9 @@ use log::debug;
 use once_cell::sync::OnceCell;
 use qwen3_inference::{Sampler, Tokenizer, Transformer, TransformerBuilder};
 use std::path::PathBuf;
+use std::fs;
 use std::sync::{
-    atomic::{AtomicBool, AtomicUsize, Ordering},
+    atomic::{AtomicBool, AtomicUsize},
     Arc, Mutex,
 };
 use std::time::Instant;
@@ -22,7 +23,36 @@ pub struct LlmCore {
 impl LlmCore {
     /// Build a new core from the quantised model file on disk.
     pub fn load(model_path: &PathBuf, temperature: f32, topp: f32) -> Result<Self> {
-        debug!("Loading transformer from {:?}", model_path);
+        debug!(
+            "Loading transformer from {:?} (temperature: {}, topp: {})",
+            model_path, temperature, topp
+        );
+
+        // Ensure the model path exists and log useful diagnostics
+        if !model_path.exists() {
+            debug!("Model path does not exist: {:?}", model_path);
+            return Err(anyhow!("Model path does not exist: {:?}", model_path));
+        }
+
+        if model_path.is_file() {
+            match fs::metadata(model_path) {
+                Ok(meta) => debug!("Model file size: {} bytes", meta.len()),
+                Err(e) => debug!("Failed to get metadata for model file: {:?}", e),
+            }
+        } else if model_path.is_dir() {
+            match fs::read_dir(model_path) {
+                Ok(entries) => {
+                    let listing: Vec<String> = entries
+                        .filter_map(|e| e.ok())
+                        .take(10)
+                        .map(|e| e.file_name().to_string_lossy().into_owned())
+                        .collect();
+                    debug!("Model directory entries (first 10): {:?}", listing);
+                }
+                Err(e) => debug!("Failed to read model directory: {:?}", e),
+            }
+        }
+
         let t0 = Instant::now();
         let transformer = TransformerBuilder::new(model_path.to_str().unwrap())
             .build()
