@@ -1,13 +1,24 @@
+#![warn(clippy::all, rust_2018_idioms)]
 mod commands;
+mod db;
 mod llm;
+mod migrations;
 mod models;
 
 use llm::LocalLLMService;
 
-use sqlx::SqlitePool;
+// OpenChat desktop – Tauri + Rust
+//
+// This crate hosts the native backend for the OpenChat app.
+// Responsibilities:
+// 1.  Database (SQLite via sqlx)
+// 2.  Local LLM inference service
+// 3.  Tauri command handlers bridging React ↔︎ Rust
+
+// duplicate warn removed
 use std::{path::PathBuf, sync::Arc};
 use tauri::{path::BaseDirectory, App, Manager};
-use tauri_plugin_sql::{Migration, MigrationKind};
+
 use tokio::sync::Mutex;
 
 // Constants
@@ -74,35 +85,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(
             tauri_plugin_sql::Builder::default()
-                .add_migrations(
-                    "sqlite:openchat.db",
-                    vec![
-                        Migration {
-                            version: 1,
-                            description: "create_conversations",
-                            sql: "CREATE TABLE IF NOT EXISTS conversations (
-                                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                title TEXT NOT NULL,
-                                created_at TEXT NOT NULL,
-                                updated_at TEXT NOT NULL
-                            );",
-                            kind: MigrationKind::Up,
-                        },
-                        Migration {
-                            version: 2,
-                            description: "create_messages",
-                            sql: "CREATE TABLE IF NOT EXISTS messages (
-                                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                conversation_id INTEGER NOT NULL,
-                                role TEXT NOT NULL,
-                                content TEXT NOT NULL,
-                                created_at TEXT NOT NULL,
-                                FOREIGN KEY (conversation_id) REFERENCES conversations (id)
-                            );",
-                            kind: MigrationKind::Up,
-                        },
-                    ],
-                )
+                .add_migrations("sqlite:openchat2.db", migrations::migrations())
                 .build(),
         )
         .plugin(tauri_plugin_log::Builder::default().build())
@@ -121,17 +104,14 @@ pub fn run() {
                 .map_err(|e| format!("failed to get app data dir: {e}"))?;
             std::fs::create_dir_all(&db_path).ok();
             let db_file = db_path.join("openchat.db");
-            let conn_str = format!("sqlite://{}?mode=rwc", db_file.display());
-            let pool =
-                tauri::async_runtime::block_on(async { SqlitePool::connect(&conn_str).await })
-                    .expect("Failed to create SqlitePool");
+            let pool = tauri::async_runtime::block_on(db::init_pool(&db_file))
+                .expect("Failed to create SqlitePool");
             app.manage(pool);
 
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            commands::create_conversation,
-            commands::send_message
+            commands::generate_assistant_response
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

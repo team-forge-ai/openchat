@@ -1,12 +1,12 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { invoke } from '@tauri-apps/api/core'
 import { useState } from 'react'
 
 import { ChatWindow } from '@/components/ChatWindow'
 import { ConversationList } from '@/components/ConversationList'
+import { useAssistantResponder } from '@/hooks/use-assistant-response'
 import { useConversations } from '@/hooks/use-conversations'
 import { useMessages } from '@/hooks/use-messages'
-import type { Message } from '@/types'
+
 import './App.css'
 
 function App() {
@@ -17,49 +17,37 @@ function App() {
   >(null)
 
   // data hooks
-  const { data: conversations = [], isFetching: isLoadingConversations } =
-    useConversations()
+  const {
+    conversations,
+    isLoading: isLoadingConversations,
+    createConversation,
+  } = useConversations()
 
-  const { data: messages = [], isFetching: isLoadingMessages } = useMessages(
-    selectedConversationId ?? null,
-  )
+  const {
+    messages,
+    isLoading: isLoadingMessages,
+    addMessage,
+  } = useMessages(selectedConversationId ?? null)
+
+  const { generate } = useAssistantResponder()
 
   const isLoading = isLoadingMessages
-
-  const createConversation = async () => {
-    const newConv = await invoke<any>('create_conversation', {
-      title: `New Chat ${new Date().toLocaleString()}`,
-    })
-    // refresh list and select new
-    await queryClient.invalidateQueries({ queryKey: ['conversations'] })
-    setSelectedConversationId(newConv.id)
-  }
 
   const sendMessage = async (content: string) => {
     if (!selectedConversationId) {
       return
     }
 
-    // optimistic UI insert
-    const tempMsg: Message = {
-      id: Date.now(),
-      conversation_id: selectedConversationId,
-      role: 'user',
-      content,
-      created_at: new Date().toISOString(),
-    }
+    // Insert user message locally
+    await addMessage(selectedConversationId, 'user', content)
 
-    queryClient.setQueryData<Message[]>(
-      ['messages', selectedConversationId],
-      (old = []) => [...old, tempMsg],
-    )
+    // Ask assistant service for a reply
+    const aiContent = await generate(selectedConversationId)
 
-    await invoke('send_message', {
-      conversationId: selectedConversationId,
-      content,
-    })
+    // Insert assistant message locally
+    await addMessage(selectedConversationId, 'assistant', aiContent)
 
-    // refresh caches
+    // Refresh caches
     await Promise.all([
       queryClient.invalidateQueries({
         queryKey: ['messages', selectedConversationId],
@@ -74,7 +62,10 @@ function App() {
         conversations={conversations}
         selectedConversationId={selectedConversationId}
         onSelectConversation={setSelectedConversationId}
-        onCreateConversation={createConversation}
+        onCreateConversation={async () => {
+          const id = await createConversation()
+          setSelectedConversationId(id)
+        }}
         isLoading={isLoadingConversations}
       />
 

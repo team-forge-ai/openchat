@@ -1,7 +1,6 @@
 use super::{core, prompt};
 use crate::models::Message;
 use anyhow::{anyhow, Result};
-use log::debug;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::task;
