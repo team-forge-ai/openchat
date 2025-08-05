@@ -35,3 +35,18 @@ export async function insertMessage(
   )
   return rows[0].id
 }
+
+/**
+ * Deletes a conversation and all its associated messages.
+ */
+export async function deleteConversation(
+  conversationId: number,
+): Promise<void> {
+  const db = await dbPromise
+  // Delete all messages for this conversation first
+  await db.execute('DELETE FROM messages WHERE conversation_id = ?', [
+    conversationId,
+  ])
+  // Then delete the conversation
+  await db.execute('DELETE FROM conversations WHERE id = ?', [conversationId])
+}

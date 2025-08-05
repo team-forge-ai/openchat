@@ -17,12 +17,15 @@ use llm::LocalLLMService;
 
 // duplicate warn removed
 use std::{path::PathBuf, sync::Arc};
-use tauri::{path::BaseDirectory, App, Manager};
+use tauri::{path::BaseDirectory, App, Manager, WebviewUrl, WebviewWindowBuilder};
+
+#[cfg(target_os = "macos")]
+use tauri::TitleBarStyle;
 
 use tokio::sync::Mutex;
 
 // Constants
-const MODEL_FILENAME: &str = "Qwen3-8B-gs64.bin";
+const MODEL_FILENAME: &str = "qwen3-0.6b-quantized.bin";
 
 pub struct AppState {
     pub llm_service: LocalLLMService,
@@ -107,6 +110,22 @@ pub fn run() {
             let pool = tauri::async_runtime::block_on(db::init_pool(&db_file))
                 .expect("Failed to create SqlitePool");
             app.manage(pool);
+
+            // Create main window with transparent titlebar (macOS)
+            let mut win_builder =
+                WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
+                    .title("openchat")
+                    .inner_size(800.0, 600.0);
+
+            // Set transparent title bar only when building for macOS
+            #[cfg(target_os = "macos")]
+            {
+                win_builder = win_builder.title_bar_style(TitleBarStyle::Transparent);
+            }
+
+            let _window = win_builder
+                .build()
+                .map_err(|e| format!("Failed to create window: {}", e))?;
 
             Ok(())
         })
