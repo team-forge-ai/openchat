@@ -112,6 +112,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             placeholder="Type your message..."
             disabled={isLoading}
             className="flex-1"
+            autoFocus
           />
           <Button
             type="submit"

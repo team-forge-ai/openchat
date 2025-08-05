@@ -1,60 +1,34 @@
-import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 
 import { ChatWindow } from '@/components/ChatWindow'
 import { ConversationList } from '@/components/ConversationList'
-import { useAssistantResponder } from '@/hooks/use-assistant-response'
 import { useConversations } from '@/hooks/use-conversations'
 import { useMessages } from '@/hooks/use-messages'
 
 import './App.css'
 
 function App() {
-  const queryClient = useQueryClient()
-
   const [selectedConversationId, setSelectedConversationId] = useState<
     number | null
   >(null)
 
-  // data hooks
+  // Conversations list
   const {
     conversations,
     isLoading: isLoadingConversations,
     createConversation,
   } = useConversations()
 
+  // Messages + send mutation for the selected conversation
   const {
     messages,
     isLoading: isLoadingMessages,
-    addMessage,
+    sendMessage,
+    isSendingMessage,
   } = useMessages(selectedConversationId ?? null)
 
-  const { generate } = useAssistantResponder()
-
-  const isLoading = isLoadingMessages
-
-  const sendMessage = async (content: string) => {
-    if (!selectedConversationId) {
-      return
-    }
-
-    // Insert user message locally
-    await addMessage(selectedConversationId, 'user', content)
-
-    // Ask assistant service for a reply
-    const aiContent = await generate(selectedConversationId)
-
-    // Insert assistant message locally
-    await addMessage(selectedConversationId, 'assistant', aiContent)
-
-    // Refresh caches
-    await Promise.all([
-      queryClient.invalidateQueries({
-        queryKey: ['messages', selectedConversationId],
-      }),
-      queryClient.invalidateQueries({ queryKey: ['conversations'] }),
-    ])
-  }
+  // Aggregate loading state: fetching or sending
+  const isLoading = isLoadingMessages || isSendingMessage
 
   return (
     <div className="h-screen flex bg-background text-foreground">
@@ -71,7 +45,14 @@ function App() {
 
       <ChatWindow
         messages={messages}
-        onSendMessage={sendMessage}
+        onSendMessage={async (content) => {
+          if (selectedConversationId) {
+            await sendMessage({
+              conversationId: selectedConversationId,
+              content,
+            })
+          }
+        }}
         isLoading={isLoading}
         conversationId={selectedConversationId}
       />
