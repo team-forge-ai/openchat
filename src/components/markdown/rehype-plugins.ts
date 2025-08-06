@@ -22,6 +22,8 @@ export function rehypeMarkCodeBlocks() {
   }
 }
 
+/* Examples of other rehype plugins that could be added here 
+
 // Rehype plugin to handle email artifacts
 export function rehypeEmailArtifacts() {
   return (tree: Node) => {
@@ -54,3 +56,4 @@ export function rehypeQuickReplies() {
     })
   }
 }
+*/

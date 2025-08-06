@@ -25,11 +25,39 @@ class MLXServerService {
   private child: Child | null = null
   private isRunning = false
   private config: MLXServerConfig | null = null
+  private isInitializing = false
+  private initializationPromise: Promise<void> | null = null
 
   /**
    * Start the MLX server with the given configuration
    */
   async start(config: MLXServerConfig): Promise<void> {
+    // If already initializing, wait for the existing initialization to complete
+    if (this.isInitializing && this.initializationPromise) {
+      console.log('Server initialization already in progress, waiting...')
+      return await this.initializationPromise
+    }
+
+    // If already running, just return
+    if (this.isRunning) {
+      console.log('MLX server is already running, skipping start')
+      return
+    }
+
+    // Mark as initializing and create the promise
+    this.isInitializing = true
+    this.initializationPromise = this.doStart(config).finally(() => {
+      this.isInitializing = false
+      this.initializationPromise = null
+    })
+
+    return await this.initializationPromise
+  }
+
+  /**
+   * Internal method to actually start the server
+   */
+  private async doStart(config: MLXServerConfig): Promise<void> {
     // Validate server state
     validateServerState({
       isRunning: this.isRunning,
@@ -160,23 +188,39 @@ class MLXServerService {
     this.isRunning = false
     this.child = null
     this.command = null
+    this.isInitializing = false
+    this.initializationPromise = null
   }
 
   /**
    * Stop the MLX server
    */
   async stop(): Promise<void> {
-    if (!this.isRunning || !this.child) {
+    // Wait for any ongoing initialization to complete first
+    if (this.isInitializing && this.initializationPromise) {
+      console.log('Waiting for initialization to complete before stopping...')
+      try {
+        await this.initializationPromise
+      } catch {
+        // Ignore initialization errors when stopping
+      }
+    }
+
+    if (!this.isRunning && !this.child) {
       console.log('MLX server is not running')
+      this.cleanup()
       return
     }
 
     try {
-      await this.child.kill()
+      if (this.child) {
+        await this.child.kill()
+      }
       this.cleanup()
       console.log('MLX server stopped')
     } catch (error) {
       console.error('Failed to stop MLX server:', error)
+      this.cleanup() // Ensure cleanup happens even on error
       throw error
     }
   }
@@ -281,7 +325,7 @@ class MLXServerService {
       throw new Error(`Failed to fetch models: ${response.statusText}`)
     }
 
-    const jsonData = await response.json()
+    const jsonData: unknown = await response.json()
     const parseResult = ModelsResponseSchema.safeParse(jsonData)
 
     if (!parseResult.success) {

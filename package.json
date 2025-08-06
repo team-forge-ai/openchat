@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.14",
+    "@radix-ui/react-collapsible": "^1.1.11",
     "@radix-ui/react-dialog": "^1.1.14",
     "@radix-ui/react-separator": "^1.1.7",
     "@radix-ui/react-slot": "^1.2.3",
@@ -51,6 +52,7 @@
   "devDependencies": {
     "@ocavue/eslint-config": "^3.3.0",
     "@ocavue/tsconfig": "^0.3.7",
+    "@tailwindcss/typography": "^0.5.16",
     "@tauri-apps/cli": "^2",
     "@types/node": "^24.2.0",
     "@types/react": "^18.3.1",

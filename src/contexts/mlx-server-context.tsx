@@ -37,8 +37,20 @@ export function MLXServerProvider({
   })
   const [isInitializing, setIsInitializing] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [hasInitialized, setHasInitialized] = useState(false)
 
   const initializeServer = async () => {
+    // Check if we've already initialized or are currently initializing
+    if (hasInitialized) {
+      console.log('Server already initialized, checking status...')
+      const currentStatus = mlxServer.getStatus()
+      setStatus(currentStatus)
+      if (currentStatus.isRunning) {
+        setIsInitializing(false)
+        return
+      }
+    }
+
     setIsInitializing(true)
     setError(null)
 
@@ -56,11 +68,20 @@ export function MLXServerProvider({
 
       const serverStatus = mlxServer.getStatus()
       setStatus(serverStatus)
+      setHasInitialized(true)
       console.log('MLX server started successfully:', serverStatus)
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err)
-      console.error('Failed to start MLX server:', errorMessage)
-      setError(errorMessage)
+      // Don't treat "already running" as an error
+      if (errorMessage.includes('already running')) {
+        console.log('MLX server is already running, updating status')
+        const currentStatus = mlxServer.getStatus()
+        setStatus(currentStatus)
+        setHasInitialized(true)
+      } else {
+        console.error('Failed to start MLX server:', errorMessage)
+        setError(errorMessage)
+      }
     } finally {
       setIsInitializing(false)
     }
@@ -71,6 +92,7 @@ export function MLXServerProvider({
       // Stop the server if it's running
       if (status.isRunning) {
         await mlxServer.stop()
+        setHasInitialized(false)
       }
       // Restart it
       await initializeServer()
@@ -82,10 +104,24 @@ export function MLXServerProvider({
 
   // Initialize server on mount
   useEffect(() => {
-    void initializeServer()
+    let mounted = true
+
+    const init = async () => {
+      if (mounted) {
+        await initializeServer()
+      }
+    }
+
+    void init()
 
     // Cleanup: stop server on unmount
     return () => {
+      mounted = false
+      // Only stop the server in production or when the component is truly unmounting
+      // In development with StrictMode, this cleanup runs on every re-render
+      if (!hasInitialized) {
+        return
+      }
       mlxServer.stop().catch((err) => {
         console.error('Error stopping MLX server on cleanup:', err)
       })

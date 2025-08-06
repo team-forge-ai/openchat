@@ -23,12 +23,13 @@ export async function insertMessage(
   conversationId: number,
   role: 'user' | 'assistant',
   content: string,
+  reasoning?: string,
 ): Promise<number> {
   const db = await dbPromise
   const now = new Date().toISOString()
   await db.execute(
-    'INSERT INTO messages (conversation_id, role, content, created_at) VALUES (?, ?, ?, ?)',
-    [conversationId, role, content, now],
+    'INSERT INTO messages (conversation_id, role, content, reasoning, created_at) VALUES (?, ?, ?, ?, ?)',
+    [conversationId, role, content, reasoning || null, now],
   )
   const rows = await db.select<{ id: number }[]>(
     'SELECT last_insert_rowid() as id',
@@ -36,16 +37,17 @@ export async function insertMessage(
   return rows[0].id
 }
 
-/** Update a message's content */
+/** Update a message's content and reasoning */
 export async function updateMessage(
   messageId: number,
   content: string,
+  reasoning?: string,
 ): Promise<void> {
   const db = await dbPromise
-  await db.execute('UPDATE messages SET content = ? WHERE id = ?', [
-    content,
-    messageId,
-  ])
+  await db.execute(
+    'UPDATE messages SET content = ?, reasoning = ? WHERE id = ?',
+    [content, reasoning || null, messageId],
+  )
 }
 
 /**

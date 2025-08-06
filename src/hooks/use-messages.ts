@@ -34,7 +34,7 @@ export function useMessages(conversationId: number | null): UseMessagesResult {
     queryFn: async () => {
       const db = await dbPromise
       return await db.select<Message[]>(
-        'SELECT id, conversation_id, role, content, created_at FROM messages WHERE conversation_id = ? ORDER BY id',
+        'SELECT id, conversation_id, role, content, reasoning, created_at FROM messages WHERE conversation_id = ? ORDER BY id',
         [conversationId],
       )
     },
@@ -53,10 +53,12 @@ export function useMessages(conversationId: number | null): UseMessagesResult {
         conversationId,
         'assistant',
         '',
+        undefined, // No reasoning initially
       )
 
       // Track the accumulated content for optimistic updates
       let accumulatedContent = ''
+      let accumulatedReasoning = ''
 
       // Generate assistant reply with streaming
       await generateStreaming(conversationId, {
@@ -74,16 +76,45 @@ export function useMessages(conversationId: number | null): UseMessagesResult {
 
               return oldMessages.map((msg) => {
                 if (msg.id === assistantMessageId) {
-                  return { ...msg, content: accumulatedContent }
+                  return {
+                    ...msg,
+                    content: accumulatedContent,
+                    reasoning: accumulatedReasoning || undefined,
+                  }
                 }
                 return msg
               })
             },
           )
         },
-        onComplete: async (fullContent) => {
-          // Update the message in the database with the complete content
-          await updateMessage(assistantMessageId, fullContent)
+        onReasoningChunk: (chunk) => {
+          // Accumulate reasoning
+          accumulatedReasoning += chunk
+
+          // Optimistically update the message reasoning in the cache
+          queryClient.setQueryData<Message[]>(
+            ['messages', conversationId],
+            (oldMessages) => {
+              if (!oldMessages) {
+                return oldMessages
+              }
+
+              return oldMessages.map((msg) => {
+                if (msg.id === assistantMessageId) {
+                  return {
+                    ...msg,
+                    content: accumulatedContent,
+                    reasoning: accumulatedReasoning,
+                  }
+                }
+                return msg
+              })
+            },
+          )
+        },
+        onComplete: async (fullContent, fullReasoning) => {
+          // Update the message in the database with the complete content and reasoning
+          await updateMessage(assistantMessageId, fullContent, fullReasoning)
         },
         onError: (error) => {
           console.error('Streaming error:', error)

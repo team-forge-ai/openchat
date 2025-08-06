@@ -10,42 +10,22 @@ import remarkMath from 'remark-math'
 import { cn } from '@/lib/utils'
 
 import { components } from './components'
-import { QuickReply } from './quick-reply'
-import {
-  rehypeEmailArtifacts,
-  rehypeMarkCodeBlocks,
-  rehypeQuickReplies,
-} from './rehype-plugins'
-import type { QuickReplyComponentProps } from './types'
+import { rehypeMarkCodeBlocks } from './rehype-plugins'
 
 const remarkPlugins = [remarkMath, remarkGfm]
-const rehypePlugins = [
-  rehypeRaw,
-  rehypeKatex,
-  rehypeMarkCodeBlocks,
-  rehypeEmailArtifacts,
-  rehypeQuickReplies,
-]
+const rehypePlugins = [rehypeRaw, rehypeKatex, rehypeMarkCodeBlocks]
 
 interface MarkdownProps {
   children: string
   className?: string
-  onSendMessage?: (text: string) => void
 }
 
-function NonMemoizedMarkdown({
-  children,
-  className,
-  onSendMessage,
-}: MarkdownProps) {
+function NonMemoizedMarkdown({ children, className }: MarkdownProps) {
   const componentsWithSendMessage = useMemo(() => {
     return {
       ...components,
-      'quick-reply': ({ node: _node, children }: QuickReplyComponentProps) => (
-        <QuickReply onSend={onSendMessage}>{children}</QuickReply>
-      ),
     }
-  }, [onSendMessage])
+  }, [])
 
   return (
     <div
