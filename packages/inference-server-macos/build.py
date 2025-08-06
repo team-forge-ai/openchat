@@ -38,27 +38,92 @@ def build_binary():
         if Path(dir_name).exists():
             shutil.rmtree(dir_name)
     
+    # Create runtime hook that patches add_docstring early
+    runtime_hook_content = """
+# This runtime hook is executed by PyInstaller before any other code
+import builtins
+
+# Patch add_docstring BEFORE numpy is loaded
+def safe_add_docstring(obj, doc):
+    if doc is None:
+        return
+    if not isinstance(doc, str):
+        try:
+            doc = str(doc)
+        except:
+            return
+    try:
+        obj.__doc__ = doc
+    except:
+        pass
+
+# Install immediately
+builtins.add_docstring = safe_add_docstring
+"""
+    
+    runtime_hook_file = Path("runtime_hook.py")
+    runtime_hook_file.write_text(runtime_hook_content)
+    
     # Prepare PyInstaller spec
     spec_content = """
 # -*- mode: python ; coding: utf-8 -*-
 
 import sys
+import platform
 from pathlib import Path
 
 # Add src directory to path
 sys.path.insert(0, str(Path.cwd() / 'src'))
 
+import site
+import glob
+from PyInstaller.utils.hooks import collect_all, collect_submodules
+
+# Collect all numpy components
+numpy_datas = []
+numpy_binaries = []
+numpy_hiddenimports = []
+try:
+    datas, binaries, hiddenimports = collect_all('numpy')
+    numpy_datas = datas
+    numpy_binaries = binaries
+    numpy_hiddenimports = hiddenimports
+except:
+    pass
+
+# Find MLX Metal library files
+mlx_metallib_files = []
+for site_packages in site.getsitepackages():
+    metallib_pattern = f'{site_packages}/mlx/lib/*.metallib'
+    mlx_metallib_files.extend(glob.glob(metallib_pattern))
+
+# Prepare binaries list
+binaries = numpy_binaries
+for metallib in mlx_metallib_files:
+    binaries.append((metallib, 'mlx/lib'))
+
 a = Analysis(
-    ['src/mlx_engine_server/main.py'],
+    ['src/mlx_engine_server/__main__.py'],
     pathex=['src'],
-    binaries=[],
-    datas=[],
-    hiddenimports=[
+    binaries=binaries,
+    datas=numpy_datas,
+    hiddenimports=numpy_hiddenimports + [
+        'mlx_engine_server',
+        'mlx_engine_server.main',
+        'mlx_engine_server.server',
+        'mlx_engine_server.config',
+        'mlx_engine_server.generation',
+        'mlx_engine_server.model_manager',
+        'mlx_engine_server.api_models',
+        'mlx_engine_server.utils',
         'mlx',
         'mlx.core',
         'mlx.nn',
         'mlx.optimizers',
         'mlx.utils',
+        'mlx._reprlib_fix',
+        'mlx._os_warning',
+        'mlx.__main__',
         'mlx_lm',
         'mlx_lm.models',
         'mlx_lm.tokenizer_utils',
@@ -91,7 +156,7 @@ a = Analysis(
     ],
     hookspath=[],
     hooksconfig={},
-    runtime_hooks=[],
+    runtime_hooks=['runtime_hook.py'],
     excludes=[
         'tkinter',
         'matplotlib',

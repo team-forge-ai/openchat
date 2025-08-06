@@ -7,6 +7,7 @@ import tempfile
 import os
 
 from mlx_engine_server.model_manager import MLXModelManager, ModelInfo
+from mlx_engine_server.utils import validate_model_path
 from mlx_engine_server.config import ServerConfig
 
 
@@ -70,15 +71,19 @@ class TestMLXModelManager:
         assert model_manager.model_info is None
         assert model_manager.system_monitor is not None
     
+    @patch('mlx_engine_server.model_manager.detect_model_type')
     @patch('mlx_engine_server.model_manager.load')
-    @patch('mlx_engine_server.model_manager.Path.exists')
+    @patch('mlx_engine_server.model_manager.validate_model_path')
     @patch('mlx_engine_server.model_manager.Path.is_dir')
-    def test_load_model_success(self, mock_is_dir, mock_exists, mock_load, model_manager, mock_model_and_tokenizer):
+    @patch('mlx_engine_server.model_manager.Path.exists')
+    def test_load_model_success(self, mock_exists, mock_is_dir, mock_validate, mock_load, mock_detect, model_manager, mock_model_and_tokenizer):
         """Test successful model loading."""
         # Setup mocks
         mock_exists.return_value = True
         mock_is_dir.return_value = True
+        mock_validate.return_value = True
         mock_load.return_value = mock_model_and_tokenizer
+        mock_detect.return_value = {"type": "test", "architecture": "TestArch", "tokenizer_config": {}, "chat_template": None}
         
         # Load model
         success, message = model_manager.load_model("test/model/path")
@@ -86,7 +91,7 @@ class TestMLXModelManager:
         assert success is True
         assert "successfully" in message.lower()
         assert model_manager.model_info is not None
-        assert model_manager.model_info.path == "test/model/path"
+        assert str(model_manager.model_info.model_path) == "test/model/path"
         
         # Verify load was called correctly
         mock_load.assert_called_once()
@@ -102,9 +107,9 @@ class TestMLXModelManager:
         assert "does not exist" in message
         assert model_manager.model_info is None
     
-    @patch('mlx_engine_server.model_manager.Path.exists')
     @patch('mlx_engine_server.model_manager.Path.is_dir')
-    def test_load_model_not_directory(self, mock_is_dir, mock_exists, model_manager):
+    @patch('mlx_engine_server.model_manager.Path.exists')
+    def test_load_model_not_directory(self, mock_exists, mock_is_dir, model_manager):
         """Test loading model with file instead of directory."""
         mock_exists.return_value = True
         mock_is_dir.return_value = False
@@ -115,15 +120,19 @@ class TestMLXModelManager:
         assert "must be a directory" in message
         assert model_manager.model_info is None
     
+    @patch('mlx_engine_server.model_manager.detect_model_type')
     @patch('mlx_engine_server.model_manager.load')
-    @patch('mlx_engine_server.model_manager.Path.exists')
+    @patch('mlx_engine_server.model_manager.validate_model_path')
     @patch('mlx_engine_server.model_manager.Path.is_dir')
-    def test_load_model_already_loaded(self, mock_is_dir, mock_exists, mock_load, model_manager, mock_model_and_tokenizer):
+    @patch('mlx_engine_server.model_manager.Path.exists')
+    def test_load_model_already_loaded(self, mock_exists, mock_is_dir, mock_validate, mock_load, mock_detect, model_manager, mock_model_and_tokenizer):
         """Test loading model when one is already loaded."""
         # Setup mocks
         mock_exists.return_value = True
         mock_is_dir.return_value = True
+        mock_validate.return_value = True
         mock_load.return_value = mock_model_and_tokenizer
+        mock_detect.return_value = {"type": "test", "architecture": "TestArch", "tokenizer_config": {}, "chat_template": None}
         
         # Load first model
         model_manager.load_model("test/model/path1")
@@ -133,15 +142,19 @@ class TestMLXModelManager:
         
         assert success is False
         assert "already loaded" in message
-        assert model_manager.model_info.path == "test/model/path1"  # Still first model
+        assert str(model_manager.model_info.model_path) == "test/model/path1"  # Still first model
     
+    @patch('mlx_engine_server.model_manager.detect_model_type')
     @patch('mlx_engine_server.model_manager.load')
-    @patch('mlx_engine_server.model_manager.Path.exists')
+    @patch('mlx_engine_server.model_manager.validate_model_path')
     @patch('mlx_engine_server.model_manager.Path.is_dir')
-    def test_load_model_with_exception(self, mock_is_dir, mock_exists, mock_load, model_manager):
+    @patch('mlx_engine_server.model_manager.Path.exists')
+    def test_load_model_with_exception(self, mock_exists, mock_is_dir, mock_validate, mock_load, mock_detect, model_manager):
         """Test model loading with exception."""
         mock_exists.return_value = True
         mock_is_dir.return_value = True
+        mock_validate.return_value = True
+        mock_detect.return_value = {"type": "test", "architecture": "TestArch", "tokenizer_config": {}, "chat_template": None}
         mock_load.side_effect = Exception("Load failed")
         
         success, message = model_manager.load_model("test/model/path")
@@ -155,15 +168,19 @@ class TestMLXModelManager:
         result = model_manager.get_model()
         assert result is None
     
+    @patch('mlx_engine_server.model_manager.detect_model_type')
     @patch('mlx_engine_server.model_manager.load')
-    @patch('mlx_engine_server.model_manager.Path.exists')
+    @patch('mlx_engine_server.model_manager.validate_model_path')
     @patch('mlx_engine_server.model_manager.Path.is_dir')
-    def test_get_model_with_loaded_model(self, mock_is_dir, mock_exists, mock_load, model_manager, mock_model_and_tokenizer):
+    @patch('mlx_engine_server.model_manager.Path.exists')
+    def test_get_model_with_loaded_model(self, mock_exists, mock_is_dir, mock_validate, mock_load, mock_detect, model_manager, mock_model_and_tokenizer):
         """Test getting model when one is loaded."""
         # Setup and load model
         mock_exists.return_value = True
         mock_is_dir.return_value = True
+        mock_validate.return_value = True
         mock_load.return_value = mock_model_and_tokenizer
+        mock_detect.return_value = {"type": "test", "architecture": "TestArch", "tokenizer_config": {}, "chat_template": None}
         
         model_manager.load_model("test/model/path")
         result = model_manager.get_model()
@@ -183,15 +200,19 @@ class TestMLXModelManager:
         assert status["model_loaded"] is False
         assert status["model_info"] is None
     
+    @patch('mlx_engine_server.model_manager.detect_model_type')
     @patch('mlx_engine_server.model_manager.load')
-    @patch('mlx_engine_server.model_manager.Path.exists')
+    @patch('mlx_engine_server.model_manager.validate_model_path')
     @patch('mlx_engine_server.model_manager.Path.is_dir')
-    def test_get_status_with_model(self, mock_is_dir, mock_exists, mock_load, model_manager, mock_model_and_tokenizer):
+    @patch('mlx_engine_server.model_manager.Path.exists')
+    def test_get_status_with_model(self, mock_exists, mock_is_dir, mock_validate, mock_load, mock_detect, model_manager, mock_model_and_tokenizer):
         """Test getting status when model is loaded."""
         # Setup and load model
         mock_exists.return_value = True
         mock_is_dir.return_value = True
+        mock_validate.return_value = True
         mock_load.return_value = mock_model_and_tokenizer
+        mock_detect.return_value = {"type": "test", "architecture": "TestArch", "tokenizer_config": {}, "chat_template": None}
         
         model_manager.load_model("test/model/path")
         status = model_manager.get_status()
@@ -207,15 +228,19 @@ class TestMLXModelManager:
         with pytest.raises(ValueError, match="No model loaded"):
             model_manager.format_chat_template(messages)
     
+    @patch('mlx_engine_server.model_manager.detect_model_type')
     @patch('mlx_engine_server.model_manager.load')
-    @patch('mlx_engine_server.model_manager.Path.exists')
+    @patch('mlx_engine_server.model_manager.validate_model_path')
     @patch('mlx_engine_server.model_manager.Path.is_dir')
-    def test_format_chat_template_with_model(self, mock_is_dir, mock_exists, mock_load, model_manager, mock_model_and_tokenizer):
+    @patch('mlx_engine_server.model_manager.Path.exists')
+    def test_format_chat_template_with_model(self, mock_exists, mock_is_dir, mock_validate, mock_load, mock_detect, model_manager, mock_model_and_tokenizer):
         """Test formatting chat template with loaded model."""
         # Setup and load model
         mock_exists.return_value = True
         mock_is_dir.return_value = True
+        mock_validate.return_value = True
         mock_load.return_value = mock_model_and_tokenizer
+        mock_detect.return_value = {"type": "test", "architecture": "TestArch", "tokenizer_config": {}, "chat_template": None}
         
         model_manager.load_model("test/model/path")
         messages = [{"role": "user", "content": "Hello"}]
@@ -226,15 +251,19 @@ class TestMLXModelManager:
         mock_model_and_tokenizer[1].apply_chat_template.assert_called_once()
         assert result == "formatted chat"
     
+    @patch('mlx_engine_server.model_manager.detect_model_type')
     @patch('mlx_engine_server.model_manager.load')
-    @patch('mlx_engine_server.model_manager.Path.exists')
+    @patch('mlx_engine_server.model_manager.validate_model_path')
     @patch('mlx_engine_server.model_manager.Path.is_dir')
-    def test_cleanup(self, mock_is_dir, mock_exists, mock_load, model_manager, mock_model_and_tokenizer):
+    @patch('mlx_engine_server.model_manager.Path.exists')
+    def test_cleanup(self, mock_exists, mock_is_dir, mock_validate, mock_load, mock_detect, model_manager, mock_model_and_tokenizer):
         """Test model cleanup."""
         # Setup and load model
         mock_exists.return_value = True
         mock_is_dir.return_value = True
+        mock_validate.return_value = True
         mock_load.return_value = mock_model_and_tokenizer
+        mock_detect.return_value = {"type": "test", "architecture": "TestArch", "tokenizer_config": {}, "chat_template": None}
         
         model_manager.load_model("test/model/path")
         assert model_manager.model_info is not None

@@ -75,7 +75,15 @@ class MLXModelManager:
         
         model_path = Path(model_path)
         
-        # Validate model path
+        # Check if path exists
+        if not model_path.exists():
+            return False, f"Model path does not exist: {model_path}"
+        
+        # Check if it's a directory
+        if not model_path.is_dir():
+            return False, f"Model path must be a directory: {model_path}"
+        
+        # Validate model path structure
         if not validate_model_path(model_path):
             return False, f"Invalid model path: {model_path}"
         
@@ -201,7 +209,7 @@ class MLXModelManager:
             Formatted prompt string
         """
         if not self.model_info:
-            raise RuntimeError("No model loaded")
+            raise ValueError("No model loaded")
         
         tokenizer = self.model_info.tokenizer
         

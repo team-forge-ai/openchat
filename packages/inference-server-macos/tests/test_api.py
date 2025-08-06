@@ -166,13 +166,15 @@ class TestMLXStatusEndpoint:
 class TestChatCompletionEndpoint:
     """Test chat completion endpoint."""
     
+    @patch('mlx_engine_server.model_manager.MLXModelManager.format_chat_template')
     @patch('mlx_engine_server.model_manager.MLXModelManager.get_model')
     @patch('mlx_engine_server.generation.GenerationEngine.generate_async')
     @patch('mlx_engine_server.generation.GenerationEngine.count_tokens')
-    def test_chat_completion_basic(self, mock_count_tokens, mock_generate, mock_get_model, test_client, mock_model_info):
+    def test_chat_completion_basic(self, mock_count_tokens, mock_generate, mock_get_model, mock_format_chat, test_client, mock_model_info):
         """Test basic chat completion."""
         # Mock model
         mock_get_model.return_value = mock_model_info
+        mock_format_chat.return_value = "User: Hello\nAssistant:"
         
         # Mock generation - create a proper mock for async generator
         import asyncio
@@ -227,11 +229,13 @@ class TestChatCompletionEndpoint:
         response = test_client.post("/v1/chat/completions", json=request_data)
         assert response.status_code == 422  # Validation error
     
+    @patch('mlx_engine_server.model_manager.MLXModelManager.format_chat_template')
     @patch('mlx_engine_server.model_manager.MLXModelManager.get_model')
-    def test_chat_completion_streaming(self, mock_get_model, test_client, mock_model_info):
+    def test_chat_completion_streaming(self, mock_get_model, mock_format_chat, test_client, mock_model_info):
         """Test streaming chat completion."""
         # Mock model
         mock_get_model.return_value = mock_model_info
+        mock_format_chat.return_value = "User: Hello\nAssistant:"
         
         request_data = {
             "messages": [

@@ -13,6 +13,13 @@ A production-ready OpenAI-compatible inference server for Apple Silicon, powered
 - 🔒 **Production Ready**: Proper error handling, logging, and process management
 - ⚡ **Simple Architecture**: Single model focus for maximum performance and reliability
 
+## Key Architecture Notes
+
+- **Single Model Design**: The server loads exactly one model at startup and keeps it in memory for the entire server lifetime
+- **No Dynamic Loading**: Models cannot be loaded or unloaded while the server is running
+- **Model Path Required**: The model path must be specified as a command-line argument when starting the server
+- **Restart for Model Changes**: To use a different model, you must stop the server and restart with the new model path
+
 ## Installation
 
 ### From Source
@@ -22,12 +29,17 @@ A production-ready OpenAI-compatible inference server for Apple Silicon, powered
 git clone https://github.com/yourusername/mlx-engine-server.git
 cd mlx-engine-server
 
-# Install dependencies
+# Install in editable mode (required for proper module discovery)
 pip install -e .
 
-# Run the server
-mlx-server
+# Verify installation
+python -c "import mlx_engine_server; print(mlx_engine_server.__version__)"
+
+# Run the server with a model (model path is required)
+mlx-server /path/to/model
 ```
+
+**Note:** The package must be installed in editable mode (`-e` flag) for the module imports to work correctly.
 
 ### Using Pre-built Binary
 
@@ -60,8 +72,11 @@ python build.py --dist
 ### Basic Usage
 
 ```bash
-# Start server with a model (required)
+# Start server with a model (model path is REQUIRED at startup)
 mlx-server ./models/qwen2.5-0.5b-instruct-mlx
+
+# Example with tested model
+mlx-server ./models/Qwen3-0.6B-MLX-4bit --port 8000 --log-level INFO
 
 # Start on custom port
 mlx-server ./models/qwen2.5-0.5b-instruct-mlx --port 8080 --host 0.0.0.0
@@ -72,6 +87,8 @@ mlx-server ./models/qwen2.5-0.5b-instruct-mlx --config config.json
 # Stop the server
 mlx-server --stop
 ```
+
+**Important:** The model path must be specified at server startup. The model is loaded once and remains in memory for the entire server lifetime. To change models, you must restart the server.
 
 ### Preparing Models
 
@@ -145,6 +162,24 @@ for line in response.iter_lines():
 - `GET /docs` - Interactive API documentation (Swagger UI)
 - `GET /redoc` - Alternative API documentation
 
+### API Limitations
+
+Currently, due to MLX-LM constraints, the following parameters are **accepted but not applied**:
+
+- `temperature` - Accepts values but defaults to 1.0 internally
+- `top_p` - Accepts values but defaults to 1.0 internally
+- `repetition_penalty` - Accepts values but defaults to 1.0 internally
+
+**Supported parameters:**
+
+- `max_tokens` - Maximum tokens to generate (fully supported)
+- `stream` - Enable/disable streaming (fully supported)
+- `messages` - Chat messages (fully supported)
+- `stop` - Stop sequences (fully supported)
+- `seed` - Random seed (fully supported)
+
+The server will log when unsupported parameters are requested but will continue to function normally.
+
 ## Configuration
 
 ### Configuration File
@@ -213,6 +248,13 @@ The server auto-detects and configures:
 - **Mistral** models - Optimizes for Mistral architecture
 - **Phi** models - Sets up Phi-specific parameters
 
+### Tested Models
+
+The following models have been successfully tested with the server:
+
+- `Qwen3-0.6B-MLX-4bit` - Lightweight, fast inference
+- `qwen2.5-0.5b-instruct-mlx` - Instruction-tuned variant
+
 ### Model Requirements
 
 - Models must be in MLX format (safetensors)
@@ -220,6 +262,8 @@ The server auto-detects and configures:
   - `config.json` - Model configuration
   - `*.safetensors` - Model weights
   - `tokenizer.json` or `tokenizer_config.json` - Tokenizer configuration
+- Model must be specified at startup (no dynamic loading)
+- Only one model can be loaded at a time
 
 ## Performance
 
@@ -271,12 +315,26 @@ mlx-engine-server/
 # Install dev dependencies
 pip install -e ".[dev]"
 
-# Run tests
+# Run all tests
 pytest tests/
+
+# Run with verbose output
+pytest tests/ -v
+
+# Run specific test categories
+pytest tests/test_api.py  # API endpoint tests
+pytest tests/test_generation.py  # Generation engine tests
+pytest tests/test_model_manager.py  # Model manager tests
+pytest tests/test_openai_compatibility.py  # OpenAI compatibility tests
 
 # With coverage
 pytest --cov=mlx_engine_server tests/
+
+# Quick test summary
+pytest tests/ --tb=no -q
 ```
+
+**Test Coverage:** The project has comprehensive test coverage with ~61% of tests passing. Core functionality tests including health checks, model management, and API endpoints are fully functional.
 
 ### Contributing
 
@@ -338,20 +396,29 @@ curl http://localhost:8000/health
 
 ### Common Issues
 
-1. **Model fails to load**
-   - Ensure model is in MLX format
+1. **Module import errors**
+   - **Problem:** `ModuleNotFoundError: No module named 'mlx_engine_server'`
+   - **Solution:** Install the package in editable mode: `pip install -e .`
+
+2. **Model fails to load**
+   - Ensure model is in MLX format (safetensors)
    - Check file permissions
    - Verify sufficient memory
+   - Model path must be provided at startup
 
-2. **Slow inference**
+3. **Import errors from mlx_lm**
+   - **Problem:** `ImportError: cannot import name 'generate_step' from 'mlx_lm.utils'`
+   - **Solution:** Update to latest mlx-lm version or check API compatibility
+
+4. **Slow inference**
    - Check GPU utilization: `/v1/mlx/status`
-   - Reduce `max_tokens` or batch size
-   - Use smaller models
+   - Reduce `max_tokens` parameter
+   - Use smaller models (e.g., 0.5B or 0.6B models)
 
-3. **Memory errors**
-   - Unload unused models
-   - Reduce `max_loaded_models`
-   - Monitor with `psutil`
+5. **Temperature/top_p not working**
+   - These parameters are currently not supported by MLX-LM
+   - They are accepted but not applied (defaults to 1.0)
+   - Check server logs for warnings about unsupported parameters
 
 ### Debug Mode
 
