@@ -194,7 +194,7 @@ def main():
         
     except requests.exceptions.ConnectionError:
         print("❌ Could not connect to server. Is it running?")
-        print(f"   Try starting it with: mlx-server")
+        print(f"   Try starting it with: openchat-mlx-server")
     except requests.exceptions.HTTPError as e:
         print(f"❌ HTTP Error: {e}")
         if e.response.text:

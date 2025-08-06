@@ -63,8 +63,8 @@ htmlcov/
 .pytest_cache/
 
 # Build artifacts
-mlx-server
-mlx-server-dist/
+openchat-mlx-server
+openchat-mlx-server-dist/
 *.tar.gz
 *.zip
 

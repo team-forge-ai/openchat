@@ -59,7 +59,7 @@ start_server() {
     log_level=${LOG_LEVEL:-$DEFAULT_LOG_LEVEL}
     
     # Build command
-    cmd="python -m mlx_engine_server.main"
+    cmd="python -m openchat_mlx_server.main"
     cmd="$cmd $model_path"
     cmd="$cmd --host $host"
     cmd="$cmd --port $port"
@@ -96,7 +96,7 @@ stop_server() {
     fi
     
     print_color "$YELLOW" "Stopping MLX Engine Server..."
-    python -m mlx_engine_server.main --stop
+    python -m openchat_mlx_server.main --stop
     
     sleep 1
     if ! check_running; then

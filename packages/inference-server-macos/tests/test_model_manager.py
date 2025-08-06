@@ -6,9 +6,9 @@ from pathlib import Path
 import tempfile
 import os
 
-from mlx_engine_server.model_manager import MLXModelManager, ModelInfo
-from mlx_engine_server.utils import validate_model_path
-from mlx_engine_server.config import ServerConfig
+from openchat_mlx_server.model_manager import MLXModelManager, ModelInfo
+from openchat_mlx_server.utils import validate_model_path
+from openchat_mlx_server.config import ServerConfig
 
 
 @pytest.fixture
@@ -71,11 +71,11 @@ class TestMLXModelManager:
         assert model_manager.model_info is None
         assert model_manager.system_monitor is not None
     
-    @patch('mlx_engine_server.model_manager.detect_model_type')
-    @patch('mlx_engine_server.model_manager.load')
-    @patch('mlx_engine_server.model_manager.validate_model_path')
-    @patch('mlx_engine_server.model_manager.Path.is_dir')
-    @patch('mlx_engine_server.model_manager.Path.exists')
+    @patch('openchat_mlx_server.model_manager.detect_model_type')
+    @patch('openchat_mlx_server.model_manager.load')
+    @patch('openchat_mlx_server.model_manager.validate_model_path')
+    @patch('openchat_mlx_server.model_manager.Path.is_dir')
+    @patch('openchat_mlx_server.model_manager.Path.exists')
     def test_load_model_success(self, mock_exists, mock_is_dir, mock_validate, mock_load, mock_detect, model_manager, mock_model_and_tokenizer):
         """Test successful model loading."""
         # Setup mocks
@@ -96,7 +96,7 @@ class TestMLXModelManager:
         # Verify load was called correctly
         mock_load.assert_called_once()
     
-    @patch('mlx_engine_server.model_manager.Path.exists')
+    @patch('openchat_mlx_server.model_manager.Path.exists')
     def test_load_model_path_not_exists(self, mock_exists, model_manager):
         """Test loading model with non-existent path."""
         mock_exists.return_value = False
@@ -107,8 +107,8 @@ class TestMLXModelManager:
         assert "does not exist" in message
         assert model_manager.model_info is None
     
-    @patch('mlx_engine_server.model_manager.Path.is_dir')
-    @patch('mlx_engine_server.model_manager.Path.exists')
+    @patch('openchat_mlx_server.model_manager.Path.is_dir')
+    @patch('openchat_mlx_server.model_manager.Path.exists')
     def test_load_model_not_directory(self, mock_exists, mock_is_dir, model_manager):
         """Test loading model with file instead of directory."""
         mock_exists.return_value = True
@@ -120,11 +120,11 @@ class TestMLXModelManager:
         assert "must be a directory" in message
         assert model_manager.model_info is None
     
-    @patch('mlx_engine_server.model_manager.detect_model_type')
-    @patch('mlx_engine_server.model_manager.load')
-    @patch('mlx_engine_server.model_manager.validate_model_path')
-    @patch('mlx_engine_server.model_manager.Path.is_dir')
-    @patch('mlx_engine_server.model_manager.Path.exists')
+    @patch('openchat_mlx_server.model_manager.detect_model_type')
+    @patch('openchat_mlx_server.model_manager.load')
+    @patch('openchat_mlx_server.model_manager.validate_model_path')
+    @patch('openchat_mlx_server.model_manager.Path.is_dir')
+    @patch('openchat_mlx_server.model_manager.Path.exists')
     def test_load_model_already_loaded(self, mock_exists, mock_is_dir, mock_validate, mock_load, mock_detect, model_manager, mock_model_and_tokenizer):
         """Test loading model when one is already loaded."""
         # Setup mocks
@@ -144,11 +144,11 @@ class TestMLXModelManager:
         assert "already loaded" in message
         assert str(model_manager.model_info.model_path) == "test/model/path1"  # Still first model
     
-    @patch('mlx_engine_server.model_manager.detect_model_type')
-    @patch('mlx_engine_server.model_manager.load')
-    @patch('mlx_engine_server.model_manager.validate_model_path')
-    @patch('mlx_engine_server.model_manager.Path.is_dir')
-    @patch('mlx_engine_server.model_manager.Path.exists')
+    @patch('openchat_mlx_server.model_manager.detect_model_type')
+    @patch('openchat_mlx_server.model_manager.load')
+    @patch('openchat_mlx_server.model_manager.validate_model_path')
+    @patch('openchat_mlx_server.model_manager.Path.is_dir')
+    @patch('openchat_mlx_server.model_manager.Path.exists')
     def test_load_model_with_exception(self, mock_exists, mock_is_dir, mock_validate, mock_load, mock_detect, model_manager):
         """Test model loading with exception."""
         mock_exists.return_value = True
@@ -168,11 +168,11 @@ class TestMLXModelManager:
         result = model_manager.get_model()
         assert result is None
     
-    @patch('mlx_engine_server.model_manager.detect_model_type')
-    @patch('mlx_engine_server.model_manager.load')
-    @patch('mlx_engine_server.model_manager.validate_model_path')
-    @patch('mlx_engine_server.model_manager.Path.is_dir')
-    @patch('mlx_engine_server.model_manager.Path.exists')
+    @patch('openchat_mlx_server.model_manager.detect_model_type')
+    @patch('openchat_mlx_server.model_manager.load')
+    @patch('openchat_mlx_server.model_manager.validate_model_path')
+    @patch('openchat_mlx_server.model_manager.Path.is_dir')
+    @patch('openchat_mlx_server.model_manager.Path.exists')
     def test_get_model_with_loaded_model(self, mock_exists, mock_is_dir, mock_validate, mock_load, mock_detect, model_manager, mock_model_and_tokenizer):
         """Test getting model when one is loaded."""
         # Setup and load model
@@ -200,11 +200,11 @@ class TestMLXModelManager:
         assert status["model_loaded"] is False
         assert status["model_info"] is None
     
-    @patch('mlx_engine_server.model_manager.detect_model_type')
-    @patch('mlx_engine_server.model_manager.load')
-    @patch('mlx_engine_server.model_manager.validate_model_path')
-    @patch('mlx_engine_server.model_manager.Path.is_dir')
-    @patch('mlx_engine_server.model_manager.Path.exists')
+    @patch('openchat_mlx_server.model_manager.detect_model_type')
+    @patch('openchat_mlx_server.model_manager.load')
+    @patch('openchat_mlx_server.model_manager.validate_model_path')
+    @patch('openchat_mlx_server.model_manager.Path.is_dir')
+    @patch('openchat_mlx_server.model_manager.Path.exists')
     def test_get_status_with_model(self, mock_exists, mock_is_dir, mock_validate, mock_load, mock_detect, model_manager, mock_model_and_tokenizer):
         """Test getting status when model is loaded."""
         # Setup and load model
@@ -228,11 +228,11 @@ class TestMLXModelManager:
         with pytest.raises(ValueError, match="No model loaded"):
             model_manager.format_chat_template(messages)
     
-    @patch('mlx_engine_server.model_manager.detect_model_type')
-    @patch('mlx_engine_server.model_manager.load')
-    @patch('mlx_engine_server.model_manager.validate_model_path')
-    @patch('mlx_engine_server.model_manager.Path.is_dir')
-    @patch('mlx_engine_server.model_manager.Path.exists')
+    @patch('openchat_mlx_server.model_manager.detect_model_type')
+    @patch('openchat_mlx_server.model_manager.load')
+    @patch('openchat_mlx_server.model_manager.validate_model_path')
+    @patch('openchat_mlx_server.model_manager.Path.is_dir')
+    @patch('openchat_mlx_server.model_manager.Path.exists')
     def test_format_chat_template_with_model(self, mock_exists, mock_is_dir, mock_validate, mock_load, mock_detect, model_manager, mock_model_and_tokenizer):
         """Test formatting chat template with loaded model."""
         # Setup and load model
@@ -251,11 +251,11 @@ class TestMLXModelManager:
         mock_model_and_tokenizer[1].apply_chat_template.assert_called_once()
         assert result == "formatted chat"
     
-    @patch('mlx_engine_server.model_manager.detect_model_type')
-    @patch('mlx_engine_server.model_manager.load')
-    @patch('mlx_engine_server.model_manager.validate_model_path')
-    @patch('mlx_engine_server.model_manager.Path.is_dir')
-    @patch('mlx_engine_server.model_manager.Path.exists')
+    @patch('openchat_mlx_server.model_manager.detect_model_type')
+    @patch('openchat_mlx_server.model_manager.load')
+    @patch('openchat_mlx_server.model_manager.validate_model_path')
+    @patch('openchat_mlx_server.model_manager.Path.is_dir')
+    @patch('openchat_mlx_server.model_manager.Path.exists')
     def test_cleanup(self, mock_exists, mock_is_dir, mock_validate, mock_load, mock_detect, model_manager, mock_model_and_tokenizer):
         """Test model cleanup."""
         # Setup and load model
@@ -276,10 +276,10 @@ class TestMLXModelManager:
 class TestModelDetection:
     """Test model type detection."""
     
-    @patch('mlx_engine_server.utils.Path.exists')
+    @patch('openchat_mlx_server.utils.Path.exists')
     def test_detect_model_type_qwen(self, mock_exists):
         """Test detecting Qwen model type."""
-        from mlx_engine_server.utils import detect_model_type
+        from openchat_mlx_server.utils import detect_model_type
         
         # Mock config.json content
         config_content = {"model_type": "qwen2", "architectures": ["Qwen2ForCausalLM"]}
@@ -292,10 +292,10 @@ class TestModelDetection:
                 assert result["type"] == "qwen"
                 assert result["architecture"] == "Qwen2ForCausalLM"
     
-    @patch('mlx_engine_server.utils.Path.exists')
+    @patch('openchat_mlx_server.utils.Path.exists')
     def test_detect_model_type_llama(self, mock_exists):
         """Test detecting Llama model type."""
-        from mlx_engine_server.utils import detect_model_type
+        from openchat_mlx_server.utils import detect_model_type
         
         config_content = {"model_type": "llama", "architectures": ["LlamaForCausalLM"]}
         
@@ -307,10 +307,10 @@ class TestModelDetection:
                 assert result["type"] == "llama"
                 assert result["architecture"] == "LlamaForCausalLM"
     
-    @patch('mlx_engine_server.utils.Path.exists')
+    @patch('openchat_mlx_server.utils.Path.exists')
     def test_detect_model_type_no_config(self, mock_exists):
         """Test detecting model type when config.json doesn't exist."""
-        from mlx_engine_server.utils import detect_model_type
+        from openchat_mlx_server.utils import detect_model_type
         
         mock_exists.return_value = False
         
@@ -319,10 +319,10 @@ class TestModelDetection:
         assert result["type"] == "unknown"
         assert result["architecture"] is None
     
-    @patch('mlx_engine_server.utils.Path.exists')
+    @patch('openchat_mlx_server.utils.Path.exists')
     def test_detect_model_type_invalid_json(self, mock_exists):
         """Test detecting model type with invalid JSON."""
-        from mlx_engine_server.utils import detect_model_type
+        from openchat_mlx_server.utils import detect_model_type
         
         mock_exists.return_value = True
         

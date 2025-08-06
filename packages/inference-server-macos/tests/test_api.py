@@ -7,10 +7,10 @@ from unittest.mock import MagicMock, patch, AsyncMock
 import json
 from pathlib import Path
 
-from mlx_engine_server.config import ServerConfig
-from mlx_engine_server.server import MLXServer
-from mlx_engine_server.api_models import ChatCompletionRequest, ChatMessage
-from mlx_engine_server.model_manager import ModelInfo
+from openchat_mlx_server.config import ServerConfig
+from openchat_mlx_server.server import MLXServer
+from openchat_mlx_server.api_models import ChatCompletionRequest, ChatMessage
+from openchat_mlx_server.model_manager import ModelInfo
 
 
 @pytest.fixture
@@ -78,7 +78,7 @@ class TestModelEndpoints:
         assert data["object"] == "list"
         assert data["data"] == []
     
-    @patch('mlx_engine_server.model_manager.MLXModelManager.get_model_info')
+    @patch('openchat_mlx_server.model_manager.MLXModelManager.get_model_info')
     def test_list_models_with_loaded_model(self, mock_get_model_info, test_client, mock_model_info):
         """Test listing models when one is loaded."""
         # get_model_info returns a dictionary, not the ModelInfo object
@@ -110,7 +110,7 @@ class TestModelEndpoints:
         assert "detail" in data  # FastAPI returns "detail" for 404
     
     @pytest.mark.skip(reason="GET /v1/models/{model_id} endpoint not implemented")
-    @patch('mlx_engine_server.model_manager.MLXModelManager.get_model_info')
+    @patch('openchat_mlx_server.model_manager.MLXModelManager.get_model_info')
     def test_get_model_found(self, mock_get_model_info, test_client, mock_model_info):
         """Test getting existing model."""
         mock_get_model_info.return_value = {
@@ -131,7 +131,7 @@ class TestModelEndpoints:
 class TestMLXStatusEndpoint:
     """Test MLX status endpoint."""
     
-    @patch('mlx_engine_server.model_manager.MLXModelManager.get_status')
+    @patch('openchat_mlx_server.model_manager.MLXModelManager.get_status')
     def test_mlx_status(self, mock_get_status, test_client):
         """Test MLX status endpoint."""
         # Mock model status with complete system info
@@ -166,10 +166,10 @@ class TestMLXStatusEndpoint:
 class TestChatCompletionEndpoint:
     """Test chat completion endpoint."""
     
-    @patch('mlx_engine_server.model_manager.MLXModelManager.format_chat_template')
-    @patch('mlx_engine_server.model_manager.MLXModelManager.get_model')
-    @patch('mlx_engine_server.generation.GenerationEngine.generate_async')
-    @patch('mlx_engine_server.generation.GenerationEngine.count_tokens')
+    @patch('openchat_mlx_server.model_manager.MLXModelManager.format_chat_template')
+    @patch('openchat_mlx_server.model_manager.MLXModelManager.get_model')
+    @patch('openchat_mlx_server.generation.GenerationEngine.generate_async')
+    @patch('openchat_mlx_server.generation.GenerationEngine.count_tokens')
     def test_chat_completion_basic(self, mock_count_tokens, mock_generate, mock_get_model, mock_format_chat, test_client, mock_model_info):
         """Test basic chat completion."""
         # Mock model
@@ -229,8 +229,8 @@ class TestChatCompletionEndpoint:
         response = test_client.post("/v1/chat/completions", json=request_data)
         assert response.status_code == 422  # Validation error
     
-    @patch('mlx_engine_server.model_manager.MLXModelManager.format_chat_template')
-    @patch('mlx_engine_server.model_manager.MLXModelManager.get_model')
+    @patch('openchat_mlx_server.model_manager.MLXModelManager.format_chat_template')
+    @patch('openchat_mlx_server.model_manager.MLXModelManager.get_model')
     def test_chat_completion_streaming(self, mock_get_model, mock_format_chat, test_client, mock_model_info):
         """Test streaming chat completion."""
         # Mock model
@@ -245,7 +245,7 @@ class TestChatCompletionEndpoint:
             "max_tokens": 50
         }
         
-        with patch('mlx_engine_server.server.MLXServer._stream_chat_completion') as mock_stream:
+        with patch('openchat_mlx_server.server.MLXServer._stream_chat_completion') as mock_stream:
             # Mock streaming response
             mock_stream.return_value = iter([
                 "data: {\"id\":\"test\",\"object\":\"chat.completion.chunk\",\"created\":123,\"model\":\"default\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\"},\"finish_reason\":null}]}\n\n",

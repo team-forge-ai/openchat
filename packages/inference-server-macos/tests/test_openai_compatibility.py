@@ -14,9 +14,9 @@ except ImportError:
     OPENAI_AVAILABLE = False
 
 from fastapi.testclient import TestClient
-from mlx_engine_server.server import MLXServer
-from mlx_engine_server.config import ServerConfig
-from mlx_engine_server.model_manager import ModelInfo
+from openchat_mlx_server.server import MLXServer
+from openchat_mlx_server.config import ServerConfig
+from openchat_mlx_server.model_manager import ModelInfo
 
 
 @pytest.fixture
@@ -61,7 +61,7 @@ class TestOpenAICompatibility:
     
     def test_models_endpoint_structure(self, test_client, mock_model_info):
         """Test that /v1/models returns OpenAI-compatible structure."""
-        with patch('mlx_engine_server.model_manager.MLXModelManager.get_model_info') as mock_get_model:
+        with patch('openchat_mlx_server.model_manager.MLXModelManager.get_model_info') as mock_get_model:
             # Return a dictionary as get_model_info does
             mock_get_model.return_value = {
                 "path": "test-model",
@@ -93,10 +93,10 @@ class TestOpenAICompatibility:
     
     def test_chat_completions_request_structure(self, test_client, mock_model_info):
         """Test that chat completions accepts OpenAI-compatible requests."""
-        with patch('mlx_engine_server.model_manager.MLXModelManager.get_model') as mock_get_model:
-            with patch('mlx_engine_server.model_manager.MLXModelManager.format_chat_template') as mock_format_chat:
-                with patch('mlx_engine_server.generation.GenerationEngine.generate_async') as mock_generate:
-                    with patch('mlx_engine_server.generation.GenerationEngine.count_tokens') as mock_count:
+        with patch('openchat_mlx_server.model_manager.MLXModelManager.get_model') as mock_get_model:
+            with patch('openchat_mlx_server.model_manager.MLXModelManager.format_chat_template') as mock_format_chat:
+                with patch('openchat_mlx_server.generation.GenerationEngine.generate_async') as mock_generate:
+                    with patch('openchat_mlx_server.generation.GenerationEngine.count_tokens') as mock_count:
                         mock_get_model.return_value = mock_model_info
                         mock_format_chat.return_value = "System: You are a helpful assistant.\nUser: Hello!\nAssistant:"
                         
@@ -158,7 +158,7 @@ class TestOpenAICompatibility:
     
     def test_chat_completions_streaming_structure(self, test_client, mock_model_info):
         """Test that streaming responses are OpenAI-compatible."""
-        with patch('mlx_engine_server.model_manager.MLXModelManager.get_model') as mock_get_model:
+        with patch('openchat_mlx_server.model_manager.MLXModelManager.get_model') as mock_get_model:
             mock_get_model.return_value = mock_model_info
             
             request_data = {
@@ -167,7 +167,7 @@ class TestOpenAICompatibility:
                 "max_tokens": 50
             }
             
-            with patch('mlx_engine_server.server.MLXServer._stream_chat_completion') as mock_stream:
+            with patch('openchat_mlx_server.server.MLXServer._stream_chat_completion') as mock_stream:
                 # Mock streaming response chunks
                 mock_chunks = [
                     'data: {"id":"chatcmpl-test","object":"chat.completion.chunk","created":123,"model":"default","choices":[{"index":0,"delta":{"role":"assistant"},"finish_reason":null}]}\n\n',
@@ -235,7 +235,7 @@ class TestActualOpenAIClient:
     
     def test_openai_client_models_list(self, test_client, openai_client, mock_model_info):
         """Test listing models using OpenAI client."""
-        with patch('mlx_engine_server.model_manager.MLXModelManager.get_model_info') as mock_get_model:
+        with patch('openchat_mlx_server.model_manager.MLXModelManager.get_model_info') as mock_get_model:
             # Return a dictionary as get_model_info does
             mock_get_model.return_value = {
                 "path": "test-model",
@@ -256,10 +256,10 @@ class TestActualOpenAIClient:
     
     def test_openai_client_chat_completion(self, test_client, openai_client, mock_model_info):
         """Test chat completion using OpenAI client structure."""
-        with patch('mlx_engine_server.model_manager.MLXModelManager.get_model') as mock_get_model:
-            with patch('mlx_engine_server.model_manager.MLXModelManager.format_chat_template') as mock_format_chat:
-                with patch('mlx_engine_server.generation.GenerationEngine.generate_async') as mock_generate:
-                    with patch('mlx_engine_server.generation.GenerationEngine.count_tokens') as mock_count:
+        with patch('openchat_mlx_server.model_manager.MLXModelManager.get_model') as mock_get_model:
+            with patch('openchat_mlx_server.model_manager.MLXModelManager.format_chat_template') as mock_format_chat:
+                with patch('openchat_mlx_server.generation.GenerationEngine.generate_async') as mock_generate:
+                    with patch('openchat_mlx_server.generation.GenerationEngine.count_tokens') as mock_count:
                         mock_get_model.return_value = mock_model_info
                         mock_format_chat.return_value = "User: Hello!\nAssistant:"
                         
@@ -309,10 +309,10 @@ class TestSpecialCases:
     
     def test_model_field_ignored_in_single_model_setup(self, test_client, mock_model_info):
         """Test that model field in request is ignored (single model setup)."""
-        with patch('mlx_engine_server.model_manager.MLXModelManager.get_model') as mock_get_model:
-            with patch('mlx_engine_server.model_manager.MLXModelManager.format_chat_template') as mock_format_chat:
-                with patch('mlx_engine_server.generation.GenerationEngine.generate_async') as mock_generate:
-                    with patch('mlx_engine_server.generation.GenerationEngine.count_tokens') as mock_count:
+        with patch('openchat_mlx_server.model_manager.MLXModelManager.get_model') as mock_get_model:
+            with patch('openchat_mlx_server.model_manager.MLXModelManager.format_chat_template') as mock_format_chat:
+                with patch('openchat_mlx_server.generation.GenerationEngine.generate_async') as mock_generate:
+                    with patch('openchat_mlx_server.generation.GenerationEngine.count_tokens') as mock_count:
                         mock_get_model.return_value = mock_model_info
                         mock_format_chat.return_value = "User: Test\nAssistant:"
                         
@@ -340,10 +340,10 @@ class TestSpecialCases:
     
     def test_unsupported_parameters_handled_gracefully(self, test_client, mock_model_info):
         """Test that unsupported parameters are handled gracefully."""
-        with patch('mlx_engine_server.model_manager.MLXModelManager.get_model') as mock_get_model:
-            with patch('mlx_engine_server.model_manager.MLXModelManager.format_chat_template') as mock_format_chat:
-                with patch('mlx_engine_server.generation.GenerationEngine.generate_async') as mock_generate:
-                    with patch('mlx_engine_server.generation.GenerationEngine.count_tokens') as mock_count:
+        with patch('openchat_mlx_server.model_manager.MLXModelManager.get_model') as mock_get_model:
+            with patch('openchat_mlx_server.model_manager.MLXModelManager.format_chat_template') as mock_format_chat:
+                with patch('openchat_mlx_server.generation.GenerationEngine.generate_async') as mock_generate:
+                    with patch('openchat_mlx_server.generation.GenerationEngine.count_tokens') as mock_count:
                         mock_get_model.return_value = mock_model_info
                         mock_format_chat.return_value = "User: Test\nAssistant:"
                         

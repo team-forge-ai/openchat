@@ -25,19 +25,19 @@ def parse_arguments() -> argparse.Namespace:
         epilog="""
 Examples:
   # Start server with a model
-  mlx-server /path/to/model
+  openchat-mlx-server /path/to/model
   
   # Start server on custom port
-  mlx-server /path/to/model --port 8080
+  openchat-mlx-server /path/to/model --port 8080
   
   # Start with configuration file
-  mlx-server /path/to/model --config config.json
+  openchat-mlx-server /path/to/model --config config.json
   
   # Start with debug logging
-  mlx-server /path/to/model --log-level DEBUG
+  openchat-mlx-server /path/to/model --log-level DEBUG
   
   # Stop running server
-  mlx-server --stop
+  openchat-mlx-server --stop
         """
     )
     
@@ -169,7 +169,7 @@ Examples:
     parser.add_argument(
         "--version",
         action="version",
-        version=f"MLX Engine Server {__import__('mlx_engine_server').__version__}"
+        version=f"MLX Engine Server {__import__('openchat_mlx_server').__version__}"
     )
     
     return parser.parse_args()
@@ -298,8 +298,8 @@ def main():
     # Check for required model path
     if not args.model_path:
         print("Error: Model path is required")
-        print("Usage: mlx-server /path/to/model [options]")
-        print("       mlx-server --stop")
+        print("Usage: openchat-mlx-server /path/to/model [options]")
+        print("       openchat-mlx-server --stop")
         sys.exit(1)
     
     # Load configuration

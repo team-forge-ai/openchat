@@ -68,7 +68,7 @@ Place the built server executable in your Tauri project:
 
 ```bash
 # Copy to Tauri resources
-cp dist/mlx-server src-tauri/resources/
+cp dist/openchat-mlx-server src-tauri/resources/
 ```
 
 ### 3. Configure Tauri
@@ -86,7 +86,7 @@ Update your `tauri.conf.json` to include necessary permissions and bundle the se
         "open": false,
         "scope": [
           {
-            "name": "mlx-server",
+            "name": "openchat-mlx-server",
             "sidecar": true,
             "args": true
           }
@@ -111,8 +111,8 @@ Update your `tauri.conf.json` to include necessary permissions and bundle the se
       }
     },
     "bundle": {
-      "resources": ["resources/mlx-server", "resources/models/*"],
-      "externalBin": ["resources/mlx-server"]
+      "resources": ["resources/openchat-mlx-server", "resources/models/*"],
+      "externalBin": ["resources/openchat-mlx-server"]
     }
   }
 }
@@ -177,8 +177,8 @@ async fn start_inference_server(
     }
 
     // Start the MLX server as a sidecar
-    let (mut rx, child) = Command::new_sidecar("mlx-server")
-        .expect("failed to create `mlx-server` command")
+    let (mut rx, child) = Command::new_sidecar("openchat-mlx-server")
+        .expect("failed to create `openchat-mlx-server` command")
         .args(&[
             "--config",
             &config_path.unwrap_or_else(|| "config.json".to_string()),
@@ -186,7 +186,7 @@ async fn start_inference_server(
             &server_state.port.to_string(),
         ])
         .spawn()
-        .expect("Failed to spawn mlx-server");
+        .expect("Failed to spawn openchat-mlx-server");
 
     // Store the process handle
     server_state.process = Some(child);
@@ -316,7 +316,7 @@ First, ensure your `tauri.conf.json` has the necessary shell permissions:
         "sidecar": true,
         "scope": [
           {
-            "name": "mlx-server",
+            "name": "openchat-mlx-server",
             "sidecar": true,
             "args": true
           }
@@ -329,7 +329,7 @@ First, ensure your `tauri.conf.json` has the necessary shell permissions:
       }
     },
     "bundle": {
-      "externalBin": ["mlx-server"]
+      "externalBin": ["openchat-mlx-server"]
     }
   }
 }
@@ -374,7 +374,7 @@ export class MLXServerManager {
       }
 
       // Spawn the MLX server as a sidecar
-      const command = Command.sidecar('mlx-server', args)
+      const command = Command.sidecar('openchat-mlx-server', args)
 
       // Set up event listeners for stdout and stderr
       command.on('close', (data) => {
@@ -538,7 +538,7 @@ export class AdvancedMLXServer {
       return
     }
 
-    const command = Command.sidecar('mlx-server', [
+    const command = Command.sidecar('openchat-mlx-server', [
       '--port',
       this.config.port.toString(),
       '--model-path',
@@ -676,7 +676,7 @@ export class AdvancedMLXServer {
     console.log('MLX server is ready')
     // Emit custom event that other parts of the app can listen to
     window.dispatchEvent(
-      new CustomEvent('mlx-server-ready', {
+      new CustomEvent('openchat-mlx-server-ready', {
         detail: { port: this.config.port },
       }),
     )
@@ -686,7 +686,7 @@ export class AdvancedMLXServer {
     console.error('Critical error detected:', error)
     // Emit error event
     window.dispatchEvent(
-      new CustomEvent('mlx-server-error', {
+      new CustomEvent('openchat-mlx-server-error', {
         detail: { error, critical: true },
       }),
     )
@@ -752,7 +752,7 @@ function App() {
       setServerStatus('running')
 
       // Listen for server ready event
-      window.addEventListener('mlx-server-ready', (e) => {
+      window.addEventListener('openchat-mlx-server-ready', (e) => {
         console.log('Server ready on port:', e.detail.port)
       })
     } catch (error) {

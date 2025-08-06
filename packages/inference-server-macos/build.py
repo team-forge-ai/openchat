@@ -90,19 +90,19 @@ for metallib in mlx_metallib_files:
     binaries.append((metallib, 'mlx/lib'))
 
 a = Analysis(
-    ['src/mlx_engine_server/__main__.py'],
+    ['src/openchat_mlx_server/__main__.py'],
     pathex=['src'],
     binaries=binaries,
     datas=[],
     hiddenimports=[
-        'mlx_engine_server',
-        'mlx_engine_server.main',
-        'mlx_engine_server.server',
-        'mlx_engine_server.config',
-        'mlx_engine_server.generation',
-        'mlx_engine_server.model_manager',
-        'mlx_engine_server.api_models',
-        'mlx_engine_server.utils',
+        'openchat_mlx_server',
+        'openchat_mlx_server.main',
+        'openchat_mlx_server.server',
+        'openchat_mlx_server.config',
+        'openchat_mlx_server.generation',
+        'openchat_mlx_server.model_manager',
+        'openchat_mlx_server.api_models',
+        'openchat_mlx_server.utils',
         'mlx',
         'mlx.core',
         'mlx.nn',
@@ -167,7 +167,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [('O', None, 'OPTION'), ('O', None, 'OPTION')],
-    name='mlx-server',
+    name='openchat-mlx-server',
     debug=False,
     bootloader_ignore_signals=False,
     strip=True,
@@ -206,7 +206,7 @@ exe = EXE(
             return False
         
         # Check if binary was created
-        binary_path = Path("dist/mlx-server")
+        binary_path = Path("dist/openchat-mlx-server")
         if not binary_path.exists():
             print("Binary not found after build")
             return False
@@ -237,16 +237,16 @@ def create_distribution():
     """Create a distribution package."""
     print("\nCreating distribution package...")
     
-    dist_dir = Path("mlx-server-dist")
+    dist_dir = Path("openchat-mlx-server-dist")
     if dist_dir.exists():
         shutil.rmtree(dist_dir)
     
     dist_dir.mkdir()
     
     # Copy binary
-    binary_src = Path("dist/mlx-server")
+    binary_src = Path("dist/openchat-mlx-server")
     if binary_src.exists():
-        shutil.copy2(binary_src, dist_dir / "mlx-server")
+        shutil.copy2(binary_src, dist_dir / "openchat-mlx-server")
     else:
         print("Binary not found")
         return False
@@ -257,23 +257,23 @@ def create_distribution():
 ## Installation
 
 1. Make sure you have macOS with Apple Silicon (M1/M2/M3)
-2. Copy the `mlx-server` binary to a location in your PATH
-3. Make it executable: `chmod +x mlx-server`
+2. Copy the `openchat-mlx-server` binary to a location in your PATH
+3. Make it executable: `chmod +x openchat-mlx-server`
 
 ## Quick Start
 
 ```bash
 # Start server with default settings
-./mlx-server
+./openchat-mlx-server
 
 # Start with a model
-./mlx-server --model /path/to/model
+./openchat-mlx-server --model /path/to/model
 
 # Start on custom port
-./mlx-server --port 8080
+./openchat-mlx-server --port 8080
 
 # Get help
-./mlx-server --help
+./openchat-mlx-server --help
 ```
 
 ## API Documentation
@@ -293,7 +293,7 @@ curl -X POST http://localhost:8000/v1/mlx/models/load \\
 
 ## Support
 
-For issues and documentation, visit: https://github.com/yourusername/mlx-engine-server
+For issues and documentation, visit: https://github.com/team-forge-ai/openchat-mlx-server
 """
     
     (dist_dir / "README.md").write_text(readme_content)
@@ -312,7 +312,7 @@ For issues and documentation, visit: https://github.com/yourusername/mlx-engine-
     (dist_dir / "config.example.json").write_text(json.dumps(example_config, indent=2))
     
     # Create tar.gz archive
-    archive_name = f"mlx-server-macos-{platform.machine()}.tar.gz"
+    archive_name = f"openchat-mlx-server-macos-{platform.machine()}.tar.gz"
     print(f"Creating archive: {archive_name}")
     
     subprocess.run(
@@ -348,9 +348,9 @@ def main():
     
     print("\n🎉 Build complete!")
     print("\nTo run the server:")
-    print("  ./dist/mlx-server")
+    print("  ./dist/openchat-mlx-server")
     print("\nTo see all options:")
-    print("  ./dist/mlx-server --help")
+    print("  ./dist/openchat-mlx-server --help")
 
 
 if __name__ == "__main__":

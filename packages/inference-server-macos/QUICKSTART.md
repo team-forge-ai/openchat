@@ -6,8 +6,8 @@
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/mlx-engine-server.git
-cd mlx-engine-server
+git clone https://github.com/team-forge-ai/openchat-mlx-server.git
+cd openchat-mlx-server
 
 # Install dependencies
 pip install -r requirements.txt
@@ -20,13 +20,13 @@ pip install -e .
 
 ```bash
 # Download latest release
-curl -L https://github.com/yourusername/mlx-engine-server/releases/latest/download/mlx-server-macos-arm64.tar.gz -o mlx-server.tar.gz
+curl -L https://github.com/team-forge-ai/openchat-mlx-server/releases/latest/download/openchat-mlx-server-macos-arm64.tar.gz -o openchat-mlx-server.tar.gz
 
 # Extract
-tar -xzf mlx-server.tar.gz
+tar -xzf openchat-mlx-server.tar.gz
 
 # Run
-./mlx-server-dist/mlx-server
+./openchat-mlx-server-dist/openchat-mlx-server
 ```
 
 ## 🎯 First Run (2 minutes)
@@ -35,7 +35,7 @@ tar -xzf mlx-server.tar.gz
 
 ```bash
 # Basic start
-mlx-server
+openchat-mlx-server
 
 # Or with the run script
 ./run_server.sh start
@@ -77,7 +77,7 @@ python -m mlx_lm.convert \
 
 ```bash
 # Start server with model
-mlx-server --model ./models/qwen2.5-0.5b-instruct
+openchat-mlx-server --model ./models/qwen2.5-0.5b-instruct
 
 # Or load via API
 curl -X POST http://localhost:8000/v1/mlx/models/load \
@@ -193,7 +193,7 @@ curl -X DELETE http://localhost:8000/v1/mlx/models/qwen-chat
 ### Stop the server
 
 ```bash
-mlx-server --stop
+openchat-mlx-server --stop
 # Or
 ./run_server.sh stop
 ```
@@ -205,7 +205,7 @@ mlx-server --stop
 ```bash
 export MLX_SERVER_PORT=8080
 export MLX_SERVER_LOG_LEVEL=DEBUG
-mlx-server
+openchat-mlx-server
 ```
 
 ### Using config file
@@ -221,13 +221,13 @@ mlx-server
 ```
 
 ```bash
-mlx-server --config config.json
+openchat-mlx-server --config config.json
 ```
 
 ### Command line arguments
 
 ```bash
-mlx-server \
+openchat-mlx-server \
   --port 8080 \
   --model ./models/my-model \
   --max-tokens 200 \
@@ -240,13 +240,13 @@ mlx-server \
 
 ```bash
 # Check if already running
-mlx-server --stop
+openchat-mlx-server --stop
 
 # Check port is free
 lsof -i :8000
 
 # Start with debug logging
-mlx-server --log-level DEBUG
+openchat-mlx-server --log-level DEBUG
 ```
 
 ### Model won't load
@@ -278,7 +278,7 @@ python -c "import mlx_lm; mlx_lm.load('./models/your-model')"
 
 - **Documentation**: See [README.md](README.md)
 - **Examples**: Check the `examples/` directory
-- **Issues**: [GitHub Issues](https://github.com/yourusername/mlx-engine-server/issues)
+- **Issues**: [GitHub Issues](https://github.com/team-forge-ai/openchat-mlx-server/issues)
 
 ## 🎉 That's it!
 

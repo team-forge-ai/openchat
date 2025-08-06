@@ -1,4 +1,4 @@
-# MLX Engine Server
+# openchat-mlx-server
 
 A production-ready OpenAI-compatible inference server for Apple Silicon, powered by MLX. Provides fast local LLM inference with model caching, streaming support, and comprehensive API compatibility.
 
@@ -26,8 +26,8 @@ A production-ready OpenAI-compatible inference server for Apple Silicon, powered
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/mlx-engine-server.git
-cd mlx-engine-server
+git clone https://github.com/team-forge-ai/openchat-mlx-server.git
+cd openchat-mlx-server
 
 # Create and activate virtual environment
 python -m venv venv
@@ -37,7 +37,7 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -e .
 
 # Verify installation
-python -c "import mlx_engine_server; print(mlx_engine_server.__version__)"
+python -c "import openchat_mlx_server; print(openchat_mlx_server.__version__)"
 
 # Run the server with a model (model path is required)
 mlx-server /path/to/model
@@ -49,7 +49,7 @@ mlx-server /path/to/model
 
 ```bash
 # Download the latest release
-curl -L https://github.com/yourusername/mlx-engine-server/releases/latest/download/mlx-server-macos-arm64.tar.gz -o mlx-server.tar.gz
+curl -L https://github.com/team-forge-ai/openchat-mlx-server/releases/latest/download/mlx-server-macos-arm64.tar.gz -o mlx-server.tar.gz
 
 # Extract
 tar -xzf mlx-server.tar.gz
@@ -300,9 +300,9 @@ On Apple M2 Max with Qwen 2.5 0.5B model:
 ### Project Structure
 
 ```
-mlx-engine-server/
+openchat-mlx-server/
 ├── src/
-│   └── mlx_engine_server/
+│   └── openchat_mlx_server/
 │       ├── __init__.py
 │       ├── api_models.py      # Request/response models
 │       ├── config.py          # Configuration management
@@ -342,7 +342,7 @@ pytest tests/test_model_manager.py  # Model manager tests
 pytest tests/test_openai_compatibility.py  # OpenAI compatibility tests
 
 # With coverage
-pytest --cov=mlx_engine_server tests/
+pytest --cov=openchat_mlx_server tests/
 
 # Quick test summary
 pytest tests/ --tb=no -q
@@ -372,7 +372,7 @@ After=network.target
 [Service]
 Type=simple
 User=your-user
-WorkingDirectory=/path/to/mlx-engine-server
+WorkingDirectory=/path/to/openchat-mlx-server
 ExecStart=/usr/local/bin/mlx-server --config /etc/mlx-server/config.json
 Restart=always
 RestartSec=10
@@ -387,7 +387,7 @@ WantedBy=multi-user.target
 FROM python:3.11-slim
 
 # Note: Requires macOS host for Apple Silicon support
-RUN pip install mlx-engine-server
+RUN pip install openchat-mlx-server
 
 EXPOSE 8000
 CMD ["mlx-server", "--host", "0.0.0.0"]
@@ -411,7 +411,7 @@ curl http://localhost:8000/health
 ### Common Issues
 
 1. **Module import errors**
-   - **Problem:** `ModuleNotFoundError: No module named 'mlx_engine_server'`
+   - **Problem:** `ModuleNotFoundError: No module named 'openchat_mlx_server'`
    - **Solution:** Install the package in editable mode: `pip install -e .`
 
 2. **Model fails to load**
@@ -457,6 +457,6 @@ MIT License - see LICENSE file for details
 
 ## Support
 
-- Issues: [GitHub Issues](https://github.com/yourusername/mlx-engine-server/issues)
-- Discussions: [GitHub Discussions](https://github.com/yourusername/mlx-engine-server/discussions)
-- Documentation: [Wiki](https://github.com/yourusername/mlx-engine-server/wiki)
+- Issues: [GitHub Issues](https://github.com/team-forge-ai/openchat-mlx-server/issues)
+- Discussions: [GitHub Discussions](https://github.com/team-forge-ai/openchat-mlx-server/discussions)
+- Documentation: [Wiki](https://github.com/team-forge-ai/openchat-mlx-server/wiki)

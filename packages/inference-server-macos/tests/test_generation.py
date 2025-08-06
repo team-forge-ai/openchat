@@ -5,7 +5,7 @@ import asyncio
 from unittest.mock import MagicMock, patch, AsyncMock
 from typing import List, Dict
 
-from mlx_engine_server.generation import GenerationEngine
+from openchat_mlx_server.generation import GenerationEngine
 
 
 @pytest.fixture
@@ -82,7 +82,7 @@ class TestGenerationEngine:
         # Should fallback to formatted messages
         assert "Hello" in result
     
-    @patch('mlx_engine_server.generation.mlx_generate')
+    @patch('openchat_mlx_server.generation.mlx_generate')
     def test_generate_complete_success(self, mock_mlx_generate, generation_engine, mock_model, mock_tokenizer):
         """Test complete generation success."""
         mock_mlx_generate.return_value = "This is a test response"
@@ -97,7 +97,7 @@ class TestGenerationEngine:
         assert result == "This is a test response"
         mock_mlx_generate.assert_called_once()
     
-    @patch('mlx_engine_server.generation.mlx_generate')
+    @patch('openchat_mlx_server.generation.mlx_generate')
     def test_generate_complete_with_parameters(self, mock_mlx_generate, generation_engine, mock_model, mock_tokenizer):
         """Test complete generation with various parameters."""
         mock_mlx_generate.return_value = "Response"
@@ -119,7 +119,7 @@ class TestGenerationEngine:
         assert "top_p" not in call_args[1]
         assert "repetition_penalty" not in call_args[1]
     
-    @patch('mlx_engine_server.generation.mlx_generate')
+    @patch('openchat_mlx_server.generation.mlx_generate')
     def test_generate_streaming(self, mock_mlx_generate, generation_engine, mock_model, mock_tokenizer):
         """Test streaming generation."""
         messages = [{"role": "user", "content": "Hello"}]
@@ -199,7 +199,7 @@ class TestGenerationEngine:
         # Should fallback to character count / 4
         assert count == len("test text") // 4
     
-    @patch('mlx_engine_server.generation.mlx_generate')
+    @patch('openchat_mlx_server.generation.mlx_generate')
     def test_generate_tokens(self, mock_mlx_generate, generation_engine, mock_model, mock_tokenizer):
         """Test token generation."""
         mock_mlx_generate.return_value = "Hello world"
@@ -238,7 +238,7 @@ class TestStopSequences:
 class TestErrorHandling:
     """Test error handling in generation."""
     
-    @patch('mlx_engine_server.generation.mlx_generate')
+    @patch('openchat_mlx_server.generation.mlx_generate')
     def test_generate_complete_exception(self, mock_mlx_generate, generation_engine, mock_model, mock_tokenizer):
         """Test exception handling in complete generation."""
         mock_mlx_generate.side_effect = Exception("Generation failed")

@@ -54,10 +54,10 @@ def check_project_structure():
     print("\nProject Structure:")
     
     required_files = [
-        "src/mlx_engine_server/__init__.py",
-        "src/mlx_engine_server/main.py",
-        "src/mlx_engine_server/server.py",
-        "src/mlx_engine_server/model_manager.py",
+        "src/openchat_mlx_server/__init__.py",
+        "src/openchat_mlx_server/main.py",
+        "src/openchat_mlx_server/server.py",
+        "src/openchat_mlx_server/model_manager.py",
         "pyproject.toml",
         "requirements.txt",
     ]
@@ -112,7 +112,7 @@ def main():
         print("✅ All checks passed! The server is ready to run.")
         print("\nNext steps:")
         print("1. Install dependencies: pip install -r requirements.txt")
-        print("2. Start the server: python -m mlx_engine_server.main")
+        print("2. Start the server: python -m openchat_mlx_server.main")
         print("3. Load a model and start chatting!")
     else:
         print("⚠️  Some checks failed. Please install missing dependencies.")
