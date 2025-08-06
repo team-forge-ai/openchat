@@ -76,3 +76,5 @@ mlx-server-dist/
 tmp/
 temp/
 *.tmp
+
+models/*
