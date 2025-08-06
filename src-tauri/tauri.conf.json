@@ -25,7 +25,8 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": ["models/*"]
+    "resources": ["models/*"],
+    "externalBin": ["binaries/openchat-mlx-server"]
   },
   "plugins": {
     "sql": {

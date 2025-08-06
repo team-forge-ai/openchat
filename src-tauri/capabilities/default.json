@@ -8,6 +8,8 @@
     "core:window:default",
     "log:default",
     "shell:default",
+    "shell:allow-execute",
+    "shell:allow-kill",
     "sql:default",
     "sql:allow-load",
     "sql:allow-execute",

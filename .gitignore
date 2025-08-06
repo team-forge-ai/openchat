@@ -27,3 +27,8 @@ dist-ssr
 models/
 
 src-tauri/target
+
+# MLX Server distribution files
+openchat-mlx-server-dist/
+openchat-mlx-server-macos-arm64.tar.gz
+
