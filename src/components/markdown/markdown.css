@@ -1,0 +1,33 @@
+@import 'katex/dist/katex.min.css';
+
+[data-markdown-variant='default'] {
+  & .shiki,
+  & .shiki span {
+    color: var(--s-light);
+    background-color: var(--s-light-bg);
+  }
+}
+
+[data-markdown-variant='invert'] {
+  & .shiki,
+  & .shiki span {
+    color: var(--s-dark);
+    background-color: var(--s-dark-bg);
+  }
+}
+
+.dark [data-markdown-variant='invert'] {
+  & .shiki,
+  & .shiki span {
+    color: var(--s-light);
+    background-color: var(--s-light-bg);
+  }
+}
+
+.dark [data-markdown-variant='default'] {
+  & .shiki,
+  & .shiki span {
+    color: var(--s-dark);
+    background-color: var(--s-dark-bg);
+  }
+}

@@ -8,7 +8,26 @@
     "core:window:default",
     "log:default",
     "shell:default",
-    "shell:allow-execute",
+    {
+      "identifier": "shell:allow-spawn",
+      "allow": [
+        {
+          "name": "binaries/openchat-mlx-server",
+          "sidecar": true,
+          "args": true
+        }
+      ]
+    },
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [
+        {
+          "name": "binaries/openchat-mlx-server",
+          "sidecar": true,
+          "args": true
+        }
+      ]
+    },
     "shell:allow-kill",
     "sql:default",
     "sql:allow-load",

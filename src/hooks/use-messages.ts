@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { useAssistantResponder } from '@/hooks/use-assistant-response'
-import { dbPromise, insertMessage } from '@/lib/db'
+import { useChatCompletion } from '@/hooks/use-chat-completion'
+import { dbPromise, insertMessage, updateMessage } from '@/lib/db'
 import type { Message } from '@/types'
 
 interface SendMessageVariables {
@@ -21,7 +21,7 @@ interface UseMessagesResult {
 
 export function useMessages(conversationId: number | null): UseMessagesResult {
   const queryClient = useQueryClient()
-  const { generate } = useAssistantResponder()
+  const { generateStreaming } = useChatCompletion()
 
   // -------------------------------
   // Fetch messages for the selected conversation
@@ -41,18 +41,55 @@ export function useMessages(conversationId: number | null): UseMessagesResult {
   })
 
   // -------------------------------
-  // Mutation: send user message + get AI response
+  // Mutation: send user message + get AI response with streaming
   // -------------------------------
   const mutation = useMutation<void, unknown, SendMessageVariables>({
     mutationFn: async ({ conversationId, content }) => {
       // Insert user message locally
       await insertMessage(conversationId, 'user', content)
 
-      // Generate assistant reply
-      const aiContent = await generate(conversationId)
+      // Insert empty assistant message for streaming
+      const assistantMessageId = await insertMessage(
+        conversationId,
+        'assistant',
+        '',
+      )
 
-      // Insert assistant message locally
-      await insertMessage(conversationId, 'assistant', aiContent)
+      // Track the accumulated content for optimistic updates
+      let accumulatedContent = ''
+
+      // Generate assistant reply with streaming
+      await generateStreaming(conversationId, {
+        onChunk: (chunk) => {
+          // Accumulate content
+          accumulatedContent += chunk
+
+          // Optimistically update the message in the cache
+          queryClient.setQueryData<Message[]>(
+            ['messages', conversationId],
+            (oldMessages) => {
+              if (!oldMessages) {
+                return oldMessages
+              }
+
+              return oldMessages.map((msg) => {
+                if (msg.id === assistantMessageId) {
+                  return { ...msg, content: accumulatedContent }
+                }
+                return msg
+              })
+            },
+          )
+        },
+        onComplete: async (fullContent) => {
+          // Update the message in the database with the complete content
+          await updateMessage(assistantMessageId, fullContent)
+        },
+        onError: (error) => {
+          console.error('Streaming error:', error)
+          // Could potentially update the message with an error state here
+        },
+      })
     },
     onSuccess: async (_data, variables) => {
       // Refresh caches when the round-trip completes

@@ -60,7 +60,10 @@ pub fn run() {
 
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![])
+        .invoke_handler(tauri::generate_handler![
+            commands::check_port_available,
+            commands::get_port_info,
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

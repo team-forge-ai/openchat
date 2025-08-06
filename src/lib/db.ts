@@ -36,6 +36,18 @@ export async function insertMessage(
   return rows[0].id
 }
 
+/** Update a message's content */
+export async function updateMessage(
+  messageId: number,
+  content: string,
+): Promise<void> {
+  const db = await dbPromise
+  await db.execute('UPDATE messages SET content = ? WHERE id = ?', [
+    content,
+    messageId,
+  ])
+}
+
 /**
  * Deletes a conversation and all its associated messages.
  */

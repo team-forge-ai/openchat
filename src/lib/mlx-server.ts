@@ -13,10 +13,12 @@ import type {
 } from '@/types/mlx-server'
 import {
   DEFAULT_CONFIG,
-  MLXServerAlreadyRunningError,
   MLXServerNotRunningError,
   MLXServerStartupError,
 } from '@/types/mlx-server'
+
+import { ModelsResponseSchema } from './mlx-server-schemas'
+import { findAvailablePort, validateServerState } from './mlx-server-validation'
 
 class MLXServerService {
   private command: Command<string> | null = null
@@ -28,17 +30,46 @@ class MLXServerService {
    * Start the MLX server with the given configuration
    */
   async start(config: MLXServerConfig): Promise<void> {
-    if (this.isRunning) {
-      throw new MLXServerAlreadyRunningError()
+    // Validate server state
+    validateServerState({
+      isRunning: this.isRunning,
+      child: this.child,
+      command: this.command,
+    })
+
+    // Handle orphaned processes or inconsistent state
+    if (this.child?.pid && !this.isRunning) {
+      console.log('Detected potential orphaned process, attempting cleanup...')
+      await this.stop()
     }
 
-    this.config = config
+    // Clean any residual state
+    if (this.command || this.child) {
+      console.log('Cleaning up residual state before starting...')
+      this.cleanup()
+    }
 
-    const args = this.buildCommandArgs(config)
+    // Find an available port (will use the preferred port if available)
+    const preferredPort = config.port || DEFAULT_CONFIG.PORT
+    const availablePort = await findAvailablePort(preferredPort)
+
+    // Update config with the actual port we'll use
+    const actualConfig = { ...config, port: availablePort }
+
+    if (availablePort !== preferredPort) {
+      console.log(
+        `Port ${preferredPort} was unavailable, using port ${availablePort} instead`,
+      )
+    }
+
+    this.config = actualConfig
+
+    const args = this.buildCommandArgs(actualConfig)
 
     try {
       // Create the command to run the MLX server sidecar
-      this.command = Command.sidecar('openchat-mlx-server', args)
+      // Use the exact path as specified in tauri.conf.json > bundle > externalBin
+      this.command = Command.sidecar('binaries/openchat-mlx-server', args)
 
       // Set up event listeners
       this.setupEventListeners()
@@ -54,7 +85,7 @@ class MLXServerService {
       )
 
       // Verify the server is responding
-      await this.waitForServer(config.port || DEFAULT_CONFIG.PORT)
+      await this.waitForServer(actualConfig.port || DEFAULT_CONFIG.PORT)
     } catch (error) {
       console.error('Failed to start MLX server:', error)
       this.cleanup()
@@ -250,7 +281,15 @@ class MLXServerService {
       throw new Error(`Failed to fetch models: ${response.statusText}`)
     }
 
-    return (await response.json()) as ModelsResponse
+    const jsonData = await response.json()
+    const parseResult = ModelsResponseSchema.safeParse(jsonData)
+
+    if (!parseResult.success) {
+      console.error('Invalid models response format:', parseResult.error)
+      throw new Error('Invalid response format from MLX server')
+    }
+
+    return parseResult.data
   }
 }
 
