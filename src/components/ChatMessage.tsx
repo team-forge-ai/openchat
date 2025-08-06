@@ -14,8 +14,6 @@ interface ChatMessageProps {
 export const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
   const isUser = message.role === 'user'
 
-  console.log('Rendering message:', message.content)
-
   return (
     <div
       className={`flex gap-3 p-4 ${isUser ? 'bg-background' : 'bg-muted/30'}`}

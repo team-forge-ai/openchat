@@ -63,6 +63,8 @@ export function useMessages(conversationId: number | null): UseMessagesResult {
       // Generate assistant reply with streaming
       await generateStreaming(conversationId, {
         onChunk: (chunk) => {
+          console.log('[use-messages] onChunk', chunk)
+
           // Accumulate content
           accumulatedContent += chunk
 
@@ -88,6 +90,8 @@ export function useMessages(conversationId: number | null): UseMessagesResult {
           )
         },
         onReasoningChunk: (chunk) => {
+          console.log('[use-messages] onReasoningChunk', chunk)
+
           // Accumulate reasoning
           accumulatedReasoning += chunk
 
@@ -113,6 +117,8 @@ export function useMessages(conversationId: number | null): UseMessagesResult {
           )
         },
         onComplete: async (fullContent, fullReasoning) => {
+          console.log('[use-messages] onComplete', fullContent, fullReasoning)
+
           // Update the message in the database with the complete content and reasoning
           await updateMessage(assistantMessageId, fullContent, fullReasoning)
         },
