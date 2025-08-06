@@ -16,7 +16,7 @@ def check_pyinstaller():
         return True
     except ImportError:
         print("PyInstaller not found. Installing...")
-        subprocess.run([sys.executable, "-m", "pip", "install", "pyinstaller>=6.0.0"], check=True)
+        subprocess.run([sys.executable, "-m", "pip", "install", "pyinstaller>=6.15.0"], check=True)
         return True
 
 
@@ -38,12 +38,11 @@ def build_binary():
         if Path(dir_name).exists():
             shutil.rmtree(dir_name)
     
-    # Create runtime hook that patches add_docstring early
+    # Create a minimal runtime hook to handle numpy docstring issue
     runtime_hook_content = """
-# This runtime hook is executed by PyInstaller before any other code
+# Minimal runtime hook to handle numpy docstring compatibility
 import builtins
 
-# Patch add_docstring BEFORE numpy is loaded
 def safe_add_docstring(obj, doc):
     if doc is None:
         return
@@ -54,14 +53,14 @@ def safe_add_docstring(obj, doc):
             return
     try:
         obj.__doc__ = doc
-    except:
+    except (AttributeError, TypeError):
         pass
 
-# Install immediately
+# Install the safe version
 builtins.add_docstring = safe_add_docstring
 """
     
-    runtime_hook_file = Path("runtime_hook.py")
+    runtime_hook_file = Path("runtime_numpy_safe_hook.py")
     runtime_hook_file.write_text(runtime_hook_content)
     
     # Prepare PyInstaller spec
@@ -77,19 +76,7 @@ sys.path.insert(0, str(Path.cwd() / 'src'))
 
 import site
 import glob
-from PyInstaller.utils.hooks import collect_all, collect_submodules
-
-# Collect all numpy components
-numpy_datas = []
-numpy_binaries = []
-numpy_hiddenimports = []
-try:
-    datas, binaries, hiddenimports = collect_all('numpy')
-    numpy_datas = datas
-    numpy_binaries = binaries
-    numpy_hiddenimports = hiddenimports
-except:
-    pass
+from PyInstaller.utils.hooks import collect_submodules
 
 # Find MLX Metal library files
 mlx_metallib_files = []
@@ -97,8 +84,8 @@ for site_packages in site.getsitepackages():
     metallib_pattern = f'{site_packages}/mlx/lib/*.metallib'
     mlx_metallib_files.extend(glob.glob(metallib_pattern))
 
-# Prepare binaries list
-binaries = numpy_binaries
+# Prepare binaries list for MLX
+binaries = []
 for metallib in mlx_metallib_files:
     binaries.append((metallib, 'mlx/lib'))
 
@@ -106,8 +93,8 @@ a = Analysis(
     ['src/mlx_engine_server/__main__.py'],
     pathex=['src'],
     binaries=binaries,
-    datas=numpy_datas,
-    hiddenimports=numpy_hiddenimports + [
+    datas=[],
+    hiddenimports=[
         'mlx_engine_server',
         'mlx_engine_server.main',
         'mlx_engine_server.server',
@@ -156,7 +143,7 @@ a = Analysis(
     ],
     hookspath=[],
     hooksconfig={},
-    runtime_hooks=['runtime_hook.py'],
+    runtime_hooks=['runtime_numpy_safe_hook.py'],
     excludes=[
         'tkinter',
         'matplotlib',
@@ -179,7 +166,7 @@ exe = EXE(
     a.scripts,
     a.binaries,
     a.datas,
-    [],
+    [('O', None, 'OPTION'), ('O', None, 'OPTION')],
     name='mlx-server',
     debug=False,
     bootloader_ignore_signals=False,
@@ -239,9 +226,11 @@ exe = EXE(
         print(f"Build failed with error: {e}")
         return False
     finally:
-        # Clean up spec file
+        # Clean up spec file and runtime hook
         if spec_file.exists():
             spec_file.unlink()
+        if runtime_hook_file.exists():
+            runtime_hook_file.unlink()
 
 
 def create_distribution():

@@ -29,6 +29,10 @@ A production-ready OpenAI-compatible inference server for Apple Silicon, powered
 git clone https://github.com/yourusername/mlx-engine-server.git
 cd mlx-engine-server
 
+# Create and activate virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
 # Install in editable mode (required for proper module discovery)
 pip install -e .
 
@@ -57,6 +61,10 @@ tar -xzf mlx-server.tar.gz
 ### Building from Source
 
 ```bash
+# Create and activate virtual environment (if not already done)
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
 # Install build dependencies
 pip install pyinstaller
 
@@ -95,6 +103,9 @@ mlx-server --stop
 The model must be specified at startup and must be in MLX format (safetensors + config.json). You can convert models using `mlx-lm`:
 
 ```bash
+# Make sure your virtual environment is activated
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
 # Install mlx-lm
 pip install mlx-lm
 
@@ -312,6 +323,9 @@ mlx-engine-server/
 ### Running Tests
 
 ```bash
+# Make sure your virtual environment is activated
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
 # Install dev dependencies
 pip install -e ".[dev]"
 

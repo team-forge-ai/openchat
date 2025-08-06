@@ -1,18 +1,18 @@
 # Core MLX and ML libraries
-mlx>=0.26.3
-mlx-lm>=0.26.0
-transformers>=4.53.0
+mlx>=0.27.1
+mlx-lm>=0.26.2
+transformers>=4.55.0
 
 # Web server framework
-fastapi>=0.115.0
+fastapi>=0.116.1
 uvicorn[standard]>=0.35.0
-pydantic>=2.11.0
+pydantic>=2.11.7
 
 # Additional utilities
-requests>=2.32.0
-psutil>=5.9.0
+requests>=2.32.4
+psutil>=7.0.0
 python-multipart>=0.0.20
-httpx>=0.27.0
+httpx>=0.28.1
 aiofiles>=24.1.0
 
 # Optional: for development
@@ -24,4 +24,4 @@ aiofiles>=24.1.0
 # mypy>=1.4.0
 
 # Optional: for building binary
-# pyinstaller>=6.0.0
+# pyinstaller>=6.15.0
