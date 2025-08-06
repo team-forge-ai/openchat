@@ -1,0 +1,71 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mlx-engine-server"
+version = "0.1.0"
+description = "Production-ready MLX server with OpenAI-compatible APIs for local LLM inference"
+requires-python = ">=3.9"
+authors = [
+    {name = "MLX Engine Server Contributors"}
+]
+readme = "README.md"
+license = {text = "MIT"}
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "mlx>=0.26.3",
+    "mlx-lm>=0.26.0",
+    "transformers>=4.53.0",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.35.0",
+    "pydantic>=2.11.0",
+    "requests>=2.32.0",
+    "psutil>=5.9.0",
+    "python-multipart>=0.0.20",
+    "httpx>=0.27.0",
+    "aiofiles>=24.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.1.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "mypy>=1.4.0",
+    "pre-commit>=3.3.0",
+]
+build = [
+    "pyinstaller>=6.0.0",
+]
+
+[project.scripts]
+mlx-server = "mlx_engine_server.main:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.black]
+line-length = 100
+target-version = ['py39']
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true

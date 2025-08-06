@@ -1,0 +1,19 @@
+{
+  "host": "127.0.0.1",
+  "port": 8000,
+  "workers": 1,
+  "log_level": "INFO",
+  "model_path": null,
+  "adapter_path": null,
+  "default_max_tokens": 150,
+  "default_temperature": 0.7,
+  "default_top_p": 0.9,
+  "default_repetition_penalty": 1.0,
+  "logs_dir": "./logs",
+  "request_timeout": 300,
+  "max_concurrent_requests": 10,
+  "enable_streaming": true,
+  "cors_enabled": true,
+  "cors_origins": ["*"],
+  "api_key": null
+}

@@ -1,0 +1,78 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.venv
+pip-log.txt
+pip-delete-this-directory.txt
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+*.cover
+*.log
+.git
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+*.egg
+
+# PyInstaller
+*.spec
+*.manifest
+
+# MLX Models
+models/
+*.safetensors
+*.bin
+*.gguf
+*.mlx
+
+# Logs
+logs/
+*.log
+
+# Config
+config.json
+mlx_server.pid
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Build artifacts
+mlx-server
+mlx-server-dist/
+*.tar.gz
+*.zip
+
+# Environment
+.env
+.env.local
+
+# Temporary files
+tmp/
+temp/
+*.tmp
