@@ -32,3 +32,4 @@ src-tauri/target
 openchat-mlx-server-dist/
 openchat-mlx-server-macos-arm64.tar.gz
 
+src-tauri/binaries/openchat-mlx-server-aarch64-apple-darwin

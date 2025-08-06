@@ -2,20 +2,25 @@ import { useState } from 'react'
 
 import { AppSidebar } from '@/components/AppSidebar'
 import { ChatWindow } from '@/components/ChatWindow'
+import { MLXServerStatus } from '@/components/mlx-server-status'
 import {
   SidebarInset,
   SidebarProvider,
   SidebarTrigger,
 } from '@/components/ui/sidebar'
+import { MLXServerProvider, useMLXServer } from '@/contexts/mlx-server-context'
 import { useConversations } from '@/hooks/use-conversations'
 import { useMessages } from '@/hooks/use-messages'
 
 import './App.css'
 
-function App() {
+function AppContent() {
   const [selectedConversationId, setSelectedConversationId] = useState<
     number | null
   >(null)
+
+  const { status: mlxStatus, isInitializing: isMLXInitializing } =
+    useMLXServer()
 
   // Conversations list
   const {
@@ -35,6 +40,9 @@ function App() {
 
   // Aggregate loading state: fetching or sending
   const isLoading = isLoadingMessages || isSendingMessage
+
+  // Disable chat if MLX server is not ready
+  const isChatDisabled = !mlxStatus.isRunning || isMLXInitializing
 
   return (
     <SidebarProvider defaultOpen={true}>
@@ -72,6 +80,7 @@ function App() {
           <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
             <SidebarTrigger className="-ml-1" />
             <div className="flex-1" />
+            <MLXServerStatus />
           </header>
 
           <div className="flex-1">
@@ -87,11 +96,27 @@ function App() {
               }}
               isLoading={isLoading}
               conversationId={selectedConversationId}
+              isDisabled={isChatDisabled}
+              disabledMessage={
+                isMLXInitializing
+                  ? 'AI server is starting up, please wait...'
+                  : !mlxStatus.isRunning
+                    ? 'AI server is not available. Please check the status above.'
+                    : undefined
+              }
             />
           </div>
         </div>
       </SidebarInset>
     </SidebarProvider>
+  )
+}
+
+function App() {
+  return (
+    <MLXServerProvider modelPath="models/Qwen3-0.6B-MLX-4bit">
+      <AppContent />
+    </MLXServerProvider>
   )
 }
 

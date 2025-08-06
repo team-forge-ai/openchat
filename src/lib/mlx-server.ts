@@ -1,43 +1,79 @@
-import { Command } from '@tauri-apps/plugin-shell'
+import {
+  Command,
+  type Child,
+  type TerminatedPayload,
+} from '@tauri-apps/plugin-shell'
 
-export interface MLXServerConfig {
-  port?: number
-  host?: string
-  modelPath: string
-  logLevel?: 'DEBUG' | 'INFO' | 'WARNING' | 'ERROR'
-  maxTokens?: number
-  temperature?: number
-}
-
-export interface MLXServerStatus {
-  isRunning: boolean
-  port?: number
-  modelPath?: string
-  pid?: number | null
-}
+import type {
+  ChatCompletionOptions,
+  ChatMessage,
+  MLXServerConfig,
+  MLXServerStatus,
+  ModelsResponse,
+} from '@/types/mlx-server'
+import {
+  DEFAULT_CONFIG,
+  MLXServerAlreadyRunningError,
+  MLXServerNotRunningError,
+  MLXServerStartupError,
+} from '@/types/mlx-server'
 
 class MLXServerService {
-  private command: unknown = null
+  private command: Command<string> | null = null
+  private child: Child | null = null
   private isRunning = false
   private config: MLXServerConfig | null = null
-  private pid: number | null = null
 
   /**
    * Start the MLX server with the given configuration
    */
   async start(config: MLXServerConfig): Promise<void> {
     if (this.isRunning) {
-      throw new Error('MLX server is already running')
+      throw new MLXServerAlreadyRunningError()
     }
 
     this.config = config
 
+    const args = this.buildCommandArgs(config)
+
+    try {
+      // Create the command to run the MLX server sidecar
+      this.command = Command.sidecar('openchat-mlx-server', args)
+
+      // Set up event listeners
+      this.setupEventListeners()
+
+      // Start the server
+      this.child = await this.command.spawn()
+
+      console.log(`MLX server started with PID: ${this.child.pid}`)
+
+      // Wait a moment for the server to start
+      await new Promise((resolve) =>
+        setTimeout(resolve, DEFAULT_CONFIG.INITIAL_STARTUP_DELAY),
+      )
+
+      // Verify the server is responding
+      await this.waitForServer(config.port || DEFAULT_CONFIG.PORT)
+    } catch (error) {
+      console.error('Failed to start MLX server:', error)
+      this.cleanup()
+      throw new MLXServerStartupError(
+        error instanceof Error ? error.message : String(error),
+      )
+    }
+  }
+
+  /**
+   * Build command arguments from configuration
+   */
+  private buildCommandArgs(config: MLXServerConfig): string[] {
     const args = [
       config.modelPath,
       '--port',
-      (config.port || 8000).toString(),
+      (config.port || DEFAULT_CONFIG.PORT).toString(),
       '--host',
-      config.host || '127.0.0.1',
+      config.host || DEFAULT_CONFIG.HOST,
     ]
 
     if (config.logLevel) {
@@ -52,73 +88,61 @@ class MLXServerService {
       args.push('--temperature', config.temperature.toString())
     }
 
-    try {
-      // Create the command to run the MLX server sidecar
-      this.command = Command.sidecar('openchat-mlx-server', args)
+    return args
+  }
 
-      // Set up event listeners with proper type casting
-      const cmd = this.command as any
-      cmd.on('close', (data: any) => {
-        console.log('MLX server closed with code:', data.code)
-        this.isRunning = false
-        this.pid = null
-      })
-
-      cmd.on('error', (error: any) => {
-        console.error('MLX server error:', error)
-        this.isRunning = false
-        this.pid = null
-      })
-
-      cmd.stdout.on('data', (line: any) => {
-        console.log('MLX server stdout:', line)
-        // Look for server startup confirmation
-        if (
-          String(line).includes('Server started') ||
-          String(line).includes('Uvicorn running')
-        ) {
-          this.isRunning = true
-        }
-      })
-
-      cmd.stderr.on('data', (line: any) => {
-        console.error('MLX server stderr:', line)
-      })
-
-      // Start the server
-      const child = await cmd.spawn()
-      this.pid = child.pid
-
-      console.log(`MLX server started with PID: ${child.pid}`)
-
-      // Wait a moment for the server to start
-      await new Promise((resolve) => setTimeout(resolve, 2000))
-
-      // Verify the server is responding
-      await this.waitForServer(config.port || 8000)
-    } catch (error) {
-      console.error('Failed to start MLX server:', error)
-      this.isRunning = false
-      this.pid = null
-      throw error
+  /**
+   * Set up event listeners for the command
+   */
+  private setupEventListeners(): void {
+    if (!this.command) {
+      return
     }
+
+    this.command.on('close', (data: TerminatedPayload) => {
+      console.log('MLX server closed with code:', data.code)
+      this.cleanup()
+    })
+
+    this.command.on('error', (error: string) => {
+      console.error('MLX server error:', error)
+      this.cleanup()
+    })
+
+    this.command.stdout.on('data', (line: string) => {
+      console.log('MLX server stdout:', line)
+      // Look for server startup confirmation
+      if (line.includes('Server started') || line.includes('Uvicorn running')) {
+        this.isRunning = true
+      }
+    })
+
+    this.command.stderr.on('data', (line: string) => {
+      console.error('MLX server stderr:', line)
+    })
+  }
+
+  /**
+   * Clean up server state
+   */
+  private cleanup(): void {
+    this.isRunning = false
+    this.child = null
+    this.command = null
   }
 
   /**
    * Stop the MLX server
    */
   async stop(): Promise<void> {
-    if (!this.isRunning || !this.command) {
+    if (!this.isRunning || !this.child) {
       console.log('MLX server is not running')
       return
     }
 
     try {
-      const cmd = this.command as any
-      await cmd.kill()
-      this.isRunning = false
-      this.pid = null
-      this.command = null
+      await this.child.kill()
+      this.cleanup()
       console.log('MLX server stopped')
     } catch (error) {
       console.error('Failed to stop MLX server:', error)
@@ -134,16 +158,18 @@ class MLXServerService {
       isRunning: this.isRunning,
       port: this.config?.port,
       modelPath: this.config?.modelPath,
-      pid: this.pid,
+      pid: this.child?.pid ?? null,
     }
   }
 
   /**
    * Check if the server is healthy by making a health check request
    */
-  async healthCheck(port: number = 8000): Promise<boolean> {
+  async healthCheck(port: number = DEFAULT_CONFIG.PORT): Promise<boolean> {
     try {
-      const response = await fetch(`http://127.0.0.1:${port}/health`)
+      const response = await fetch(
+        `http://${DEFAULT_CONFIG.HOST}:${port}/health`,
+      )
       return response.ok
     } catch (error) {
       console.error('Health check failed:', error)
@@ -156,41 +182,46 @@ class MLXServerService {
    */
   private async waitForServer(
     port: number,
-    maxAttempts: number = 30,
+    maxAttempts: number = DEFAULT_CONFIG.MAX_STARTUP_ATTEMPTS,
   ): Promise<void> {
     for (let i = 0; i < maxAttempts; i++) {
       if (await this.healthCheck(port)) {
         this.isRunning = true
         return
       }
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      await new Promise((resolve) =>
+        setTimeout(resolve, DEFAULT_CONFIG.STARTUP_CHECK_INTERVAL),
+      )
     }
-    throw new Error('MLX server failed to start within timeout period')
+    throw new MLXServerStartupError(
+      'Server failed to start within timeout period',
+    )
   }
 
   /**
    * Make a chat completion request to the MLX server
    */
   async chatCompletion(
-    messages: Array<{ role: string; content: string }>,
-    options: {
-      maxTokens?: number
-      temperature?: number
-      stream?: boolean
-      port?: number
-    } = {},
+    messages: ChatMessage[],
+    options: ChatCompletionOptions = {},
   ): Promise<Response> {
     if (!this.isRunning) {
-      throw new Error('MLX server is not running')
+      throw new MLXServerNotRunningError()
     }
 
-    const port = options.port || this.config?.port || 8000
-    const url = `http://127.0.0.1:${port}/v1/chat/completions`
+    const port = options.port || this.config?.port || DEFAULT_CONFIG.PORT
+    const url = `http://${DEFAULT_CONFIG.HOST}:${port}/v1/chat/completions`
 
     const body = {
       messages,
-      max_tokens: options.maxTokens || this.config?.maxTokens || 150,
-      temperature: options.temperature || this.config?.temperature || 0.7,
+      max_tokens:
+        options.maxTokens ||
+        this.config?.maxTokens ||
+        DEFAULT_CONFIG.MAX_TOKENS,
+      temperature:
+        options.temperature ||
+        this.config?.temperature ||
+        DEFAULT_CONFIG.TEMPERATURE,
       stream: options.stream || false,
     }
 
@@ -206,12 +237,20 @@ class MLXServerService {
   /**
    * Get available models from the MLX server
    */
-  async getModels(port: number = 8000): Promise<Response> {
+  async getModels(port: number = DEFAULT_CONFIG.PORT): Promise<ModelsResponse> {
     if (!this.isRunning) {
-      throw new Error('MLX server is not running')
+      throw new MLXServerNotRunningError()
     }
 
-    return await fetch(`http://127.0.0.1:${port}/v1/models`)
+    const response = await fetch(
+      `http://${DEFAULT_CONFIG.HOST}:${port}/v1/models`,
+    )
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch models: ${response.statusText}`)
+    }
+
+    return (await response.json()) as ModelsResponse
   }
 }
 

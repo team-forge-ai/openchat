@@ -1,3 +1,0 @@
-[submodule "qwen3-rs"]
-	path = qwen3-rs
-	url = https://github.com/maccman/qwen3-rs
