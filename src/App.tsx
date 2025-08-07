@@ -19,8 +19,7 @@ function AppContent() {
     number | null
   >(null)
 
-  const { status: mlxStatus, isInitializing: isMLXInitializing } =
-    useMLXServer()
+  const { status: mlxStatus } = useMLXServer()
 
   // Conversations list
   const {
@@ -42,8 +41,7 @@ function AppContent() {
   const isLoading = isLoadingMessages || isSendingMessage
 
   // Disable chat if MLX server is not ready
-  const isChatDisabled =
-    !mlxStatus.isRunning || !mlxStatus.isReady || isMLXInitializing
+  const isChatDisabled = !mlxStatus.isRunning || !mlxStatus.isReady
 
   return (
     <SidebarProvider defaultOpen={true}>
@@ -99,7 +97,7 @@ function AppContent() {
               conversationId={selectedConversationId}
               isDisabled={isChatDisabled}
               disabledMessage={
-                isMLXInitializing
+                !mlxStatus.isReady && mlxStatus.isRunning
                   ? 'AI server is starting up, please wait...'
                   : !mlxStatus.isRunning
                     ? 'AI server is not available. Please check the status above.'

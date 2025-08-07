@@ -362,9 +362,6 @@ impl MLXServerManager {
                         // Emit status change event
                         self.emit_status_change().await;
 
-                        // Emit ready event
-                        self.emit_ready_event().await;
-
                         return Ok(());
                     } else {
                         log::warn!("Health check returned non-success status: {}", status);
@@ -475,11 +472,6 @@ impl MLXServerManager {
     pub async fn restart(&self) -> Result<MLXServerStatus, String> {
         log::info!("Restarting MLX server...");
 
-        // Emit restarting event
-        if let Some(handle) = self.app_handle.lock().await.as_ref() {
-            let _ = handle.emit("mlx-restarting", ());
-        }
-
         // Stop if running
         let _ = self.stop_server().await;
 
@@ -589,12 +581,6 @@ impl MLXServerManager {
             }
         } else {
             log::debug!("App handle not set, skipping status change event");
-        }
-    }
-
-    async fn emit_ready_event(&self) {
-        if let Some(handle) = self.app_handle.lock().await.as_ref() {
-            let _ = handle.emit("mlx-ready", ());
         }
     }
 }

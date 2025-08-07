@@ -17,8 +17,6 @@ import { DEFAULT_CONFIG, MLXServerNotRunningError } from '@/types/mlx-server'
 class MLXServerService {
   private cachedStatus: MLXServerStatus | null = null
   private statusListeners = new Set<(status: MLXServerStatus) => void>()
-  private readyListeners = new Set<() => void>()
-  private restartingListeners = new Set<() => void>()
   private eventUnlisteners: UnlistenFn[] = []
 
   /**
@@ -78,20 +76,6 @@ class MLXServerService {
         this.statusListeners.forEach((listener) => listener(status))
       })
       this.eventUnlisteners.push(statusUnlisten)
-
-      // Listen for ready event
-      const readyUnlisten = await listen('mlx-ready', () => {
-        console.log('MLX server is ready!')
-        this.readyListeners.forEach((listener) => listener())
-      })
-      this.eventUnlisteners.push(readyUnlisten)
-
-      // Listen for restarting event
-      const restartingUnlisten = await listen('mlx-restarting', () => {
-        console.log('MLX server is restarting...')
-        this.restartingListeners.forEach((listener) => listener())
-      })
-      this.eventUnlisteners.push(restartingUnlisten)
     } catch (error) {
       console.error('Failed to initialize MLX server event listeners:', error)
     }
@@ -110,30 +94,6 @@ class MLXServerService {
   }
 
   /**
-   * Add a listener for ready events
-   */
-  addReadyListener(listener: () => void): () => void {
-    this.readyListeners.add(listener)
-
-    // Return cleanup function
-    return () => {
-      this.readyListeners.delete(listener)
-    }
-  }
-
-  /**
-   * Add a listener for restarting events
-   */
-  addRestartingListener(listener: () => void): () => void {
-    this.restartingListeners.add(listener)
-
-    // Return cleanup function
-    return () => {
-      this.restartingListeners.delete(listener)
-    }
-  }
-
-  /**
    * Cleanup event listeners
    */
   cleanup(): void {
@@ -143,8 +103,6 @@ class MLXServerService {
 
     // Clear all listener sets
     this.statusListeners.clear()
-    this.readyListeners.clear()
-    this.restartingListeners.clear()
   }
 
   /**
