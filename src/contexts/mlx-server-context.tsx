@@ -1,14 +1,7 @@
-import { invoke } from '@tauri-apps/api/core'
-import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import React, { createContext, useContext, useEffect, useState } from 'react'
 
-interface MLXServerStatus {
-  is_running: boolean
-  port?: number
-  model_path?: string
-  pid?: number
-  error?: string
-}
+import { mlxServer } from '@/lib/mlx-server'
+import type { MLXServerStatus } from '@/types/mlx-server'
 
 interface MLXServerContextValue {
   status: MLXServerStatus
@@ -27,57 +20,44 @@ interface MLXServerProviderProps {
 
 export function MLXServerProvider({ children }: MLXServerProviderProps) {
   const [status, setStatus] = useState<MLXServerStatus>({
-    is_running: false,
+    isRunning: false,
+    isReady: false,
   })
   const [isInitializing, setIsInitializing] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    let unlisten: UnlistenFn | undefined
+    let removeStatusListener: (() => void) | undefined
+    let removeReadyListener: (() => void) | undefined
+    let removeRestartingListener: (() => void) | undefined
 
     const setup = async () => {
       try {
-        // Get initial status from Rust
-        const initialStatus = await invoke<MLXServerStatus>('mlx_get_status')
+        // Initialize service layer event listeners
+        await mlxServer.initializeEventListeners()
+
+        // Get initial status using the service layer
+        const initialStatus = await mlxServer.getStatus()
         setStatus(initialStatus)
         setIsInitializing(false)
 
-        if (initialStatus.error) {
-          setError(initialStatus.error)
-        }
+        // Subscribe to status changes through service layer
+        removeStatusListener = mlxServer.addStatusListener((status) => {
+          setStatus(status)
+          setError(null) // Clear error when status updates successfully
+        })
 
-        // Listen for status changes from Rust
-        unlisten = await listen<MLXServerStatus>(
-          'mlx-status-changed',
-          (event) => {
-            console.log('MLX server status changed:', event.payload)
-            setStatus(event.payload)
-
-            if (event.payload.error) {
-              setError(event.payload.error)
-            } else {
-              setError(null)
-            }
-          },
-        )
-
-        // Listen for ready event
-        const unlistenReady = await listen('mlx-ready', () => {
+        // Subscribe to ready events through service layer
+        removeReadyListener = mlxServer.addReadyListener(() => {
           console.log('MLX server is ready!')
           setIsInitializing(false)
         })
 
-        // Listen for restarting event
-        const unlistenRestarting = await listen('mlx-restarting', () => {
+        // Subscribe to restarting events through service layer
+        removeRestartingListener = mlxServer.addRestartingListener(() => {
           console.log('MLX server is restarting...')
           setIsInitializing(true)
         })
-
-        // Clean up additional listeners
-        return () => {
-          unlistenReady()
-          unlistenRestarting()
-        }
       } catch (err) {
         console.error('Failed to setup MLX server context:', err)
         setError(err instanceof Error ? err.message : String(err))
@@ -89,7 +69,9 @@ export function MLXServerProvider({ children }: MLXServerProviderProps) {
 
     // Cleanup
     return () => {
-      unlisten?.()
+      removeStatusListener?.()
+      removeReadyListener?.()
+      removeRestartingListener?.()
     }
   }, [])
 
@@ -98,7 +80,11 @@ export function MLXServerProvider({ children }: MLXServerProviderProps) {
     setError(null)
 
     try {
-      const newStatus = await invoke<MLXServerStatus>('mlx_restart')
+      await mlxServer.restart()
+
+      // Get updated status after restart
+      const newStatus = await mlxServer.getStatus()
+
       setStatus(newStatus)
       console.log('MLX server restarted successfully:', newStatus)
     } catch (err) {

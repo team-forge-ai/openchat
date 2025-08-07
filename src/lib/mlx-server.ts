@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
+import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 
 import type {
   ChatCompletionOptions,
@@ -15,6 +16,10 @@ import { DEFAULT_CONFIG, MLXServerNotRunningError } from '@/types/mlx-server'
  */
 class MLXServerService {
   private cachedStatus: MLXServerStatus | null = null
+  private statusListeners = new Set<(status: MLXServerStatus) => void>()
+  private readyListeners = new Set<() => void>()
+  private restartingListeners = new Set<() => void>()
+  private eventUnlisteners: UnlistenFn[] = []
 
   /**
    * Get the current status of the MLX server from Rust
@@ -23,6 +28,7 @@ class MLXServerService {
     try {
       const status = await invoke<{
         is_running: boolean
+        is_ready: boolean
         port?: number
         model_path?: string
         pid?: number
@@ -32,6 +38,7 @@ class MLXServerService {
       // Convert Rust snake_case to JS camelCase for compatibility
       this.cachedStatus = {
         isRunning: status.is_running,
+        isReady: status.is_ready,
         port: status.port,
         modelPath: status.model_path,
         pid: status.pid ?? null,
@@ -42,6 +49,102 @@ class MLXServerService {
       console.error('Failed to get MLX server status:', error)
       throw error
     }
+  }
+
+  /**
+   * Initialize event listeners for all MLX server events
+   */
+  async initializeEventListeners(): Promise<void> {
+    if (this.eventUnlisteners.length > 0) {
+      return // Already initialized
+    }
+
+    try {
+      // Listen for status changes
+      const statusUnlisten = await listen<{
+        is_running: boolean
+        is_ready: boolean
+        port?: number
+        model_path?: string
+        pid?: number
+        error?: string
+      }>('mlx-status-changed', (event) => {
+        console.log('MLX server status changed:', event.payload)
+
+        const status = convertRustStatusToJS(event.payload)
+        this.cachedStatus = status
+
+        // Notify all status listeners
+        this.statusListeners.forEach((listener) => listener(status))
+      })
+      this.eventUnlisteners.push(statusUnlisten)
+
+      // Listen for ready event
+      const readyUnlisten = await listen('mlx-ready', () => {
+        console.log('MLX server is ready!')
+        this.readyListeners.forEach((listener) => listener())
+      })
+      this.eventUnlisteners.push(readyUnlisten)
+
+      // Listen for restarting event
+      const restartingUnlisten = await listen('mlx-restarting', () => {
+        console.log('MLX server is restarting...')
+        this.restartingListeners.forEach((listener) => listener())
+      })
+      this.eventUnlisteners.push(restartingUnlisten)
+    } catch (error) {
+      console.error('Failed to initialize MLX server event listeners:', error)
+    }
+  }
+
+  /**
+   * Add a listener for status changes
+   */
+  addStatusListener(listener: (status: MLXServerStatus) => void): () => void {
+    this.statusListeners.add(listener)
+
+    // Return cleanup function
+    return () => {
+      this.statusListeners.delete(listener)
+    }
+  }
+
+  /**
+   * Add a listener for ready events
+   */
+  addReadyListener(listener: () => void): () => void {
+    this.readyListeners.add(listener)
+
+    // Return cleanup function
+    return () => {
+      this.readyListeners.delete(listener)
+    }
+  }
+
+  /**
+   * Add a listener for restarting events
+   */
+  addRestartingListener(listener: () => void): () => void {
+    this.restartingListeners.add(listener)
+
+    // Return cleanup function
+    return () => {
+      this.restartingListeners.delete(listener)
+    }
+  }
+
+  /**
+   * Cleanup event listeners
+   */
+  cleanup(): void {
+    // Clean up all event listeners
+    this.eventUnlisteners.forEach((unlisten) => unlisten())
+    this.eventUnlisteners = []
+
+    // Clear all listener sets
+    this.statusListeners.clear()
+    this.readyListeners.clear()
+    this.restartingListeners.clear()
   }
 
   /**
@@ -76,10 +179,10 @@ class MLXServerService {
     messages: ChatMessage[],
     options: ChatCompletionOptions = {},
   ): Promise<Response> {
-    // Get current status to check if server is running and get port
+    // Get current status to check if server is running and ready
     const status = await this.getStatus()
 
-    if (!status.isRunning) {
+    if (!status.isRunning || !status.isReady) {
       throw new MLXServerNotRunningError()
     }
 
@@ -98,6 +201,24 @@ class MLXServerService {
       },
       body: JSON.stringify(body),
     })
+  }
+}
+
+// Event handler helpers for Tauri events
+export function convertRustStatusToJS(rustStatus: {
+  is_running: boolean
+  is_ready: boolean
+  port?: number
+  model_path?: string
+  pid?: number
+  error?: string
+}): MLXServerStatus {
+  return {
+    isRunning: rustStatus.is_running,
+    isReady: rustStatus.is_ready,
+    port: rustStatus.port,
+    modelPath: rustStatus.model_path,
+    pid: rustStatus.pid ?? null,
   }
 }
 

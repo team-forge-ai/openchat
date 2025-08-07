@@ -42,7 +42,8 @@ function AppContent() {
   const isLoading = isLoadingMessages || isSendingMessage
 
   // Disable chat if MLX server is not ready
-  const isChatDisabled = !mlxStatus.is_running || isMLXInitializing
+  const isChatDisabled =
+    !mlxStatus.isRunning || !mlxStatus.isReady || isMLXInitializing
 
   return (
     <SidebarProvider defaultOpen={true}>
@@ -100,9 +101,11 @@ function AppContent() {
               disabledMessage={
                 isMLXInitializing
                   ? 'AI server is starting up, please wait...'
-                  : !mlxStatus.is_running
+                  : !mlxStatus.isRunning
                     ? 'AI server is not available. Please check the status above.'
-                    : undefined
+                    : !mlxStatus.isReady
+                      ? 'AI server is starting but not ready yet. Please wait...'
+                      : undefined
               }
             />
           </div>

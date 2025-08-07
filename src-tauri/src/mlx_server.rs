@@ -30,6 +30,7 @@ impl Default for MLXServerConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MLXServerStatus {
     pub is_running: bool,
+    pub is_ready: bool,
     pub port: Option<u16>,
     pub model_path: Option<String>,
     pub pid: Option<u32>,
@@ -40,6 +41,7 @@ impl Default for MLXServerStatus {
     fn default() -> Self {
         Self {
             is_running: false,
+            is_ready: false,
             port: None,
             model_path: None,
             pid: None,
@@ -83,9 +85,6 @@ impl MLXServerManager {
     pub async fn auto_start(&self) -> Result<(), String> {
         log::info!("Auto-starting MLX server...");
 
-        // Clean up any orphaned processes first
-        self.cleanup_orphaned_processes().await;
-
         // Start the server with default config
         let config = self.config.read().await.clone();
         self.start_server(config).await?;
@@ -103,11 +102,14 @@ impl MLXServerManager {
             return Err("Server is already running".to_string());
         }
 
-        // Get the app handle
-        let app_handle = self.app_handle.lock().await;
-        let app = app_handle
-            .as_ref()
-            .ok_or_else(|| "App handle not set".to_string())?;
+        // Get the app handle and clone it so we can release the lock
+        let app = {
+            let app_handle = self.app_handle.lock().await;
+            app_handle
+                .as_ref()
+                .ok_or_else(|| "App handle not set".to_string())?
+                .clone()
+        };
 
         // Build command arguments
         let mut args = vec![
@@ -128,6 +130,8 @@ impl MLXServerManager {
             args.push(max_tokens.to_string());
         }
 
+        log::info!("Starting MLX server with args: {:?}", args);
+
         // Create and spawn the sidecar command
         let (mut rx, child) = app
             .shell()
@@ -139,11 +143,12 @@ impl MLXServerManager {
 
         let pid = child.pid();
         self.pid_atomic.store(pid, Ordering::SeqCst);
-        log::info!("MLX server started with PID: {}", pid);
+        log::info!("MLX server process spawned with PID: {}", pid);
 
-        // Update status
+        // Update status - server is running but not ready yet
         let mut status = self.status.write().await;
         status.is_running = true;
+        status.is_ready = false;
         status.port = Some(config.port);
         status.model_path = Some(config.model_path.clone());
         status.pid = Some(pid);
@@ -161,27 +166,61 @@ impl MLXServerManager {
 
         // Set up event listener for process events in background
         let status_clone = self.status.clone();
+
         let app_handle_clone = self.app_handle.clone();
+
         tauri::async_runtime::spawn(async move {
             while let Some(event) = rx.recv().await {
                 match event {
                     CommandEvent::Stdout(line) => {
-                        log::info!("MLX server stdout: {}", String::from_utf8_lossy(&line));
+                        let output = String::from_utf8_lossy(&line);
+                        log::info!("MLX server stdout: {}", output);
+
+                        // Check for common startup messages
+                        if output.contains("Uvicorn running") || output.contains("Started server") {
+                            log::info!("MLX server appears to have started successfully");
+                        }
                     }
                     CommandEvent::Stderr(line) => {
-                        log::error!("MLX server stderr: {}", String::from_utf8_lossy(&line));
+                        let output = String::from_utf8_lossy(&line);
+                        // Use info for stderr since Python apps often log normally to stderr
+                        log::info!("MLX server stderr: {}", output);
+
+                        // Check for actual error patterns (not just the word "Error")
+                        if (output.contains("Error:")
+                            || output.contains("ERROR")
+                            || output.contains("Failed")
+                            || output.contains("Exception")
+                            || output.contains("Traceback"))
+                            && !output.contains("INFO")
+                        {
+                            log::error!("MLX server reported an error: {}", output);
+
+                            // Update status with error
+                            let mut status = status_clone.write().await;
+                            if status.error.is_none() {
+                                status.error = Some(format!("Server error: {}", output));
+                            }
+                            drop(status);
+                        }
                     }
                     CommandEvent::Terminated(payload) => {
-                        log::info!("MLX server terminated with code: {:?}", payload.code);
+                        log::error!(
+                            "MLX server process terminated with code: {:?}",
+                            payload.code
+                        );
 
                         // Update status
                         let mut status = status_clone.write().await;
                         status.is_running = false;
+                        status.is_ready = false;
                         status.port = None;
                         status.pid = None;
                         if payload.code != Some(0) {
                             status.error =
                                 Some(format!("Server terminated with code: {:?}", payload.code));
+                        } else {
+                            status.error = Some("Server terminated unexpectedly".to_string());
                         }
                         drop(status);
 
@@ -196,40 +235,120 @@ impl MLXServerManager {
                     _ => {}
                 }
             }
+            log::warn!("MLX server event listener exited - process may have terminated");
         });
 
         // Wait for server to be ready
-        self.wait_for_server_ready().await?;
-
-        Ok(())
+        log::info!("Starting health check process for MLX server...");
+        match self.wait_for_server_ready().await {
+            Ok(()) => {
+                log::info!("MLX server health checks completed successfully");
+                Ok(())
+            }
+            Err(e) => {
+                log::error!("MLX server health checks failed: {}", e);
+                // Try to stop the server if it's still running
+                let _ = self.stop_server().await;
+                Err(e)
+            }
+        }
     }
 
     async fn wait_for_server_ready(&self) -> Result<(), String> {
         let config = self.config.read().await;
         let url = format!("http://{}:{}/health", config.host, config.port);
 
-        let max_attempts = 30;
+        log::info!("Waiting for MLX server to be ready at: {}", url);
+
+        // Give the server a moment to start up before checking
+        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+
+        let max_attempts = 60; // Increased from 30 to give more time for model loading
         let delay = std::time::Duration::from_secs(1);
 
+        // Create a new client with timeout settings
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(5))
+            .build()
+            .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
+
         for attempt in 0..max_attempts {
-            match reqwest::get(&url).await {
-                Ok(response) if response.status().is_success() => {
-                    log::info!("MLX server is ready after {} attempts", attempt + 1);
+            log::debug!(
+                "Health check attempt {}/{} to {}",
+                attempt + 1,
+                max_attempts,
+                url
+            );
 
-                    // Emit ready event
-                    self.emit_ready_event().await;
+            match client.get(&url).send().await {
+                Ok(response) => {
+                    let status = response.status();
+                    log::debug!("Health check response: {}", status);
 
-                    return Ok(());
-                }
-                _ => {
-                    if attempt < max_attempts - 1 {
-                        tokio::time::sleep(delay).await;
+                    if status.is_success() {
+                        log::info!("MLX server is ready after {} attempts", attempt + 1);
+
+                        // Update status to ready
+                        let mut status = self.status.write().await;
+                        status.is_ready = true;
+                        drop(status);
+
+                        // Emit status change event
+                        self.emit_status_change().await;
+
+                        // Emit ready event
+                        self.emit_ready_event().await;
+
+                        return Ok(());
+                    } else {
+                        log::warn!("Health check returned non-success status: {}", status);
+
+                        // Try to get response body for more details
+                        if let Ok(body) = response.text().await {
+                            log::debug!("Health check response body: {}", body);
+                        }
                     }
                 }
+                Err(e) => {
+                    // More specific error logging
+                    if e.is_connect() {
+                        log::debug!(
+                            "Health check connection failed (server may still be starting): {}",
+                            e
+                        );
+                    } else if e.is_timeout() {
+                        log::debug!("Health check timed out: {}", e);
+                    } else {
+                        log::debug!("Health check failed: {}", e);
+                    }
+
+                    // Check if the process is still running
+                    let status = self.status.read().await;
+                    if !status.is_running {
+                        log::error!("MLX server process terminated during startup");
+                        return Err("MLX server process terminated during startup".to_string());
+                    }
+                    drop(status);
+                }
+            }
+
+            if attempt < max_attempts - 1 {
+                tokio::time::sleep(delay).await;
             }
         }
 
-        Err("MLX server failed to become ready within timeout".to_string())
+        log::error!(
+            "MLX server failed to become ready after {} attempts",
+            max_attempts
+        );
+
+        // Check final status
+        let status = self.status.read().await;
+        if let Some(error) = &status.error {
+            return Err(format!("MLX server startup failed: {}", error));
+        }
+
+        Err("MLX server failed to become ready within timeout. Check logs for details.".to_string())
     }
 
     pub async fn stop_server(&self) -> Result<(), String> {
@@ -249,6 +368,7 @@ impl MLXServerManager {
             // Update status
             let mut status = self.status.write().await;
             status.is_running = false;
+            status.is_ready = false;
             status.port = None;
             status.model_path = None;
             status.pid = None;
@@ -327,50 +447,81 @@ impl MLXServerManager {
         let config = self.config.read().await;
         let url = format!("http://{}:{}/health", config.host, config.port);
 
-        match reqwest::get(&url).await {
-            Ok(response) => response.status().is_success(),
-            Err(_) => false,
-        }
-    }
-
-    async fn cleanup_orphaned_processes(&self) {
-        // This is platform-specific and would need proper implementation
-        // For now, we'll just log that we're checking
-        log::info!("Checking for orphaned MLX server processes...");
-
-        // On Unix systems, you could use:
-        // - Check if port is in use and try to identify the process
-        // - Use system commands to find and kill orphaned processes
-
-        #[cfg(unix)]
+        // Create a client with timeout
+        let client = match reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(5))
+            .build()
         {
-            use std::process::Command;
+            Ok(c) => c,
+            Err(e) => {
+                log::error!("Failed to create HTTP client for health check: {}", e);
+                return false;
+            }
+        };
 
-            // Try to find any openchat-mlx-server processes
-            let output = Command::new("pgrep")
-                .arg("-f")
-                .arg("openchat-mlx-server")
-                .output();
+        match client.get(&url).send().await {
+            Ok(response) => {
+                let is_healthy = response.status().is_success();
 
-            if let Ok(output) = output {
-                let pids = String::from_utf8_lossy(&output.stdout);
-                for pid_str in pids.lines() {
-                    if let Ok(pid) = pid_str.trim().parse::<i32>() {
-                        log::warn!(
-                            "Found orphaned MLX server process with PID: {}, attempting to kill",
-                            pid
-                        );
-                        let _ = Command::new("kill").arg("-9").arg(pid.to_string()).output();
+                log::trace!(
+                    "Health check response: {} (healthy: {})",
+                    response.status(),
+                    is_healthy
+                );
+
+                // Update ready state based on health check
+                if is_healthy != status.is_ready {
+                    drop(status);
+                    let mut status_mut = self.status.write().await;
+                    status_mut.is_ready = is_healthy;
+                    drop(status_mut);
+
+                    // Emit status change if ready state changed
+                    self.emit_status_change().await;
+
+                    if is_healthy {
+                        log::info!("MLX server health check passed - server is ready");
+                    } else {
+                        log::warn!("MLX server health check failed - server is not ready");
                     }
                 }
+
+                is_healthy
+            }
+            Err(e) => {
+                log::debug!("Health check request failed: {}", e);
+
+                // If health check fails, mark as not ready
+                if status.is_ready {
+                    drop(status);
+                    let mut status_mut = self.status.write().await;
+                    status_mut.is_ready = false;
+                    drop(status_mut);
+
+                    // Emit status change
+                    self.emit_status_change().await;
+
+                    log::warn!("MLX server health check failed - marking as not ready");
+                }
+
+                false
             }
         }
     }
 
     async fn emit_status_change(&self) {
-        if let Some(handle) = self.app_handle.lock().await.as_ref() {
-            let status = self.get_status().await;
-            let _ = handle.emit("mlx-status-changed", status);
+        // Get the status first, before locking app_handle
+        let status = self.get_status().await;
+
+        // Now try to emit if we have an app handle
+        let app_handle_guard = self.app_handle.lock().await;
+        if let Some(handle) = app_handle_guard.as_ref() {
+            match handle.emit("mlx-status-changed", status.clone()) {
+                Ok(_) => log::trace!("Emitted mlx-status-changed event"),
+                Err(e) => log::warn!("Failed to emit mlx-status-changed event: {}", e),
+            }
+        } else {
+            log::debug!("App handle not set, skipping status change event");
         }
     }
 
