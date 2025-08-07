@@ -27,15 +27,15 @@ export function MLXServerStatus() {
 
   const getStatusText = () => {
     if (error) {
-      return 'AI server error'
+      return 'AI error'
     }
     if (status.isRunning && status.isReady) {
-      return 'AI server ready'
+      return 'AI ready'
     }
     if (status.isRunning && !status.isReady) {
-      return 'AI server starting...'
+      return 'AI starting...'
     }
-    return 'AI server offline'
+    return 'AI offline'
   }
 
   const getTooltipContent = () => {
@@ -52,8 +52,6 @@ export function MLXServerStatus() {
         <div className="space-y-1">
           <p>Status: Ready</p>
           <p>Model: {status.modelPath?.split('/').pop()}</p>
-          <p>Port: {status.port}</p>
-          {status.pid && <p>PID: {status.pid}</p>}
         </div>
       )
     }
@@ -62,12 +60,10 @@ export function MLXServerStatus() {
         <div className="space-y-1">
           <p>Status: Starting up...</p>
           <p>Model: {status.modelPath?.split('/').pop()}</p>
-          <p>Port: {status.port}</p>
-          {status.pid && <p>PID: {status.pid}</p>}
         </div>
       )
     }
-    return 'AI server is not running'
+    return 'AI is not running'
   }
 
   return (
@@ -97,7 +93,7 @@ export function MLXServerStatus() {
                 <RefreshCw className="h-3 w-3" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Restart AI server</TooltipContent>
+            <TooltipContent>Restart AI</TooltipContent>
           </Tooltip>
         )}
       </div>

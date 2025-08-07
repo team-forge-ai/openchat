@@ -1,7 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { useChatCompletion } from '@/hooks/use-chat-completion'
-import { getMessages, insertMessage, updateMessage } from '@/lib/db'
+import {
+  getMessages,
+  insertMessage,
+  touchConversation,
+  updateMessage,
+} from '@/lib/db'
 import { setConversationTitleIfUnset } from '@/lib/set-conversation-title'
 import type { Message } from '@/types'
 
@@ -115,6 +120,8 @@ export function useMessages(conversationId: number | null): UseMessagesResult {
           if (assistantMessageId !== null) {
             await updateMessage(assistantMessageId, fullContent, fullReasoning)
           }
+
+          void touchConversation(conversationId)
 
           // Attempt to set conversation name only after server response completes
           void setConversationTitleIfUnset(queryClient, conversationId)

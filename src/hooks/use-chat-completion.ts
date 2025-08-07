@@ -137,7 +137,7 @@ export function useChatCompletion(): UseChatCompletion {
       // Fallback message if MLX server fails
       if (error instanceof Error && error.message.includes('not running')) {
         throw new Error(
-          'AI server is not running. Please wait for it to start or restart the application.',
+          'AI is not running. Please wait for it to start or restart the application.',
         )
       }
 

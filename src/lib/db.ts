@@ -21,10 +21,9 @@ export async function updateConversationTitleIfUnset(
   title: string,
 ): Promise<boolean> {
   const db = await dbPromise
-  const now = new Date().toISOString()
   const result = await db.execute(
-    'UPDATE conversations SET title = ?, updated_at = ? WHERE id = ? AND (title IS NULL OR title = "")',
-    [title, now, conversationId],
+    'UPDATE conversations SET title = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND (title IS NULL OR title = "")',
+    [title, conversationId],
   )
   const rowsAffected = result.rowsAffected ?? 0
   return rowsAffected > 0
@@ -38,10 +37,9 @@ export async function insertMessage(
   reasoning?: string,
 ): Promise<number> {
   const db = await dbPromise
-  const now = new Date().toISOString()
   const result = await db.execute(
-    'INSERT INTO messages (conversation_id, role, content, reasoning, created_at) VALUES (?, ?, ?, ?, ?)',
-    [conversationId, role, content, reasoning || null, now],
+    'INSERT INTO messages (conversation_id, role, content, reasoning, created_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)',
+    [conversationId, role, content, reasoning || null],
   )
   return result.lastInsertId as number
 }
@@ -56,6 +54,14 @@ export async function updateMessage(
   await db.execute(
     'UPDATE messages SET content = ?, reasoning = ? WHERE id = ?',
     [content, reasoning || null, messageId],
+  )
+}
+
+export async function touchConversation(conversationId: number): Promise<void> {
+  const db = await dbPromise
+  await db.execute(
+    'UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+    [conversationId],
   )
 }
 
