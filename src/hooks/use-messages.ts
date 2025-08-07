@@ -57,8 +57,6 @@ export function useMessages(conversationId: number | null): UseMessagesResult {
       // Generate assistant reply with streaming
       await generateStreaming(conversationId, {
         onChunk: async (chunk) => {
-          console.log('[use-messages] onChunk', chunk)
-
           // Accumulate content
           accumulatedContent += chunk
 
@@ -82,8 +80,6 @@ export function useMessages(conversationId: number | null): UseMessagesResult {
           void invalidateConverationQuery()
         },
         onReasoningChunk: async (chunk) => {
-          console.log('[use-messages] onReasoningChunk', chunk)
-
           // Accumulate reasoning
           accumulatedReasoning += chunk
 

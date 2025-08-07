@@ -65,7 +65,6 @@ export const ChatWindow: React.FC = () => {
         content: messageContent,
       })
     } catch (error) {
-      console.error('Failed to send message:', error)
       // Re-set the input value if the message failed to send
       setInputValue(messageContent)
       setError(
