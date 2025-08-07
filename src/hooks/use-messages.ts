@@ -1,14 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { useChatCompletion } from '@/hooks/use-chat-completion'
-import { completeConversationName } from '@/lib/complete-conversation-name'
-import {
-  getMessages,
-  getMessagesForChat,
-  insertMessage,
-  updateConversationNameIfUnset,
-  updateMessage,
-} from '@/lib/db'
+import { getMessages, insertMessage, updateMessage } from '@/lib/db'
+import { setConversationTitleIfUnset } from '@/lib/set-conversation-title'
 import type { Message } from '@/types'
 
 interface SendMessageVariables {
@@ -56,27 +50,7 @@ export function useMessages(conversationId: number | null): UseMessagesResult {
       await insertMessage(conversationId, 'user', content)
       await invalidateConverationQuery()
 
-      // Attempt to set conversation name if not yet set
-      try {
-        const chatMessages = (await getMessagesForChat(conversationId)).map(
-          (m) => ({
-            role: m.role as 'system' | 'user' | 'assistant',
-            content: m.content,
-          }),
-        )
-        const maybeName = await completeConversationName(chatMessages)
-        if (maybeName) {
-          const updated = await updateConversationNameIfUnset(
-            conversationId,
-            maybeName,
-          )
-          if (updated) {
-            await queryClient.invalidateQueries({ queryKey: ['conversations'] })
-          }
-        }
-      } catch (e) {
-        console.warn('Failed to set conversation name', e)
-      }
+      // Name setting moved to shared utility and invoked after streaming completes
 
       // Track the accumulated content for database updates
       let accumulatedContent = ''
@@ -141,6 +115,9 @@ export function useMessages(conversationId: number | null): UseMessagesResult {
           if (assistantMessageId !== null) {
             await updateMessage(assistantMessageId, fullContent, fullReasoning)
           }
+
+          // Attempt to set conversation name only after server response completes
+          void setConversationTitleIfUnset(queryClient, conversationId)
         },
         onError: (error) => {
           console.error('Streaming error:', error)

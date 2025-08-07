@@ -1,17 +1,13 @@
 import Database from '@tauri-apps/plugin-sql'
 
-export const dbPromise = Database.load('sqlite:openchat2.db')
+export const dbPromise = Database.load('sqlite:chatchat3.db')
 
 /**
  * Inserts a new conversation and returns its row id.
  */
-export async function insertConversation(title: string): Promise<number> {
+export async function insertConversation(): Promise<number> {
   const db = await dbPromise
-  const now = new Date().toISOString()
-  const result = await db.execute(
-    'INSERT INTO conversations (title, created_at, updated_at) VALUES (?, ?, ?)',
-    [title, now, now],
-  )
+  const result = await db.execute('INSERT INTO conversations DEFAULT VALUES')
 
   return result.lastInsertId as number
 }
@@ -20,15 +16,15 @@ export async function insertConversation(title: string): Promise<number> {
  * Conditionally set conversation name if it has not been set yet.
  * Returns true if the name was updated, false otherwise.
  */
-export async function updateConversationNameIfUnset(
+export async function updateConversationTitleIfUnset(
   conversationId: number,
-  name: string,
+  title: string,
 ): Promise<boolean> {
   const db = await dbPromise
   const now = new Date().toISOString()
   const result = await db.execute(
-    'UPDATE conversations SET name = ?, updated_at = ? WHERE id = ? AND (name IS NULL OR name = "")',
-    [name, now, conversationId],
+    'UPDATE conversations SET title = ?, updated_at = ? WHERE id = ? AND (title IS NULL OR title = "")',
+    [title, now, conversationId],
   )
   const rowsAffected = result.rowsAffected ?? 0
   return rowsAffected > 0
@@ -70,14 +66,13 @@ export async function getConversations(): Promise<
   Array<{
     id: number
     title: string
-    name?: string
     created_at: string
     updated_at: string
   }>
 > {
   const db = await dbPromise
   return await db.select(
-    'SELECT id, title, name, created_at, updated_at FROM conversations ORDER BY updated_at DESC',
+    'SELECT id, title, created_at, updated_at FROM conversations ORDER BY updated_at DESC',
   )
 }
 

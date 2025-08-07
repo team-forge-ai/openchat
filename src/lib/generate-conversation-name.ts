@@ -2,30 +2,11 @@ import { mlxServer } from '@/lib/mlx-server'
 import { ChatCompletionResponseSchema } from '@/lib/mlx-server-schemas'
 import type { ChatMessage } from '@/types/mlx-server'
 
-function sanitizeTitle(rawTitle: string): string {
-  const firstLine = rawTitle.split('\n')[0] ?? ''
-  const withoutQuotes = firstLine.replace(/^[\s"'‘’“”]+|[\s"'‘’“”]+$/g, '')
-  const withoutTrailingPunct = withoutQuotes.replace(/[\p{P}\p{S}]+$/u, '')
-  const collapsed = withoutTrailingPunct.replace(/\s+/g, ' ').trim()
-  return collapsed
-}
-
-function isGenericTitle(title: string): boolean {
-  const t = title.toLowerCase()
-  const generics = new Set([
-    'none',
-    'n/a',
-    'untitled',
-    'no title',
-    'conversation',
-    'chat',
-    'general',
-    'misc',
-  ])
-  return generics.has(t)
-}
-
-export async function completeConversationName(
+/**
+ * Attempts to generate a short, descriptive conversation name from the given chat messages.
+ * Returns the name as a string, or null if a suitable name could not be generated.
+ */
+export async function generateConversationTitle(
   messages: ChatMessage[],
 ): Promise<string | null> {
   if (!Array.isArray(messages) || messages.length === 0) {
@@ -80,4 +61,27 @@ export async function completeConversationName(
   } catch {
     return null
   }
+}
+
+function sanitizeTitle(rawTitle: string): string {
+  const firstLine = rawTitle.split('\n')[0] ?? ''
+  const withoutQuotes = firstLine.replace(/^[\s"'‘’“”]+|[\s"'‘’“”]+$/g, '')
+  const withoutTrailingPunct = withoutQuotes.replace(/[\p{P}\p{S}]+$/u, '')
+  const collapsed = withoutTrailingPunct.replace(/\s+/g, ' ').trim()
+  return collapsed
+}
+
+function isGenericTitle(title: string): boolean {
+  const t = title.toLowerCase()
+  const generics = new Set([
+    'none',
+    'n/a',
+    'untitled',
+    'no title',
+    'conversation',
+    'chat',
+    'general',
+    'misc',
+  ])
+  return generics.has(t)
 }

@@ -164,7 +164,7 @@ class MLXServerService {
     }
 
     const port = status.port || DEFAULT_CONFIG.PORT
-    const url = `http://${DEFAULT_CONFIG.HOST}:${port}/${path}`
+    const url = `http://${DEFAULT_CONFIG.HOST}:${port}${path}`
 
     return await fetch(url, init)
   }

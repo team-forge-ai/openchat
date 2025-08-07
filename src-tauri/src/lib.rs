@@ -11,10 +11,9 @@ mod commands;
 mod db;
 mod migrations;
 mod mlx_server;
-mod models;
 
 /// Name of the SQLite database file used by the app.
-const DB_FILE_NAME: &str = "openchat2.db";
+const DB_FILE_NAME: &str = "chatchat3.db";
 // OpenChat desktop – Tauri + Rust
 //
 // This crate hosts the native backend for the OpenChat app.

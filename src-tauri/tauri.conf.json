@@ -36,12 +36,12 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": ["models/*"],
+    "resources": ["models"],
     "externalBin": ["binaries/openchat-mlx-server"]
   },
   "plugins": {
     "sql": {
-      "preload": ["sqlite:openchat2.db"]
+      "preload": ["sqlite:chatchat3.db"]
     }
   }
 }

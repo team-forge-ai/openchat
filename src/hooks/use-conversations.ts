@@ -12,7 +12,7 @@ interface UseConversationsResult {
   conversations: Conversation[]
   isLoading: boolean
   createConversation: {
-    mutateAsync: (title?: string) => Promise<number>
+    mutateAsync: () => Promise<number>
     isLoading: boolean
     error: Error | null
   }
@@ -36,9 +36,8 @@ export function useConversations(): UseConversationsResult {
   })
 
   const createConversationMutation = useMutation({
-    mutationFn: async (title?: string) => {
-      const finalTitle = title ?? `New Chat ${new Date().toLocaleString()}`
-      const id = await insertConversation(finalTitle)
+    mutationFn: async () => {
+      const id = await insertConversation()
       return id
     },
     onSuccess: async () => {
