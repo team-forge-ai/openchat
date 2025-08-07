@@ -42,7 +42,7 @@ export function ReasoningDisplay({ reasoning }: ReasoningDisplayProps) {
           </Button>
         </CollapsibleTrigger>
         <CollapsibleContent className="border-t border-blue-200 p-3 dark:border-blue-800">
-          <div className="prose prose-sm max-w-none text-blue-900 dark:prose-invert dark:text-blue-100">
+          <div className="prose prose-sm max-w-none text-blue-900 dark:prose-invert dark:text-blue-100 select-text">
             {reasoning}
           </div>
         </CollapsibleContent>

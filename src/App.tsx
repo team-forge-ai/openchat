@@ -10,10 +10,11 @@ import { ConversationProvider } from '@/contexts/conversation-context'
 import { MLXServerProvider } from '@/contexts/mlx-server-context'
 
 import './App.css'
+import { WindowDragRegion } from './components/window-drag-region'
 
 function AppContent() {
   return (
-    <div className="h-screen flex flex-col">
+    <div className="h-screen flex flex-col select-none">
       <div className="flex-1 overflow-hidden flex flex-col">
         <SidebarProvider defaultOpen={true}>
           <AppSidebar />
@@ -41,6 +42,8 @@ function App() {
   return (
     <MLXServerProvider>
       <ConversationProvider>
+        <WindowDragRegion className="fixed z-100 top-0 left-0 w-full h-8" />
+
         <AppContent />
       </ConversationProvider>
     </MLXServerProvider>

@@ -5,6 +5,7 @@ import type { Message } from '@/types'
 
 import { Markdown } from './markdown/markdown'
 import { ReasoningDisplay } from './reasoning-display'
+import { CopyButton } from './ui/copy-button'
 
 interface ChatMessageProps {
   message: Message
@@ -28,13 +29,18 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
         {isUser ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
       </div>
 
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 relative group">
+        <CopyButton
+          text={message.content}
+          ariaLabel="Copy message"
+          className="absolute right-2 bottom-2 z-10 opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100"
+        />
         {/* Show reasoning for assistant messages if available */}
         {!isUser && message.reasoning && (
           <ReasoningDisplay reasoning={message.reasoning} />
         )}
 
-        <Markdown>{message.content}</Markdown>
+        <Markdown className="select-text">{message.content}</Markdown>
         <div className="text-xs text-muted-foreground mt-2">
           {new Date(message.created_at).toLocaleTimeString()}
         </div>
