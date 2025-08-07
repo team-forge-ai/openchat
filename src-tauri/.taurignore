@@ -1,0 +1,13 @@
+# Ignore runtime files that shouldn't trigger rebuilds
+mlx_server.pid
+*.pid
+logs/
+*.log
+
+# Ignore temporary files
+*.tmp
+*.temp
+.DS_Store
+
+# Ignore build artifacts
+target/
