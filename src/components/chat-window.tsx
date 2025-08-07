@@ -8,7 +8,7 @@ import { useMLXServer } from '@/contexts/mlx-server-context'
 import { useConversations } from '@/hooks/use-conversations'
 import { useMessages } from '@/hooks/use-messages'
 
-import { ChatMessage } from './ChatMessage'
+import { ChatMessage } from './chat-message'
 
 export const ChatWindow: React.FC = () => {
   const [inputValue, setInputValue] = useState('')
