@@ -14,7 +14,7 @@ mod models;
 // Note: LLM interactions now happen through the openchat-mlx-server
 
 use mlx_server::MLXServerManager;
-use tauri::{Listener, Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri::{Manager, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 
 #[cfg(target_os = "macos")]
 use tauri::TitleBarStyle;
@@ -61,13 +61,6 @@ pub fn run() {
             // Store the manager in Tauri's state
             app.manage(mlx_manager.clone());
 
-            // Register cleanup on app exit
-            let mlx_manager_shutdown = mlx_manager.clone();
-            app.listen("tauri://before-quit", move |_event| {
-                log::info!("App is shutting down, stopping MLX server...");
-                mlx_manager_shutdown.shutdown_blocking();
-            });
-
             // Create main window with transparent titlebar (macOS)
             let mut win_builder =
                 WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
@@ -93,6 +86,23 @@ pub fn run() {
             commands::mlx_restart,
             commands::mlx_health_check,
         ])
+        .on_window_event(move |window, event| {
+            if let WindowEvent::Destroyed = event {
+                log::info!("Window destroyed, shutting down MLX server...");
+
+                // Grab the MLX manager and shut it down on the existing async runtime
+                let app_handle = window.app_handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    let mlx_manager = app_handle.state::<MLXServerManager>().clone();
+                    log::info!("Killing MLX server...");
+                    // Attempt fast synchronous kill first
+                    mlx_manager.kill_sync();
+                    log::info!("MLX server killed");
+                });
+
+                log::info!("MLX server shutdown complete");
+            }
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

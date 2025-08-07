@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Arc;
 use tauri::async_runtime::Mutex;
 use tauri::async_runtime::RwLock;
@@ -60,6 +60,7 @@ pub struct MLXServerManager {
     status: Arc<RwLock<MLXServerStatus>>,
     startup_complete: Arc<AtomicBool>,
     app_handle: Arc<Mutex<Option<AppHandle>>>,
+    pid_atomic: Arc<AtomicU32>,
 }
 
 impl MLXServerManager {
@@ -70,6 +71,7 @@ impl MLXServerManager {
             status: Arc::new(RwLock::new(MLXServerStatus::default())),
             startup_complete: Arc::new(AtomicBool::new(false)),
             app_handle: Arc::new(Mutex::new(None)),
+            pid_atomic: Arc::new(AtomicU32::new(0)),
         }
     }
 
@@ -136,6 +138,7 @@ impl MLXServerManager {
             .map_err(|e| format!("Failed to spawn MLX server: {}", e))?;
 
         let pid = child.pid();
+        self.pid_atomic.store(pid, Ordering::SeqCst);
         log::info!("MLX server started with PID: {}", pid);
 
         // Update status
@@ -249,6 +252,7 @@ impl MLXServerManager {
             status.port = None;
             status.model_path = None;
             status.pid = None;
+            self.pid_atomic.store(0, Ordering::SeqCst);
             drop(status);
 
             // Emit status change event
@@ -258,14 +262,35 @@ impl MLXServerManager {
         Ok(())
     }
 
-    pub fn shutdown_blocking(&self) {
-        // Use blocking runtime for shutdown
-        let runtime = tokio::runtime::Runtime::new().unwrap();
-        runtime.block_on(async {
-            if let Err(e) = self.stop_server().await {
-                log::error!("Error during shutdown: {}", e);
+    /// Synchronously sends a SIGINT (or `kill` on Windows) to the MLX sidecar using the cached PID.
+    /// This does **not** rely on async locks or Tokio runtimes, so it can be used in a drop handler
+    /// or any other synchronous context during application shutdown.
+    pub fn kill_sync(&self) {
+        let pid = self.pid_atomic.load(Ordering::SeqCst);
+        if pid == 0 {
+            return;
+        }
+
+        #[cfg(unix)]
+        unsafe {
+            // Send SIGINT; fall back to SIGKILL if SIGINT fails
+            if libc::kill(pid as libc::pid_t, libc::SIGINT) != 0 {
+                libc::kill(pid as libc::pid_t, libc::SIGKILL);
             }
-        });
+        }
+
+        #[cfg(windows)]
+        {
+            use windows_sys::Win32::System::Threading::{
+                OpenProcess, TerminateProcess, PROCESS_TERMINATE,
+            };
+            unsafe {
+                let handle = OpenProcess(PROCESS_TERMINATE, 0, pid);
+                if handle != 0 {
+                    TerminateProcess(handle, 0);
+                }
+            }
+        }
     }
 
     pub async fn restart(&self) -> Result<MLXServerStatus, String> {

@@ -2656,6 +2656,7 @@ dependencies = [
  "byteorder",
  "chrono",
  "dotenvy",
+ "libc",
  "log",
  "once_cell",
  "reqwest",
@@ -2668,6 +2669,7 @@ dependencies = [
  "tauri-plugin-shell",
  "tauri-plugin-sql",
  "tokio",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
