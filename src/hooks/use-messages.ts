@@ -1,7 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { useChatCompletion } from '@/hooks/use-chat-completion'
-import { getMessages, insertMessage, updateMessage } from '@/lib/db'
+import { completeConversationName } from '@/lib/complete-conversation-name'
+import {
+  getMessages,
+  getMessagesForChat,
+  insertMessage,
+  updateConversationNameIfUnset,
+  updateMessage,
+} from '@/lib/db'
 import type { Message } from '@/types'
 
 interface SendMessageVariables {
@@ -48,6 +55,28 @@ export function useMessages(conversationId: number | null): UseMessagesResult {
       // Insert user message locally
       await insertMessage(conversationId, 'user', content)
       await invalidateConverationQuery()
+
+      // Attempt to set conversation name if not yet set
+      try {
+        const chatMessages = (await getMessagesForChat(conversationId)).map(
+          (m) => ({
+            role: m.role as 'system' | 'user' | 'assistant',
+            content: m.content,
+          }),
+        )
+        const maybeName = await completeConversationName(chatMessages)
+        if (maybeName) {
+          const updated = await updateConversationNameIfUnset(
+            conversationId,
+            maybeName,
+          )
+          if (updated) {
+            await queryClient.invalidateQueries({ queryKey: ['conversations'] })
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to set conversation name', e)
+      }
 
       // Track the accumulated content for database updates
       let accumulatedContent = ''

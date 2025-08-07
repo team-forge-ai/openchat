@@ -16,6 +16,24 @@ export async function insertConversation(title: string): Promise<number> {
   return result.lastInsertId as number
 }
 
+/**
+ * Conditionally set conversation name if it has not been set yet.
+ * Returns true if the name was updated, false otherwise.
+ */
+export async function updateConversationNameIfUnset(
+  conversationId: number,
+  name: string,
+): Promise<boolean> {
+  const db = await dbPromise
+  const now = new Date().toISOString()
+  const result = await db.execute(
+    'UPDATE conversations SET name = ?, updated_at = ? WHERE id = ? AND (name IS NULL OR name = "")',
+    [name, now, conversationId],
+  )
+  const rowsAffected = result.rowsAffected ?? 0
+  return rowsAffected > 0
+}
+
 /** Insert a message and return its row id */
 export async function insertMessage(
   conversationId: number,
@@ -52,13 +70,14 @@ export async function getConversations(): Promise<
   Array<{
     id: number
     title: string
+    name?: string
     created_at: string
     updated_at: string
   }>
 > {
   const db = await dbPromise
   return await db.select(
-    'SELECT id, title, created_at, updated_at FROM conversations ORDER BY updated_at DESC',
+    'SELECT id, title, name, created_at, updated_at FROM conversations ORDER BY updated_at DESC',
   )
 }
 
