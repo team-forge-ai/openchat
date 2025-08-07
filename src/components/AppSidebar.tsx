@@ -36,7 +36,7 @@ import {
 import { useConversation } from '@/contexts/conversation-context'
 import { useConversations } from '@/hooks/use-conversations'
 
-import { WindowDragBar } from './Titlebar'
+import { WindowDragRegion } from './window-drag-region'
 
 export function AppSidebar() {
   const { selectedConversationId, setSelectedConversationId } =
@@ -59,32 +59,32 @@ export function AppSidebar() {
 
   return (
     <Sidebar>
-      <WindowDragBar />
-
-      {/* Header Section */}
-      <SidebarHeader className="border-b pt-0">
-        <div className="flex items-center gap-3 px-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <MessageSquare className="h-4 w-4" />
+      <WindowDragRegion>
+        {/* Header Section */}
+        <SidebarHeader className="border-b mt-8">
+          <div className="flex items-center gap-3 px-2" data-tauri-drag-region>
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+              <MessageSquare className="h-4 w-4" />
+            </div>
+            <div className="flex flex-col">
+              <h1 className="text-lg font-semibold">OpenChat</h1>
+              <p className="text-xs text-muted-foreground">AI Assistant</p>
+            </div>
           </div>
-          <div className="flex flex-col">
-            <h1 className="text-lg font-semibold">OpenChat</h1>
-            <p className="text-xs text-muted-foreground">AI Assistant</p>
-          </div>
-        </div>
 
-        <div className="px-2 pb-2">
-          <Button
-            onClick={handleCreateConversation}
-            className="w-full"
-            disabled={isLoadingConversations || createConversation.isLoading}
-            size="sm"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            {createConversation.isLoading ? 'Creating...' : 'New Chat'}
-          </Button>
-        </div>
-      </SidebarHeader>
+          <div className="px-2 pb-2">
+            <Button
+              onClick={handleCreateConversation}
+              className="w-full"
+              disabled={isLoadingConversations || createConversation.isLoading}
+              size="sm"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              {createConversation.isLoading ? 'Creating...' : 'New Chat'}
+            </Button>
+          </div>
+        </SidebarHeader>
+      </WindowDragRegion>
 
       {/* Main Content */}
       <SidebarContent>
