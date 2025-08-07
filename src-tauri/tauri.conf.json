@@ -10,7 +10,16 @@
     "frontendDist": "../dist"
   },
   "app": {
-    "windows": [],
+    "macOSPrivateApi": true,
+    "windows": [
+      {
+        "title": "OpenChat",
+        "width": 1200,
+        "height": 800,
+        "transparent": true,
+        "decorations": false
+      }
+    ],
     "security": {
       "csp": null
     }

@@ -4,7 +4,7 @@
 use std::fs;
 
 // --- External crate imports ---
-use tauri::{Manager, WebviewUrl, WebviewWindowBuilder, WindowEvent};
+use tauri::{Manager, WindowEvent};
 
 // --- Internal module imports ---
 mod commands;
@@ -52,9 +52,6 @@ pub fn run() {
             // --- MLX Server Manager setup ---
             setup_mlx_server_manager(app);
 
-            // --- Main window creation ---
-            create_main_window(app)?;
-
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -71,18 +68,6 @@ pub fn run() {
         })
         .run(tauri::generate_context!())
         .expect("Error while running Tauri application");
-}
-
-/// Helper to create the main window with platform-specific options.
-fn create_main_window(app: &mut tauri::App) -> Result<(), String> {
-    let win_builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
-        .title("openchat")
-        .inner_size(800.0, 600.0);
-
-    win_builder
-        .build()
-        .map_err(|e| format!("Failed to create window: {}", e))?;
-    Ok(())
 }
 
 /// Helper to initialize and set up the MLX server manager.

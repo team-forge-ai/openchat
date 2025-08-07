@@ -36,6 +36,8 @@ import {
 import { useConversation } from '@/contexts/conversation-context'
 import { useConversations } from '@/hooks/use-conversations'
 
+import { Titlebar } from './Titlebar'
+
 export function AppSidebar() {
   const { selectedConversationId, setSelectedConversationId } =
     useConversation()
@@ -57,9 +59,11 @@ export function AppSidebar() {
 
   return (
     <Sidebar>
+      <Titlebar />
+
       {/* Header Section */}
-      <SidebarHeader className="border-b">
-        <div className="flex items-center gap-3 px-2 py-3">
+      <SidebarHeader className="border-b pt-0">
+        <div className="flex items-center gap-3 px-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <MessageSquare className="h-4 w-4" />
           </div>
