@@ -6,6 +6,19 @@ use tauri::async_runtime::RwLock;
 use tauri::{AppHandle, Emitter};
 use tauri_plugin_shell::{process::CommandEvent, ShellExt};
 
+// Constants for server configuration and timeouts
+const DEFAULT_MODEL_PATH: &str = "models/Qwen3-0.6B-MLX-4bit";
+const DEFAULT_PORT: u16 = 8000;
+const DEFAULT_HOST: &str = "127.0.0.1";
+const DEFAULT_LOG_LEVEL: &str = "INFO";
+const DEFAULT_MAX_TOKENS: u32 = 32000;
+
+const STARTUP_DELAY_SECS: u64 = 2;
+const HEALTH_CHECK_MAX_ATTEMPTS: usize = 60;
+const HEALTH_CHECK_DELAY_SECS: u64 = 1;
+const HEALTH_CHECK_TIMEOUT_SECS: u64 = 5;
+const RESTART_DELAY_MILLIS: u64 = 500;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MLXServerConfig {
     pub model_path: String,
@@ -18,11 +31,11 @@ pub struct MLXServerConfig {
 impl Default for MLXServerConfig {
     fn default() -> Self {
         Self {
-            model_path: "models/Qwen3-0.6B-MLX-4bit".to_string(),
-            port: 8000,
-            host: "127.0.0.1".to_string(),
-            log_level: Some("INFO".to_string()),
-            max_tokens: Some(32000),
+            model_path: DEFAULT_MODEL_PATH.to_string(),
+            port: DEFAULT_PORT,
+            host: DEFAULT_HOST.to_string(),
+            log_level: Some(DEFAULT_LOG_LEVEL.to_string()),
+            max_tokens: Some(DEFAULT_MAX_TOKENS),
         }
     }
 }
@@ -77,6 +90,10 @@ impl MLXServerManager {
         }
     }
 
+    // ============================================================================
+    // LIFECYCLE MANAGEMENT
+    // ============================================================================
+
     pub async fn set_app_handle(&self, handle: AppHandle) {
         let mut app_handle = self.app_handle.lock().await;
         *app_handle = Some(handle);
@@ -94,24 +111,12 @@ impl MLXServerManager {
         Ok(())
     }
 
-    async fn start_server(&self, config: MLXServerConfig) -> Result<(), String> {
-        let mut handle_guard = self.process_handle.lock().await;
+    // ============================================================================
+    // HELPER METHODS
+    // ============================================================================
 
-        // Check if already running
-        if handle_guard.is_some() {
-            return Err("Server is already running".to_string());
-        }
-
-        // Get the app handle and clone it so we can release the lock
-        let app = {
-            let app_handle = self.app_handle.lock().await;
-            app_handle
-                .as_ref()
-                .ok_or_else(|| "App handle not set".to_string())?
-                .clone()
-        };
-
-        // Build command arguments
+    /// Build command arguments for the MLX server
+    fn build_command_args(config: &MLXServerConfig) -> Vec<String> {
         let mut args = vec![
             config.model_path.clone(),
             "--port".to_string(),
@@ -130,22 +135,11 @@ impl MLXServerManager {
             args.push(max_tokens.to_string());
         }
 
-        log::info!("Starting MLX server with args: {:?}", args);
+        args
+    }
 
-        // Create and spawn the sidecar command
-        let (mut rx, child) = app
-            .shell()
-            .sidecar("openchat-mlx-server")
-            .map_err(|e| format!("Failed to create sidecar command: {}", e))?
-            .args(args)
-            .spawn()
-            .map_err(|e| format!("Failed to spawn MLX server: {}", e))?;
-
-        let pid = child.pid();
-        self.pid_atomic.store(pid, Ordering::SeqCst);
-        log::info!("MLX server process spawned with PID: {}", pid);
-
-        // Update status - server is running but not ready yet
+    /// Update server status to running state
+    async fn update_status_running(&self, config: &MLXServerConfig, pid: u32) {
         let mut status = self.status.write().await;
         status.is_running = true;
         status.is_ready = false;
@@ -153,20 +147,54 @@ impl MLXServerManager {
         status.model_path = Some(config.model_path.clone());
         status.pid = Some(pid);
         status.error = None;
-        drop(status);
+    }
 
-        // Update config
-        *self.config.write().await = config;
+    /// Update server status to stopped state
+    async fn update_status_stopped(&self) {
+        let mut status = self.status.write().await;
+        status.is_running = false;
+        status.is_ready = false;
+        status.port = None;
+        status.model_path = None;
+        status.pid = None;
+        self.pid_atomic.store(0, Ordering::SeqCst);
+    }
 
-        // Store the process handle
-        *handle_guard = Some(ProcessHandle { child });
+    /// Get the app handle, returning an error if not set
+    async fn get_app_handle(&self) -> Result<AppHandle, String> {
+        let app_handle = self.app_handle.lock().await;
+        app_handle
+            .as_ref()
+            .ok_or_else(|| "App handle not set".to_string())
+            .map(|handle| handle.clone())
+    }
 
-        // Emit status change event
-        self.emit_status_change().await;
+    /// Spawn the MLX server process using the sidecar
+    async fn spawn_mlx_process(
+        &self,
+        app: AppHandle,
+        args: Vec<String>,
+    ) -> Result<
+        (
+            tokio::sync::mpsc::Receiver<tauri_plugin_shell::process::CommandEvent>,
+            tauri_plugin_shell::process::CommandChild,
+        ),
+        String,
+    > {
+        app.shell()
+            .sidecar("openchat-mlx-server")
+            .map_err(|e| format!("Failed to create sidecar command: {}", e))?
+            .args(args)
+            .spawn()
+            .map_err(|e| format!("Failed to spawn MLX server: {}", e))
+    }
 
-        // Set up event listener for process events in background
+    /// Set up event listener for process events in the background
+    async fn setup_process_event_listener(
+        &self,
+        mut rx: tokio::sync::mpsc::Receiver<tauri_plugin_shell::process::CommandEvent>,
+    ) {
         let status_clone = self.status.clone();
-
         let app_handle_clone = self.app_handle.clone();
 
         tauri::async_runtime::spawn(async move {
@@ -237,6 +265,41 @@ impl MLXServerManager {
             }
             log::warn!("MLX server event listener exited - process may have terminated");
         });
+    }
+
+    async fn start_server(&self, config: MLXServerConfig) -> Result<(), String> {
+        let mut handle_guard = self.process_handle.lock().await;
+
+        // Check if already running
+        if handle_guard.is_some() {
+            return Err("Server is already running".to_string());
+        }
+
+        // Get the app handle
+        let app = self.get_app_handle().await?;
+
+        // Build command arguments and spawn process
+        let args = Self::build_command_args(&config);
+        log::info!("Starting MLX server with args: {:?}", args);
+
+        let (rx, child) = self.spawn_mlx_process(app, args).await?;
+        let pid = child.pid();
+
+        self.pid_atomic.store(pid, Ordering::SeqCst);
+        log::info!("MLX server process spawned with PID: {}", pid);
+
+        // Update status and config
+        self.update_status_running(&config, pid).await;
+        *self.config.write().await = config;
+
+        // Store the process handle
+        *handle_guard = Some(ProcessHandle { child });
+
+        // Emit status change event
+        self.emit_status_change().await;
+
+        // Set up event listener for process events in background
+        self.setup_process_event_listener(rx).await;
 
         // Wait for server to be ready
         log::info!("Starting health check process for MLX server...");
@@ -254,6 +317,10 @@ impl MLXServerManager {
         }
     }
 
+    // ============================================================================
+    // SERVER LIFECYCLE METHODS
+    // ============================================================================
+
     async fn wait_for_server_ready(&self) -> Result<(), String> {
         let config = self.config.read().await;
         let url = format!("http://{}:{}/health", config.host, config.port);
@@ -261,22 +328,21 @@ impl MLXServerManager {
         log::info!("Waiting for MLX server to be ready at: {}", url);
 
         // Give the server a moment to start up before checking
-        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+        tokio::time::sleep(std::time::Duration::from_secs(STARTUP_DELAY_SECS)).await;
 
-        let max_attempts = 60; // Increased from 30 to give more time for model loading
-        let delay = std::time::Duration::from_secs(1);
+        let delay = std::time::Duration::from_secs(HEALTH_CHECK_DELAY_SECS);
 
         // Create a new client with timeout settings
         let client = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(5))
+            .timeout(std::time::Duration::from_secs(HEALTH_CHECK_TIMEOUT_SECS))
             .build()
             .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
 
-        for attempt in 0..max_attempts {
+        for attempt in 0..HEALTH_CHECK_MAX_ATTEMPTS {
             log::debug!(
                 "Health check attempt {}/{} to {}",
                 attempt + 1,
-                max_attempts,
+                HEALTH_CHECK_MAX_ATTEMPTS,
                 url
             );
 
@@ -332,14 +398,14 @@ impl MLXServerManager {
                 }
             }
 
-            if attempt < max_attempts - 1 {
+            if attempt < HEALTH_CHECK_MAX_ATTEMPTS - 1 {
                 tokio::time::sleep(delay).await;
             }
         }
 
         log::error!(
             "MLX server failed to become ready after {} attempts",
-            max_attempts
+            HEALTH_CHECK_MAX_ATTEMPTS
         );
 
         // Check final status
@@ -365,15 +431,8 @@ impl MLXServerManager {
 
             log::info!("MLX server stopped successfully");
 
-            // Update status
-            let mut status = self.status.write().await;
-            status.is_running = false;
-            status.is_ready = false;
-            status.port = None;
-            status.model_path = None;
-            status.pid = None;
-            self.pid_atomic.store(0, Ordering::SeqCst);
-            drop(status);
+            // Update status using helper method
+            self.update_status_stopped().await;
 
             // Emit status change event
             self.emit_status_change().await;
@@ -425,7 +484,7 @@ impl MLXServerManager {
         let _ = self.stop_server().await;
 
         // Small delay to ensure clean shutdown
-        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        tokio::time::sleep(std::time::Duration::from_millis(RESTART_DELAY_MILLIS)).await;
 
         // Start with current config
         let config = self.config.read().await.clone();
@@ -433,6 +492,10 @@ impl MLXServerManager {
 
         Ok(self.get_status().await)
     }
+
+    // ============================================================================
+    // STATUS AND HEALTH CHECK METHODS
+    // ============================================================================
 
     pub async fn get_status(&self) -> MLXServerStatus {
         self.status.read().await.clone()
@@ -449,7 +512,7 @@ impl MLXServerManager {
 
         // Create a client with timeout
         let client = match reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(5))
+            .timeout(std::time::Duration::from_secs(HEALTH_CHECK_TIMEOUT_SECS))
             .build()
         {
             Ok(c) => c,
@@ -508,6 +571,10 @@ impl MLXServerManager {
             }
         }
     }
+
+    // ============================================================================
+    // EVENT HANDLING METHODS
+    // ============================================================================
 
     async fn emit_status_change(&self) {
         // Get the status first, before locking app_handle
