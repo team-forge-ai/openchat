@@ -222,12 +222,12 @@ impl MLXServerManager {
                         } else {
                             status.error = Some("Server terminated unexpectedly".to_string());
                         }
+                        let final_status = status.clone();
                         drop(status);
 
                         // Emit status change
                         if let Some(handle) = app_handle_clone.lock().await.as_ref() {
-                            let status = status_clone.read().await.clone();
-                            let _ = handle.emit("mlx-status-changed", status);
+                            let _ = handle.emit("mlx-status-changed", final_status);
                         }
 
                         break;
