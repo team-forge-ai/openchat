@@ -21,8 +21,10 @@ function AppContent() {
 
           <SidebarInset>
             <div className="flex h-full flex-col overflow-hidden">
-              <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-                <SidebarTrigger className="-ml-1" />
+              <header className="flex h-[60px] shrink-0 items-center gap-2 border-b px-5 relative">
+                <WindowDragRegion className="absolute z-100 top-0 left-0 w-full h-5" />
+
+                <SidebarTrigger className="-ml-2" />
                 <div className="flex-1" />
                 <MLXServerStatus />
               </header>
@@ -42,8 +44,6 @@ function App() {
   return (
     <MLXServerProvider>
       <ConversationProvider>
-        <WindowDragRegion className="fixed z-100 top-0 left-0 w-full h-8" />
-
         <AppContent />
       </ConversationProvider>
     </MLXServerProvider>
