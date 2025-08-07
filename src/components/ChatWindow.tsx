@@ -3,31 +3,34 @@ import React, { useEffect, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import type { Message } from '@/types'
+import { useConversation } from '@/contexts/conversation-context'
+import { useMLXServer } from '@/contexts/mlx-server-context'
+import { useConversations } from '@/hooks/use-conversations'
+import { useMessages } from '@/hooks/use-messages'
 
 import { ChatMessage } from './ChatMessage'
 
-interface ChatWindowProps {
-  messages: Message[]
-  onSendMessage: (content: string) => Promise<void>
-  isLoading: boolean
-  conversationId: number | null
-  isDisabled?: boolean
-  disabledMessage?: string
-}
-
-export const ChatWindow: React.FC<ChatWindowProps> = ({
-  messages,
-  onSendMessage,
-  isLoading,
-  conversationId,
-  isDisabled = false,
-  disabledMessage,
-}) => {
+export const ChatWindow: React.FC = () => {
   const [inputValue, setInputValue] = useState('')
   const [error, setError] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const { selectedConversationId, setSelectedConversationId } =
+    useConversation()
+
+  const {
+    messages,
+    isLoading: isLoadingMessages,
+    sendMessage,
+    isSendingMessage,
+  } = useMessages(selectedConversationId)
+
+  const { createConversation } = useConversations()
+  const { status: mlxStatus } = useMLXServer()
+  const isChatDisabled = !mlxStatus.isRunning || !mlxStatus.isReady
+
+  // Aggregate loading state: fetching or sending
+  const isLoading = isLoadingMessages || isSendingMessage
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -39,7 +42,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!inputValue.trim() || isLoading || !conversationId || isDisabled) {
+    if (!inputValue.trim() || isLoading || isChatDisabled) {
       return
     }
 
@@ -48,7 +51,19 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     setError(null)
 
     try {
-      await onSendMessage(messageContent)
+      let currentConversationId = selectedConversationId
+
+      // If no conversation is selected, create a new one
+      if (!currentConversationId) {
+        const newId = await createConversation.mutateAsync()
+        setSelectedConversationId(newId)
+        currentConversationId = newId
+      }
+
+      await sendMessage({
+        conversationId: currentConversationId,
+        content: messageContent,
+      })
     } catch (error) {
       console.error('Failed to send message:', error)
       // Re-set the input value if the message failed to send
@@ -66,28 +81,17 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     }
   }
 
-  if (!conversationId) {
-    return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-center text-muted-foreground">
-          <div className="text-lg font-medium mb-2">Welcome to OpenChat</div>
-          <div>Select a conversation or create a new one to get started</div>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="flex-1 flex flex-col h-full">
       {/* Messages */}
       <div className="flex-1 overflow-y-auto">
-        {messages.length === 0 ? (
+        {messages.length === 0 && !isLoading ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center text-muted-foreground">
               <div className="text-lg font-medium mb-2">
-                Start a conversation
+                Welcome to OpenChat
               </div>
-              <div>Send a message to begin chatting</div>
+              <div>Send a message to get started.</div>
             </div>
           </div>
         ) : (
@@ -120,16 +124,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         </div>
       )}
 
-      {/* Disabled message */}
-      {isDisabled && disabledMessage && (
-        <div className="border-t border-warning/20 bg-warning/10 p-3">
-          <div className="flex items-center gap-2 text-sm text-warning-foreground">
-            <AlertCircle className="w-4 h-4" />
-            <span>{disabledMessage}</span>
-          </div>
-        </div>
-      )}
-
       {/* Input */}
       <div className="border-t border-border p-4">
         <form onSubmit={handleSubmit} className="flex gap-2">
@@ -139,15 +133,17 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={
-              isDisabled ? 'AI server is not ready...' : 'Type your message...'
+              isChatDisabled
+                ? 'AI server is not ready...'
+                : 'Type your message...'
             }
-            disabled={isLoading || isDisabled}
+            disabled={isLoading || isChatDisabled}
             className="flex-1"
             autoFocus
           />
           <Button
             type="submit"
-            disabled={!inputValue.trim() || isLoading || isDisabled}
+            disabled={!inputValue.trim() || isLoading || isChatDisabled}
             size="icon"
           >
             {isLoading ? (

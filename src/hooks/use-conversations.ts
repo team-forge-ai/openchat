@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
+import { useConversation } from '@/contexts/conversation-context'
 import {
   deleteConversation,
   getConversations,
@@ -24,6 +25,8 @@ interface UseConversationsResult {
 
 export function useConversations(): UseConversationsResult {
   const queryClient = useQueryClient()
+  const { selectedConversationId, setSelectedConversationId } =
+    useConversation()
 
   const { data: conversations = [], isFetching: isLoading } = useQuery<
     Conversation[]
@@ -45,6 +48,10 @@ export function useConversations(): UseConversationsResult {
 
   const deleteConversationMutation = useMutation({
     mutationFn: async (conversationId: number) => {
+      if (selectedConversationId === conversationId) {
+        setSelectedConversationId(null)
+      }
+
       await deleteConversation(conversationId)
     },
     onSuccess: async () => {

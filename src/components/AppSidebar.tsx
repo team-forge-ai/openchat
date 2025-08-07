@@ -33,29 +33,28 @@ import {
   SidebarMenuItem,
   SidebarSeparator,
 } from '@/components/ui/sidebar'
-import type { Conversation } from '@/types'
+import { useConversation } from '@/contexts/conversation-context'
+import { useConversations } from '@/hooks/use-conversations'
 
-interface AppSidebarProps {
-  conversations: Conversation[]
-  selectedConversationId: number | null
-  onSelectConversation: (id: number) => void
-  onCreateConversation: () => void
-  onDeleteConversation: (id: number) => void
-  isLoading: boolean
-  isCreatingConversation: boolean
-  isDeletingConversation: boolean
-}
+export function AppSidebar() {
+  const { selectedConversationId, setSelectedConversationId } =
+    useConversation()
+  const {
+    conversations,
+    isLoading: isLoadingConversations,
+    createConversation,
+    deleteConversation,
+  } = useConversations()
 
-export function AppSidebar({
-  conversations,
-  selectedConversationId,
-  onSelectConversation,
-  onCreateConversation,
-  onDeleteConversation,
-  isLoading,
-  isCreatingConversation,
-  isDeletingConversation,
-}: AppSidebarProps) {
+  const handleCreateConversation = async () => {
+    const id = await createConversation.mutateAsync()
+    setSelectedConversationId(id)
+  }
+
+  const handleDeleteConversation = (conversationId: number) => {
+    deleteConversation.mutate(conversationId)
+  }
+
   return (
     <Sidebar>
       {/* Header Section */}
@@ -72,13 +71,13 @@ export function AppSidebar({
 
         <div className="px-2 pb-2">
           <Button
-            onClick={onCreateConversation}
+            onClick={handleCreateConversation}
             className="w-full"
-            disabled={isLoading || isCreatingConversation}
+            disabled={isLoadingConversations || createConversation.isLoading}
             size="sm"
           >
             <Plus className="h-4 w-4 mr-2" />
-            {isCreatingConversation ? 'Creating...' : 'New Chat'}
+            {createConversation.isLoading ? 'Creating...' : 'New Chat'}
           </Button>
         </div>
       </SidebarHeader>
@@ -100,7 +99,7 @@ export function AppSidebar({
                   <SidebarMenuItem key={conversation.id} className="group">
                     <SidebarMenuButton
                       isActive={selectedConversationId === conversation.id}
-                      onClick={() => onSelectConversation(conversation.id)}
+                      onClick={() => setSelectedConversationId(conversation.id)}
                       className="w-full justify-start pr-8"
                     >
                       <MessageSquare className="h-4 w-4 mr-3 flex-shrink-0" />
@@ -120,9 +119,18 @@ export function AppSidebar({
                       <AlertDialogTrigger asChild>
                         <SidebarMenuAction
                           className="opacity-0 group-hover:opacity-100 hover:bg-destructive hover:text-destructive-foreground"
-                          disabled={isDeletingConversation}
+                          disabled={deleteConversation.isLoading}
+                          onClick={(e) => {
+                            // If shift is pressed, skip confirmation and delete immediately
+                            if (e.shiftKey) {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              handleDeleteConversation(conversation.id)
+                            }
+                            // Otherwise, let the AlertDialog handle the click
+                          }}
                         >
-                          {isDeletingConversation ? (
+                          {deleteConversation.isLoading ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
                           ) : (
                             <Trash2 className="h-4 w-4" />
@@ -145,12 +153,12 @@ export function AppSidebar({
                           <AlertDialogCancel>Cancel</AlertDialogCancel>
                           <AlertDialogAction
                             onClick={() =>
-                              onDeleteConversation(conversation.id)
+                              handleDeleteConversation(conversation.id)
                             }
-                            disabled={isDeletingConversation}
+                            disabled={deleteConversation.isLoading}
                             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                           >
-                            {isDeletingConversation ? (
+                            {deleteConversation.isLoading ? (
                               <>
                                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                                 Deleting...
