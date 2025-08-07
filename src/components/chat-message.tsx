@@ -1,4 +1,4 @@
-import { Bot, User } from 'lucide-react'
+import { Bot } from 'lucide-react'
 import React from 'react'
 
 import { Skeleton } from '@/components/ui/skeleton'
@@ -21,33 +21,39 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
   }
 
   return (
-    <div
-      className={`flex gap-3 p-4 ${isUser ? 'bg-background' : 'bg-muted/30'}`}
-    >
+    <div className={`flex p-3 ${isUser ? 'justify-end' : 'justify-start'}`}>
       <div
-        className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-          isUser
-            ? 'bg-primary text-primary-foreground'
-            : 'bg-secondary text-secondary-foreground'
+        className={`relative group max-w-[75%] ${
+          isUser ? 'rounded-2xl px-4 py-2 bg-slate-100' : 'p-4'
         }`}
       >
-        {isUser ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
-      </div>
-
-      <div className="flex-1 min-w-0 relative group">
-        <CopyButton
-          text={message.content}
-          ariaLabel="Copy message"
-          className="absolute right-2 bottom-2 z-10 opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100"
-        />
-        {/* Show reasoning for assistant messages if available */}
-        {!isUser && message.reasoning && (
-          <ReasoningDisplay reasoning={message.reasoning} />
+        {message.content && (
+          <CopyButton
+            text={message.content}
+            ariaLabel="Copy message"
+            className="absolute right-2 bottom-2 z-10 opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100"
+          />
         )}
 
-        <Markdown className="select-text">{message.content}</Markdown>
+        {!isUser && message.reasoning && (
+          <ReasoningDisplay
+            reasoning={message.reasoning}
+            isLoading={!message.content}
+          />
+        )}
+
+        {message.content && (
+          <Markdown
+            className={`select-text mt-1 max-w-none ${
+              isUser ? 'prose-sm' : 'prose-sm md:prose-base'
+            }`}
+          >
+            {message.content}
+          </Markdown>
+        )}
+
         <time
-          className="text-xs text-muted-foreground mt-2"
+          className="mt-2 block text-xs text-muted-foreground"
           title={new Date(message.created_at).toLocaleString()}
         >
           {new Date(message.created_at).toLocaleTimeString()}

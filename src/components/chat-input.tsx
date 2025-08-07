@@ -1,4 +1,4 @@
-import { Loader2, Send } from 'lucide-react'
+import { Camera, Loader2, Mic, Plus, Send } from 'lucide-react'
 import React, { useEffect, useRef } from 'react'
 
 import { Button } from '@/components/ui/button'
@@ -33,28 +33,62 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
   return (
     <div className="border-t border-border p-4">
-      <form onSubmit={onSubmit} className="flex gap-2">
-        <Input
-          ref={inputRef}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onKeyDown={onEnterKey}
-          placeholder={disabled ? 'AI is not ready...' : 'Type your message...'}
-          className="flex-1"
-          autoFocus
-        />
-        <Button
-          type="submit"
-          disabled={!value.trim() || disabled}
-          size="icon"
-          aria-label="Send message"
-        >
-          {isLoading ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <Send className="w-4 h-4" />
-          )}
-        </Button>
+      <form onSubmit={onSubmit} className="flex w-full">
+        <div className="flex w-full relative items-center gap-1 rounded-full border border-input bg-muted/50 px-2 py-1.5 transition-[color,box-shadow] focus-within:border-ring focus-within:ring-ring/50 focus-within:ring-[3px]">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            disabled={disabled}
+            aria-label="Add"
+            className="absolute left-2 rounded-full"
+          >
+            <Plus className="w-4 h-4" />
+          </Button>
+
+          <Input
+            ref={inputRef}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            onKeyDown={onEnterKey}
+            placeholder={disabled ? 'AI is not ready...' : 'Ask anything'}
+            className="flex-1 pl-10 border-0 bg-transparent shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-0"
+            autoFocus
+          />
+
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            disabled={disabled}
+            aria-label="Camera"
+          >
+            <Camera className="w-4 h-4" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            disabled={disabled}
+            aria-label="Microphone"
+          >
+            <Mic className="w-4 h-4" />
+          </Button>
+
+          <Button
+            type="submit"
+            disabled={!value.trim() || disabled}
+            size="icon"
+            className="rounded-full"
+            aria-label="Send message"
+          >
+            {isLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Send className="w-4 h-4" />
+            )}
+          </Button>
+        </div>
       </form>
     </div>
   )
