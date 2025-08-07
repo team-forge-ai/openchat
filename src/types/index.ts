@@ -10,5 +10,6 @@ export interface Message {
   conversation_id: number
   role: 'user' | 'assistant'
   content: string
+  reasoning?: string // Optional reasoning content for assistant messages
   created_at: string
 }

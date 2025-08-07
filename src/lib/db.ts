@@ -8,14 +8,12 @@ export const dbPromise = Database.load('sqlite:openchat2.db')
 export async function insertConversation(title: string): Promise<number> {
   const db = await dbPromise
   const now = new Date().toISOString()
-  await db.execute(
+  const result = await db.execute(
     'INSERT INTO conversations (title, created_at, updated_at) VALUES (?, ?, ?)',
     [title, now, now],
   )
-  const rows = await db.select<{ id: number }[]>(
-    'SELECT last_insert_rowid() as id',
-  )
-  return rows[0].id
+
+  return result.lastInsertId as number
 }
 
 /** Insert a message and return its row id */
@@ -23,29 +21,84 @@ export async function insertMessage(
   conversationId: number,
   role: 'user' | 'assistant',
   content: string,
+  reasoning?: string,
 ): Promise<number> {
   const db = await dbPromise
   const now = new Date().toISOString()
-  await db.execute(
-    'INSERT INTO messages (conversation_id, role, content, created_at) VALUES (?, ?, ?, ?)',
-    [conversationId, role, content, now],
+  const result = await db.execute(
+    'INSERT INTO messages (conversation_id, role, content, reasoning, created_at) VALUES (?, ?, ?, ?, ?)',
+    [conversationId, role, content, reasoning || null, now],
   )
-  const rows = await db.select<{ id: number }[]>(
-    'SELECT last_insert_rowid() as id',
-  )
-  return rows[0].id
+  return result.lastInsertId as number
 }
 
-/** Update a message's content */
+/** Update a message's content and reasoning */
 export async function updateMessage(
   messageId: number,
   content: string,
+  reasoning?: string,
 ): Promise<void> {
   const db = await dbPromise
-  await db.execute('UPDATE messages SET content = ? WHERE id = ?', [
-    content,
-    messageId,
-  ])
+  await db.execute(
+    'UPDATE messages SET content = ?, reasoning = ? WHERE id = ?',
+    [content, reasoning || null, messageId],
+  )
+}
+
+/**
+ * Gets all conversations ordered by updated_at descending.
+ */
+export async function getConversations(): Promise<
+  Array<{
+    id: number
+    title: string
+    created_at: string
+    updated_at: string
+  }>
+> {
+  const db = await dbPromise
+  return await db.select(
+    'SELECT id, title, created_at, updated_at FROM conversations ORDER BY updated_at DESC',
+  )
+}
+
+/**
+ * Gets messages for a conversation (basic fields for chat completion).
+ */
+export async function getMessagesForChat(conversationId: number): Promise<
+  Array<{
+    id: number
+    conversation_id: number
+    role: 'user' | 'assistant'
+    content: string
+    created_at: string
+  }>
+> {
+  const db = await dbPromise
+  return await db.select(
+    'SELECT id, conversation_id, role, content, created_at FROM messages WHERE conversation_id = ? ORDER BY id',
+    [conversationId],
+  )
+}
+
+/**
+ * Gets all message fields for a conversation (including reasoning).
+ */
+export async function getMessages(conversationId: number): Promise<
+  Array<{
+    id: number
+    conversation_id: number
+    role: 'user' | 'assistant'
+    content: string
+    reasoning?: string
+    created_at: string
+  }>
+> {
+  const db = await dbPromise
+  return await db.select(
+    'SELECT id, conversation_id, role, content, reasoning, created_at FROM messages WHERE conversation_id = ? ORDER BY id',
+    [conversationId],
+  )
 }
 
 /**

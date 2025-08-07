@@ -11,6 +11,7 @@ export interface MLXServerConfig {
 
 export interface MLXServerStatus {
   isRunning: boolean
+  isReady: boolean
   port?: number
   modelPath?: string
   pid?: number | null
@@ -19,6 +20,7 @@ export interface MLXServerStatus {
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant'
   content: string
+  reasoning?: string // Optional reasoning content
 }
 
 export interface ChatCompletionOptions {
@@ -33,11 +35,23 @@ export interface ChatCompletionChoice {
   message?: {
     role: string
     content: string
+    reasoning?: string // Optional reasoning content
   }
   delta?: {
     content?: string
+    reasoning?: string // Optional reasoning chunk for streaming
   }
   finish_reason?: string | null
+}
+
+export interface ReasoningItem {
+  id: string
+  type: 'reasoning'
+  summary?: Array<{
+    text: string
+    type?: string
+  }>
+  content?: string // Full reasoning content (may not be exposed)
 }
 
 export interface ChatCompletionResponse {
@@ -46,10 +60,12 @@ export interface ChatCompletionResponse {
   created: number
   model: string
   choices: ChatCompletionChoice[]
+  reasoning?: ReasoningItem // Optional reasoning item
   usage?: {
     prompt_tokens: number
     completion_tokens: number
     total_tokens: number
+    reasoning_tokens?: number // Optional reasoning tokens count
   }
 }
 
@@ -106,8 +122,6 @@ export class MLXServerStartupError extends MLXServerError {
 export const DEFAULT_CONFIG = {
   PORT: 8000,
   HOST: '127.0.0.1',
-  MAX_TOKENS: 150,
-  TEMPERATURE: 0.7,
   LOG_LEVEL: 'INFO' as const,
   MAX_STARTUP_ATTEMPTS: 30,
   STARTUP_CHECK_INTERVAL: 1000,

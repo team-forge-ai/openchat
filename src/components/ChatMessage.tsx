@@ -3,8 +3,12 @@ import React from 'react'
 
 import type { Message } from '@/types'
 
+import { Markdown } from './markdown/markdown'
+import { ReasoningDisplay } from './reasoning-display'
+
 interface ChatMessageProps {
   message: Message
+  onSendMessage?: (text: string) => void
 }
 
 export const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
@@ -25,11 +29,12 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
       </div>
 
       <div className="flex-1 min-w-0">
-        <div className="prose prose-sm max-w-none">
-          <div className="whitespace-pre-wrap break-words">
-            {message.content}
-          </div>
-        </div>
+        {/* Show reasoning for assistant messages if available */}
+        {!isUser && message.reasoning && (
+          <ReasoningDisplay reasoning={message.reasoning} />
+        )}
+
+        <Markdown>{message.content}</Markdown>
         <div className="text-xs text-muted-foreground mt-2">
           {new Date(message.created_at).toLocaleTimeString()}
         </div>

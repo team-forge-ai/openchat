@@ -21,5 +21,11 @@ pub fn migrations() -> Vec<Migration> {
             sql: include_str!("../migrations/003_index_messages_conv_id.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 4,
+            description: "add_reasoning_to_messages",
+            sql: include_str!("../migrations/004_add_reasoning_to_messages.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }

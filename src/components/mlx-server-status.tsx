@@ -10,30 +10,30 @@ import {
 import { useMLXServer } from '@/contexts/mlx-server-context'
 
 export function MLXServerStatus() {
-  const { status, isInitializing, error, restartServer } = useMLXServer()
+  const { status, error, restartServer } = useMLXServer()
 
   const getStatusIcon = () => {
-    if (isInitializing) {
-      return <Loader2 className="h-4 w-4 animate-spin text-yellow-500" />
-    }
     if (error) {
       return <AlertCircle className="h-4 w-4 text-red-500" />
     }
-    if (status.isRunning) {
+    if (status.isRunning && status.isReady) {
       return <CheckCircle className="h-4 w-4 text-green-500" />
+    }
+    if (status.isRunning && !status.isReady) {
+      return <Loader2 className="h-4 w-4 animate-spin text-orange-500" />
     }
     return <AlertCircle className="h-4 w-4 text-gray-400" />
   }
 
   const getStatusText = () => {
-    if (isInitializing) {
-      return 'Starting AI server...'
-    }
     if (error) {
       return 'AI server error'
     }
-    if (status.isRunning) {
-      return 'AI server running'
+    if (status.isRunning && status.isReady) {
+      return 'AI server ready'
+    }
+    if (status.isRunning && !status.isReady) {
+      return 'AI server starting...'
     }
     return 'AI server offline'
   }
@@ -47,9 +47,20 @@ export function MLXServerStatus() {
         </div>
       )
     }
-    if (status.isRunning) {
+    if (status.isRunning && status.isReady) {
       return (
         <div className="space-y-1">
+          <p>Status: Ready</p>
+          <p>Model: {status.modelPath?.split('/').pop()}</p>
+          <p>Port: {status.port}</p>
+          {status.pid && <p>PID: {status.pid}</p>}
+        </div>
+      )
+    }
+    if (status.isRunning && !status.isReady) {
+      return (
+        <div className="space-y-1">
+          <p>Status: Starting up...</p>
           <p>Model: {status.modelPath?.split('/').pop()}</p>
           <p>Port: {status.port}</p>
           {status.pid && <p>PID: {status.pid}</p>}
@@ -72,7 +83,9 @@ export function MLXServerStatus() {
           <TooltipContent>{getTooltipContent()}</TooltipContent>
         </Tooltip>
 
-        {(error || !status.isRunning) && !isInitializing && (
+        {(error ||
+          !status.isRunning ||
+          (status.isRunning && !status.isReady)) && (
           <Tooltip>
             <TooltipTrigger asChild>
               <Button

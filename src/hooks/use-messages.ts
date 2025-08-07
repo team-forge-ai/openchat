@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { useChatCompletion } from '@/hooks/use-chat-completion'
-import { dbPromise, insertMessage, updateMessage } from '@/lib/db'
+import { getMessages, insertMessage, updateMessage } from '@/lib/db'
 import type { Message } from '@/types'
 
 interface SendMessageVariables {
@@ -31,13 +31,7 @@ export function useMessages(conversationId: number | null): UseMessagesResult {
   >({
     queryKey: ['messages', conversationId],
     enabled: !!conversationId,
-    queryFn: async () => {
-      const db = await dbPromise
-      return await db.select<Message[]>(
-        'SELECT id, conversation_id, role, content, created_at FROM messages WHERE conversation_id = ? ORDER BY id',
-        [conversationId],
-      )
-    },
+    queryFn: () => getMessages(conversationId!),
   })
 
   // -------------------------------
@@ -45,49 +39,86 @@ export function useMessages(conversationId: number | null): UseMessagesResult {
   // -------------------------------
   const mutation = useMutation<void, unknown, SendMessageVariables>({
     mutationFn: async ({ conversationId, content }) => {
+      const invalidateConverationQuery = async () => {
+        await queryClient.invalidateQueries({
+          queryKey: ['messages', conversationId],
+        })
+      }
+
       // Insert user message locally
       await insertMessage(conversationId, 'user', content)
+      await invalidateConverationQuery()
 
-      // Insert empty assistant message for streaming
-      const assistantMessageId = await insertMessage(
-        conversationId,
-        'assistant',
-        '',
-      )
-
-      // Track the accumulated content for optimistic updates
+      // Track the accumulated content for database updates
       let accumulatedContent = ''
+      let accumulatedReasoning = ''
+      let assistantMessageId: number | null = null
 
       // Generate assistant reply with streaming
       await generateStreaming(conversationId, {
-        onChunk: (chunk) => {
+        onChunk: async (chunk) => {
           // Accumulate content
           accumulatedContent += chunk
 
-          // Optimistically update the message in the cache
-          queryClient.setQueryData<Message[]>(
-            ['messages', conversationId],
-            (oldMessages) => {
-              if (!oldMessages) {
-                return oldMessages
-              }
+          // Insert message to database on first chunk, update on subsequent chunks
+          if (assistantMessageId === null) {
+            assistantMessageId = await insertMessage(
+              conversationId,
+              'assistant',
+              accumulatedContent,
+              accumulatedReasoning || undefined,
+            )
+          } else {
+            await updateMessage(
+              assistantMessageId,
+              accumulatedContent,
+              accumulatedReasoning || undefined,
+            )
+          }
 
-              return oldMessages.map((msg) => {
-                if (msg.id === assistantMessageId) {
-                  return { ...msg, content: accumulatedContent }
-                }
-                return msg
-              })
-            },
-          )
+          // Invalidate React Query cache to refresh UI from database
+          void invalidateConverationQuery()
         },
-        onComplete: async (fullContent) => {
-          // Update the message in the database with the complete content
-          await updateMessage(assistantMessageId, fullContent)
+        onReasoningChunk: async (chunk) => {
+          // Accumulate reasoning
+          accumulatedReasoning += chunk
+
+          // Insert message to database on first reasoning chunk, update on subsequent chunks
+          if (assistantMessageId === null) {
+            assistantMessageId = await insertMessage(
+              conversationId,
+              'assistant',
+              accumulatedContent,
+              accumulatedReasoning,
+            )
+          } else {
+            await updateMessage(
+              assistantMessageId,
+              accumulatedContent,
+              accumulatedReasoning,
+            )
+          }
+
+          // Invalidate React Query cache to refresh UI from database
+          void invalidateConverationQuery()
+        },
+        onComplete: async (fullContent, fullReasoning) => {
+          console.log('[use-messages] onComplete', {
+            fullReasoning,
+            fullContent,
+          })
+
+          // Final update to ensure the message is complete in database
+          if (assistantMessageId !== null) {
+            await updateMessage(assistantMessageId, fullContent, fullReasoning)
+          }
         },
         onError: (error) => {
           console.error('Streaming error:', error)
-          // Could potentially update the message with an error state here
+
+          // If we created a message but got an error, we could optionally delete it
+          // For now, we'll leave partial messages in the database
+          // TODO: Consider if we want to delete incomplete messages on error
         },
       })
     },

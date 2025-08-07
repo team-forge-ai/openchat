@@ -1,207 +1,116 @@
-import {
-  Command,
-  type Child,
-  type TerminatedPayload,
-} from '@tauri-apps/plugin-shell'
+import { invoke } from '@tauri-apps/api/core'
+import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 
 import type {
   ChatCompletionOptions,
   ChatMessage,
-  MLXServerConfig,
   MLXServerStatus,
-  ModelsResponse,
 } from '@/types/mlx-server'
-import {
-  DEFAULT_CONFIG,
-  MLXServerNotRunningError,
-  MLXServerStartupError,
-} from '@/types/mlx-server'
+import { DEFAULT_CONFIG, MLXServerNotRunningError } from '@/types/mlx-server'
 
-import { ModelsResponseSchema } from './mlx-server-schemas'
-import { findAvailablePort, validateServerState } from './mlx-server-validation'
-
+/**
+ * MLX Server Service - Frontend facade for the Rust-managed MLX server
+ *
+ * This class provides a familiar interface for the frontend while delegating
+ * all process management to the Rust backend.
+ */
 class MLXServerService {
-  private command: Command<string> | null = null
-  private child: Child | null = null
-  private isRunning = false
-  private config: MLXServerConfig | null = null
+  private cachedStatus: MLXServerStatus | null = null
+  private statusListeners = new Set<(status: MLXServerStatus) => void>()
+  private eventUnlisteners: UnlistenFn[] = []
 
   /**
-   * Start the MLX server with the given configuration
+   * Get the current status of the MLX server from Rust
    */
-  async start(config: MLXServerConfig): Promise<void> {
-    // Validate server state
-    validateServerState({
-      isRunning: this.isRunning,
-      child: this.child,
-      command: this.command,
-    })
-
-    // Handle orphaned processes or inconsistent state
-    if (this.child?.pid && !this.isRunning) {
-      console.log('Detected potential orphaned process, attempting cleanup...')
-      await this.stop()
-    }
-
-    // Clean any residual state
-    if (this.command || this.child) {
-      console.log('Cleaning up residual state before starting...')
-      this.cleanup()
-    }
-
-    // Find an available port (will use the preferred port if available)
-    const preferredPort = config.port || DEFAULT_CONFIG.PORT
-    const availablePort = await findAvailablePort(preferredPort)
-
-    // Update config with the actual port we'll use
-    const actualConfig = { ...config, port: availablePort }
-
-    if (availablePort !== preferredPort) {
-      console.log(
-        `Port ${preferredPort} was unavailable, using port ${availablePort} instead`,
-      )
-    }
-
-    this.config = actualConfig
-
-    const args = this.buildCommandArgs(actualConfig)
-
+  async getStatus(): Promise<MLXServerStatus> {
     try {
-      // Create the command to run the MLX server sidecar
-      // Use the exact path as specified in tauri.conf.json > bundle > externalBin
-      this.command = Command.sidecar('binaries/openchat-mlx-server', args)
+      const status = await invoke<{
+        is_running: boolean
+        is_ready: boolean
+        port?: number
+        model_path?: string
+        pid?: number
+        error?: string
+      }>('mlx_get_status')
 
-      // Set up event listeners
-      this.setupEventListeners()
-
-      // Start the server
-      this.child = await this.command.spawn()
-
-      console.log(`MLX server started with PID: ${this.child.pid}`)
-
-      // Wait a moment for the server to start
-      await new Promise((resolve) =>
-        setTimeout(resolve, DEFAULT_CONFIG.INITIAL_STARTUP_DELAY),
-      )
-
-      // Verify the server is responding
-      await this.waitForServer(actualConfig.port || DEFAULT_CONFIG.PORT)
-    } catch (error) {
-      console.error('Failed to start MLX server:', error)
-      this.cleanup()
-      throw new MLXServerStartupError(
-        error instanceof Error ? error.message : String(error),
-      )
-    }
-  }
-
-  /**
-   * Build command arguments from configuration
-   */
-  private buildCommandArgs(config: MLXServerConfig): string[] {
-    const args = [
-      config.modelPath,
-      '--port',
-      (config.port || DEFAULT_CONFIG.PORT).toString(),
-      '--host',
-      config.host || DEFAULT_CONFIG.HOST,
-    ]
-
-    if (config.logLevel) {
-      args.push('--log-level', config.logLevel)
-    }
-
-    if (config.maxTokens) {
-      args.push('--max-tokens', config.maxTokens.toString())
-    }
-
-    if (config.temperature) {
-      args.push('--temperature', config.temperature.toString())
-    }
-
-    return args
-  }
-
-  /**
-   * Set up event listeners for the command
-   */
-  private setupEventListeners(): void {
-    if (!this.command) {
-      return
-    }
-
-    this.command.on('close', (data: TerminatedPayload) => {
-      console.log('MLX server closed with code:', data.code)
-      this.cleanup()
-    })
-
-    this.command.on('error', (error: string) => {
-      console.error('MLX server error:', error)
-      this.cleanup()
-    })
-
-    this.command.stdout.on('data', (line: string) => {
-      console.log('MLX server stdout:', line)
-      // Look for server startup confirmation
-      if (line.includes('Server started') || line.includes('Uvicorn running')) {
-        this.isRunning = true
+      // Convert Rust snake_case to JS camelCase for compatibility
+      this.cachedStatus = {
+        isRunning: status.is_running,
+        isReady: status.is_ready,
+        port: status.port,
+        modelPath: status.model_path,
+        pid: status.pid ?? null,
       }
-    })
 
-    this.command.stderr.on('data', (line: string) => {
-      console.error('MLX server stderr:', line)
-    })
-  }
-
-  /**
-   * Clean up server state
-   */
-  private cleanup(): void {
-    this.isRunning = false
-    this.child = null
-    this.command = null
-  }
-
-  /**
-   * Stop the MLX server
-   */
-  async stop(): Promise<void> {
-    if (!this.isRunning || !this.child) {
-      console.log('MLX server is not running')
-      return
-    }
-
-    try {
-      await this.child.kill()
-      this.cleanup()
-      console.log('MLX server stopped')
+      return this.cachedStatus
     } catch (error) {
-      console.error('Failed to stop MLX server:', error)
+      console.error('Failed to get MLX server status:', error)
       throw error
     }
   }
 
   /**
-   * Get the current status of the MLX server
+   * Initialize event listeners for all MLX server events
    */
-  getStatus(): MLXServerStatus {
-    return {
-      isRunning: this.isRunning,
-      port: this.config?.port,
-      modelPath: this.config?.modelPath,
-      pid: this.child?.pid ?? null,
+  async initializeEventListeners(): Promise<void> {
+    if (this.eventUnlisteners.length > 0) {
+      return // Already initialized
+    }
+
+    try {
+      // Listen for status changes
+      const statusUnlisten = await listen<{
+        is_running: boolean
+        is_ready: boolean
+        port?: number
+        model_path?: string
+        pid?: number
+        error?: string
+      }>('mlx-status-changed', (event) => {
+        console.log('MLX server status changed:', event.payload)
+
+        const status = convertRustStatusToJS(event.payload)
+        this.cachedStatus = status
+
+        // Notify all status listeners
+        this.statusListeners.forEach((listener) => listener(status))
+      })
+      this.eventUnlisteners.push(statusUnlisten)
+    } catch (error) {
+      console.error('Failed to initialize MLX server event listeners:', error)
     }
   }
 
   /**
-   * Check if the server is healthy by making a health check request
+   * Add a listener for status changes
    */
-  async healthCheck(port: number = DEFAULT_CONFIG.PORT): Promise<boolean> {
+  addStatusListener(listener: (status: MLXServerStatus) => void): () => void {
+    this.statusListeners.add(listener)
+
+    // Return cleanup function
+    return () => {
+      this.statusListeners.delete(listener)
+    }
+  }
+
+  /**
+   * Cleanup event listeners
+   */
+  cleanup(): void {
+    // Clean up all event listeners
+    this.eventUnlisteners.forEach((unlisten) => unlisten())
+    this.eventUnlisteners = []
+
+    // Clear all listener sets
+    this.statusListeners.clear()
+  }
+
+  /**
+   * Check if the server is healthy
+   */
+  async healthCheck(): Promise<boolean> {
     try {
-      const response = await fetch(
-        `http://${DEFAULT_CONFIG.HOST}:${port}/health`,
-      )
-      return response.ok
+      return await invoke<boolean>('mlx_health_check')
     } catch (error) {
       console.error('Health check failed:', error)
       return false
@@ -209,50 +118,37 @@ class MLXServerService {
   }
 
   /**
-   * Wait for the server to become available
+   * Restart the MLX server
    */
-  private async waitForServer(
-    port: number,
-    maxAttempts: number = DEFAULT_CONFIG.MAX_STARTUP_ATTEMPTS,
-  ): Promise<void> {
-    for (let i = 0; i < maxAttempts; i++) {
-      if (await this.healthCheck(port)) {
-        this.isRunning = true
-        return
-      }
-      await new Promise((resolve) =>
-        setTimeout(resolve, DEFAULT_CONFIG.STARTUP_CHECK_INTERVAL),
-      )
+  async restart(): Promise<void> {
+    try {
+      await invoke('mlx_restart')
+    } catch (error) {
+      console.error('Failed to restart MLX server:', error)
+      throw error
     }
-    throw new MLXServerStartupError(
-      'Server failed to start within timeout period',
-    )
   }
 
   /**
    * Make a chat completion request to the MLX server
+   * This method is still handled on the frontend side as it's just HTTP communication
    */
   async chatCompletion(
     messages: ChatMessage[],
     options: ChatCompletionOptions = {},
   ): Promise<Response> {
-    if (!this.isRunning) {
+    // Get current status to check if server is running and ready
+    const status = await this.getStatus()
+
+    if (!status.isRunning || !status.isReady) {
       throw new MLXServerNotRunningError()
     }
 
-    const port = options.port || this.config?.port || DEFAULT_CONFIG.PORT
+    const port = options.port || status.port || DEFAULT_CONFIG.PORT
     const url = `http://${DEFAULT_CONFIG.HOST}:${port}/v1/chat/completions`
 
     const body = {
       messages,
-      max_tokens:
-        options.maxTokens ||
-        this.config?.maxTokens ||
-        DEFAULT_CONFIG.MAX_TOKENS,
-      temperature:
-        options.temperature ||
-        this.config?.temperature ||
-        DEFAULT_CONFIG.TEMPERATURE,
       stream: options.stream || false,
     }
 
@@ -264,34 +160,25 @@ class MLXServerService {
       body: JSON.stringify(body),
     })
   }
+}
 
-  /**
-   * Get available models from the MLX server
-   */
-  async getModels(port: number = DEFAULT_CONFIG.PORT): Promise<ModelsResponse> {
-    if (!this.isRunning) {
-      throw new MLXServerNotRunningError()
-    }
-
-    const response = await fetch(
-      `http://${DEFAULT_CONFIG.HOST}:${port}/v1/models`,
-    )
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch models: ${response.statusText}`)
-    }
-
-    const jsonData = await response.json()
-    const parseResult = ModelsResponseSchema.safeParse(jsonData)
-
-    if (!parseResult.success) {
-      console.error('Invalid models response format:', parseResult.error)
-      throw new Error('Invalid response format from MLX server')
-    }
-
-    return parseResult.data
+// Event handler helpers for Tauri events
+export function convertRustStatusToJS(rustStatus: {
+  is_running: boolean
+  is_ready: boolean
+  port?: number
+  model_path?: string
+  pid?: number
+  error?: string
+}): MLXServerStatus {
+  return {
+    isRunning: rustStatus.is_running,
+    isReady: rustStatus.is_ready,
+    port: rustStatus.port,
+    modelPath: rustStatus.model_path,
+    pid: rustStatus.pid ?? null,
   }
 }
 
-// Export a singleton instance
+// Export a singleton instance for backward compatibility
 export const mlxServer = new MLXServerService()
