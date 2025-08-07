@@ -52,7 +52,7 @@ export function useChatCompletion(): UseChatCompletion {
 
     try {
       // Make streaming request to MLX server
-      const response = await mlxServer.chatCompletion(chatMessages, {
+      const response = await mlxServer.chatCompletionRequest(chatMessages, {
         stream: true, // Enable streaming
       })
 

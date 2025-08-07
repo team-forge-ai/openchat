@@ -133,11 +133,30 @@ class MLXServerService {
    * Make a chat completion request to the MLX server
    * This method is still handled on the frontend side as it's just HTTP communication
    */
-  async chatCompletion(
+  async chatCompletionRequest(
     messages: ChatMessage[],
     options: ChatCompletionOptions = {},
   ): Promise<Response> {
-    // Get current status to check if server is running and ready
+    const path = `/v1/chat/completions`
+
+    const body = {
+      messages,
+      stream: options.stream || false,
+    }
+
+    return await this.makeRequest(path, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    })
+  }
+
+  private async makeRequest(
+    path: string,
+    init: RequestInit,
+  ): Promise<Response> {
     const status = await this.getStatus()
 
     if (!status.isRunning || !status.isReady) {
@@ -145,20 +164,9 @@ class MLXServerService {
     }
 
     const port = status.port || DEFAULT_CONFIG.PORT
-    const url = `http://${DEFAULT_CONFIG.HOST}:${port}/v1/chat/completions`
+    const url = `http://${DEFAULT_CONFIG.HOST}:${port}/${path}`
 
-    const body = {
-      messages,
-      stream: options.stream || false,
-    }
-
-    return await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    })
+    return await fetch(url, init)
   }
 }
 
