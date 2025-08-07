@@ -13,17 +13,23 @@ export async function generateConversationTitle(
     return null
   }
 
-  const systemPrompt: ChatMessage = {
-    role: 'system',
-    content:
-      'Given the following conversation messages, output a short, descriptive title of 2-5 words. Title case. No quotes, emojis, or trailing punctuation. If no good title is possible, respond exactly with: None',
-  }
+  const chatMessages: ChatMessage[] = [
+    {
+      role: 'system',
+      content: 'Follow the users instructions exactly.',
+    },
+    {
+      role: 'user',
+      content:
+        'Given the following conversation messages, output a short, descriptive title of 2-5 words. Title case. No quotes, emojis, or trailing punctuation. If no good title is possible, respond exactly with: None\n\n' +
+        JSON.stringify(messages) +
+        '\n\n' +
+        'Output only the title, no other text.',
+    },
+  ]
 
   try {
-    const response = await mlxServer.chatCompletionRequest([
-      systemPrompt,
-      ...messages,
-    ])
+    const response = await mlxServer.chatCompletionRequest(chatMessages)
     if (!response.ok) {
       return null
     }
@@ -33,6 +39,8 @@ export async function generateConversationTitle(
     if (!parsed.success) {
       return null
     }
+
+    console.log(parsed.data)
 
     const content =
       parsed.data.choices[0]?.message?.content ??

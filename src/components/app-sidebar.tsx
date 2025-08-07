@@ -109,7 +109,7 @@ export function AppSidebar() {
                       <MessageSquare className="h-4 w-4 mr-3 flex-shrink-0" />
                       <div className="flex-1 min-w-0">
                         <div className="truncate font-medium">
-                          {conversation.title}
+                          {conversation.title || 'Untitled'}
                         </div>
                         <div className="text-xs text-muted-foreground">
                           {new Date(
