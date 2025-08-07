@@ -1,10 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { useChatCompletion } from '@/hooks/use-chat-completion'
-import { getMessages, insertMessage } from '@/lib/db'
+import { getMessages, insertMessage, updateMessage } from '@/lib/db'
 import type { Message } from '@/types'
-
-import { useUniqueId } from './use-unique-id'
 
 interface SendMessageVariables {
   conversationId: number
@@ -23,7 +21,6 @@ interface UseMessagesResult {
 
 export function useMessages(conversationId: number | null): UseMessagesResult {
   const queryClient = useQueryClient()
-  const uniqueId = useUniqueId()
   const { generateStreaming } = useChatCompletion()
 
   // -------------------------------
@@ -42,87 +39,72 @@ export function useMessages(conversationId: number | null): UseMessagesResult {
   // -------------------------------
   const mutation = useMutation<void, unknown, SendMessageVariables>({
     mutationFn: async ({ conversationId, content }) => {
-      // Insert user message locally
-      await insertMessage(conversationId, 'user', content)
-
-      // Track the accumulated content for optimistic updates
-      let accumulatedContent = ''
-      let accumulatedReasoning = ''
-      let tempMessageId = uniqueId() // Temporary ID for optimistic updates
-
-      const setQueryData = (callback: (data: Message[]) => Message[]) => {
-        queryClient.setQueryData<Message[]>(
-          ['messages', conversationId],
-          (oldMessages) => {
-            return callback(oldMessages ?? [])
-          },
-        )
+      const invalidateConverationQuery = async () => {
+        await queryClient.invalidateQueries({
+          queryKey: ['messages', conversationId],
+        })
       }
 
-      // Add temporary assistant message to cache for UI
-      setQueryData((oldMessages) => {
-        return [
-          ...oldMessages,
-          {
-            id: tempMessageId,
-            conversation_id: conversationId,
-            role: 'assistant',
-            content: '',
-            reasoning: undefined,
-            created_at: new Date().toISOString(),
-          },
-        ]
-      })
+      // Insert user message locally
+      await insertMessage(conversationId, 'user', content)
+      await invalidateConverationQuery()
+
+      // Track the accumulated content for database updates
+      let accumulatedContent = ''
+      let accumulatedReasoning = ''
+      let assistantMessageId: number | null = null
 
       // Generate assistant reply with streaming
       await generateStreaming(conversationId, {
-        onChunk: (chunk) => {
+        onChunk: async (chunk) => {
           console.log('[use-messages] onChunk', chunk)
 
           // Accumulate content
           accumulatedContent += chunk
 
-          // Optimistically update the message in the cache
-          setQueryData((oldMessages) => {
-            if (!oldMessages) {
-              return oldMessages
-            }
+          // Insert message to database on first chunk, update on subsequent chunks
+          if (assistantMessageId === null) {
+            assistantMessageId = await insertMessage(
+              conversationId,
+              'assistant',
+              accumulatedContent,
+              accumulatedReasoning || undefined,
+            )
+          } else {
+            await updateMessage(
+              assistantMessageId,
+              accumulatedContent,
+              accumulatedReasoning || undefined,
+            )
+          }
 
-            return oldMessages.map((msg) => {
-              if (msg.id === tempMessageId) {
-                return {
-                  ...msg,
-                  content: accumulatedContent,
-                  reasoning: accumulatedReasoning || undefined,
-                }
-              }
-              return msg
-            })
-          })
+          // Invalidate React Query cache to refresh UI from database
+          void invalidateConverationQuery()
         },
-        onReasoningChunk: (chunk) => {
+        onReasoningChunk: async (chunk) => {
           console.log('[use-messages] onReasoningChunk', chunk)
 
           // Accumulate reasoning
           accumulatedReasoning += chunk
 
-          // Optimistically update the message reasoning in the cache
-          setQueryData((oldMessages) => {
-            if (!oldMessages) {
-              return oldMessages
-            }
+          // Insert message to database on first reasoning chunk, update on subsequent chunks
+          if (assistantMessageId === null) {
+            assistantMessageId = await insertMessage(
+              conversationId,
+              'assistant',
+              accumulatedContent,
+              accumulatedReasoning,
+            )
+          } else {
+            await updateMessage(
+              assistantMessageId,
+              accumulatedContent,
+              accumulatedReasoning,
+            )
+          }
 
-            return oldMessages.map((msg) => {
-              if (msg.id === tempMessageId) {
-                return {
-                  ...msg,
-                  content: accumulatedContent,
-                  reasoning: accumulatedReasoning,
-                }
-              }
-              return msg
-            })
-          })
+          // Invalidate React Query cache to refresh UI from database
+          void invalidateConverationQuery()
         },
         onComplete: async (fullContent, fullReasoning) => {
           console.log('[use-messages] onComplete', {
@@ -130,24 +112,17 @@ export function useMessages(conversationId: number | null): UseMessagesResult {
             fullContent,
           })
 
-          // Now insert the complete assistant message into the database
-          await insertMessage(
-            conversationId,
-            'assistant',
-            fullContent,
-            fullReasoning,
-          )
+          // Final update to ensure the message is complete in database
+          if (assistantMessageId !== null) {
+            await updateMessage(assistantMessageId, fullContent, fullReasoning)
+          }
         },
         onError: (error) => {
           console.error('Streaming error:', error)
 
-          // Remove the temporary message from cache on error
-          setQueryData((oldMessages) => {
-            if (!oldMessages) {
-              return oldMessages
-            }
-            return oldMessages.filter((msg) => msg.id !== tempMessageId)
-          })
+          // If we created a message but got an error, we could optionally delete it
+          // For now, we'll leave partial messages in the database
+          // TODO: Consider if we want to delete incomplete messages on error
         },
       })
     },
