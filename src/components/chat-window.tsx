@@ -73,6 +73,12 @@ export const ChatWindow: React.FC = () => {
     }
   }
 
+  useEffect(() => {
+    if (!isChatDisabled) {
+      inputRef.current?.focus()
+    }
+  }, [selectedConversationId, isChatDisabled])
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()

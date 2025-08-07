@@ -9,7 +9,7 @@ import {
 
 export function AppSidebarFooter() {
   return (
-    <SidebarFooter className="border-t">
+    <SidebarFooter>
       <SidebarMenu>
         <SidebarMenuItem>
           <SidebarMenuButton
