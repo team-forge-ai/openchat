@@ -13,11 +13,13 @@
     "macOSPrivateApi": true,
     "windows": [
       {
-        "title": "OpenChat",
+        "title": "",
         "width": 1200,
         "height": 800,
-        "transparent": true,
-        "decorations": false
+        "transparent": false,
+        "decorations": true,
+        "shadow": true,
+        "titleBarStyle": "Overlay"
       }
     ],
     "security": {
@@ -39,7 +41,7 @@
   },
   "plugins": {
     "sql": {
-      "preload": ["sqlite:openchat.db"]
+      "preload": ["sqlite:openchat2.db"]
     }
   }
 }

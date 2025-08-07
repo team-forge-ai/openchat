@@ -36,7 +36,7 @@ import {
 import { useConversation } from '@/contexts/conversation-context'
 import { useConversations } from '@/hooks/use-conversations'
 
-import { Titlebar } from './Titlebar'
+import { WindowDragBar } from './Titlebar'
 
 export function AppSidebar() {
   const { selectedConversationId, setSelectedConversationId } =
@@ -59,7 +59,7 @@ export function AppSidebar() {
 
   return (
     <Sidebar>
-      <Titlebar />
+      <WindowDragBar />
 
       {/* Header Section */}
       <SidebarHeader className="border-b pt-0">
