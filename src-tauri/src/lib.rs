@@ -4,8 +4,6 @@
 use std::fs;
 
 // --- External crate imports ---
-#[cfg(target_os = "macos")]
-use tauri::TitleBarStyle;
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 
 // --- Internal module imports ---
@@ -77,16 +75,9 @@ pub fn run() {
 
 /// Helper to create the main window with platform-specific options.
 fn create_main_window(app: &mut tauri::App) -> Result<(), String> {
-    let mut win_builder =
-        WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
-            .title("openchat")
-            .inner_size(800.0, 600.0);
-
-    // Set transparent title bar only when building for macOS
-    #[cfg(target_os = "macos")]
-    {
-        win_builder = win_builder.title_bar_style(TitleBarStyle::Transparent);
-    }
+    let win_builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
+        .title("openchat")
+        .inner_size(800.0, 600.0);
 
     win_builder
         .build()
