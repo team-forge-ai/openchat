@@ -1,11 +1,6 @@
-import { dbPromise } from '@/lib/db'
+import { getMessagesForChat } from '@/lib/db'
 import { mlxServer } from '@/lib/mlx-server'
-import type { ChatCompletionResponse } from '@/lib/mlx-server-schemas'
-import {
-  ChatCompletionResponseSchema,
-  StreamChunkSchema,
-} from '@/lib/mlx-server-schemas'
-import type { Message } from '@/types'
+import { StreamChunkSchema } from '@/lib/mlx-server-schemas'
 import type { ChatMessage } from '@/types/mlx-server'
 
 interface StreamingOptions {
@@ -16,7 +11,6 @@ interface StreamingOptions {
 }
 
 interface UseChatCompletion {
-  generate: (conversationId: number) => Promise<ChatCompletionResponse>
   generateStreaming: (
     conversationId: number,
     options: StreamingOptions,
@@ -28,11 +22,7 @@ export function useChatCompletion(): UseChatCompletion {
     conversationId: number,
   ): Promise<ChatMessage[]> => {
     // Build ordered context from database
-    const db = await dbPromise
-    const messages = await db.select<Message[]>(
-      'SELECT id, conversation_id, role, content, created_at FROM messages WHERE conversation_id = ? ORDER BY id',
-      [conversationId],
-    )
+    const messages = await getMessagesForChat(conversationId)
 
     // Convert database messages to MLX server format
     const chatMessages: ChatMessage[] = messages.map((msg) => ({
@@ -52,46 +42,6 @@ export function useChatCompletion(): UseChatCompletion {
     return chatMessages
   }
 
-  const generate = async (
-    conversationId: number,
-  ): Promise<ChatCompletionResponse> => {
-    const chatMessages = await buildChatMessages(conversationId)
-
-    try {
-      // Make request to MLX server
-      const response = await mlxServer.chatCompletion(chatMessages, {
-        maxTokens: 500,
-        temperature: 0.7,
-        stream: false,
-      })
-
-      if (!response.ok) {
-        throw new Error(`MLX server request failed: ${response.statusText}`)
-      }
-
-      const jsonData: unknown = await response.json()
-      const parseResult = ChatCompletionResponseSchema.safeParse(jsonData)
-
-      if (!parseResult.success) {
-        console.error('Invalid response format:', parseResult.error)
-        throw new Error('Invalid response format from MLX server')
-      }
-
-      return parseResult.data
-    } catch (error) {
-      console.error('Failed to generate assistant response:', error)
-
-      // Fallback message if MLX server fails
-      if (error instanceof Error && error.message.includes('not running')) {
-        throw new Error(
-          'AI server is not running. Please wait for it to start or restart the application.',
-        )
-      }
-
-      throw error
-    }
-  }
-
   const generateStreaming = async (
     conversationId: number,
     options: StreamingOptions,
@@ -103,8 +53,6 @@ export function useChatCompletion(): UseChatCompletion {
     try {
       // Make streaming request to MLX server
       const response = await mlxServer.chatCompletion(chatMessages, {
-        maxTokens: 500,
-        temperature: 0.7,
         stream: true, // Enable streaming
       })
 
@@ -152,17 +100,23 @@ export function useChatCompletion(): UseChatCompletion {
                 continue
               }
 
-              const content = parseResult.data.choices[0]?.delta?.content
-              const reasoning = parseResult.data.choices[0]?.delta?.reasoning
+              const choice = parseResult.data.choices[0]
+              const content = choice?.delta?.content
+              const reasoningEvent = choice?.reasoning_event
 
               if (content) {
                 fullContent += content
                 options.onChunk?.(content)
               }
 
-              if (reasoning) {
-                fullReasoning += reasoning
-                options.onReasoningChunk?.(reasoning)
+              if (reasoningEvent) {
+                if (
+                  reasoningEvent.type === 'partial' &&
+                  reasoningEvent.content
+                ) {
+                  fullReasoning += reasoningEvent.content
+                  options.onReasoningChunk?.(reasoningEvent.content)
+                }
               }
             } catch (e) {
               console.error('Failed to parse streaming chunk:', e)
@@ -191,5 +145,5 @@ export function useChatCompletion(): UseChatCompletion {
     }
   }
 
-  return { generate, generateStreaming }
+  return { generateStreaming }
 }

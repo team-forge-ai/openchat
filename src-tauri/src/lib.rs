@@ -2,6 +2,7 @@
 mod commands;
 mod db;
 mod migrations;
+mod mlx_server;
 mod models;
 
 // OpenChat desktop – Tauri + Rust
@@ -12,7 +13,8 @@ mod models;
 // 2.  Tauri command handlers bridging React ↔︎ Rust
 // Note: LLM interactions now happen through the openchat-mlx-server
 
-use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
+use mlx_server::MLXServerManager;
+use tauri::{Listener, Manager, WebviewUrl, WebviewWindowBuilder};
 
 #[cfg(target_os = "macos")]
 use tauri::TitleBarStyle;
@@ -42,6 +44,30 @@ pub fn run() {
                 .expect("Failed to create SqlitePool");
             app.manage(pool);
 
+            // Initialize MLX Server Manager
+            let mlx_manager = MLXServerManager::new();
+            let mlx_manager_clone = mlx_manager.clone();
+            let app_handle = app.handle().clone();
+
+            // Set the app handle for event emission
+            tauri::async_runtime::spawn(async move {
+                mlx_manager_clone.set_app_handle(app_handle).await;
+                // Auto-start the MLX server
+                if let Err(e) = mlx_manager_clone.auto_start().await {
+                    log::error!("Failed to auto-start MLX server: {}", e);
+                }
+            });
+
+            // Store the manager in Tauri's state
+            app.manage(mlx_manager.clone());
+
+            // Register cleanup on app exit
+            let mlx_manager_shutdown = mlx_manager.clone();
+            app.listen("tauri://before-quit", move |_event| {
+                log::info!("App is shutting down, stopping MLX server...");
+                mlx_manager_shutdown.shutdown_blocking();
+            });
+
             // Create main window with transparent titlebar (macOS)
             let mut win_builder =
                 WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
@@ -63,6 +89,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::check_port_available,
             commands::get_port_info,
+            commands::mlx_get_status,
+            commands::mlx_restart,
+            commands::mlx_health_check,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

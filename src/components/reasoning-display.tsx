@@ -43,9 +43,7 @@ export function ReasoningDisplay({ reasoning }: ReasoningDisplayProps) {
         </CollapsibleTrigger>
         <CollapsibleContent className="border-t border-blue-200 p-3 dark:border-blue-800">
           <div className="prose prose-sm max-w-none text-blue-900 dark:prose-invert dark:text-blue-100">
-            <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-muted-foreground">
-              {reasoning}
-            </pre>
+            {reasoning}
           </div>
         </CollapsibleContent>
       </Collapsible>

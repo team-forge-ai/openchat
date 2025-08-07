@@ -1,4 +1,6 @@
+use crate::mlx_server::{MLXServerManager, MLXServerStatus};
 use std::net::{SocketAddr, TcpListener};
+use tauri::State;
 
 /// Check if a port is available by attempting to bind to it
 #[tauri::command]
@@ -110,4 +112,23 @@ async fn check_if_mlx_server(port: u16) -> bool {
 
     // MLX server should return 200 OK on /health
     response_str.contains("200 OK") || response_str.contains("200 OK")
+}
+
+// MLX Server Management Commands
+
+#[tauri::command]
+pub async fn mlx_get_status(
+    manager: State<'_, MLXServerManager>,
+) -> Result<MLXServerStatus, String> {
+    Ok(manager.get_status().await)
+}
+
+#[tauri::command]
+pub async fn mlx_restart(manager: State<'_, MLXServerManager>) -> Result<MLXServerStatus, String> {
+    manager.restart().await
+}
+
+#[tauri::command]
+pub async fn mlx_health_check(manager: State<'_, MLXServerManager>) -> Result<bool, String> {
+    Ok(manager.health_check().await)
 }

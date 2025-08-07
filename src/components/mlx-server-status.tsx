@@ -19,7 +19,7 @@ export function MLXServerStatus() {
     if (error) {
       return <AlertCircle className="h-4 w-4 text-red-500" />
     }
-    if (status.isRunning) {
+    if (status.is_running) {
       return <CheckCircle className="h-4 w-4 text-green-500" />
     }
     return <AlertCircle className="h-4 w-4 text-gray-400" />
@@ -32,7 +32,7 @@ export function MLXServerStatus() {
     if (error) {
       return 'AI server error'
     }
-    if (status.isRunning) {
+    if (status.is_running) {
       return 'AI server running'
     }
     return 'AI server offline'
@@ -47,10 +47,10 @@ export function MLXServerStatus() {
         </div>
       )
     }
-    if (status.isRunning) {
+    if (status.is_running) {
       return (
         <div className="space-y-1">
-          <p>Model: {status.modelPath?.split('/').pop()}</p>
+          <p>Model: {status.model_path?.split('/').pop()}</p>
           <p>Port: {status.port}</p>
           {status.pid && <p>PID: {status.pid}</p>}
         </div>
@@ -72,7 +72,7 @@ export function MLXServerStatus() {
           <TooltipContent>{getTooltipContent()}</TooltipContent>
         </Tooltip>
 
-        {(error || !status.isRunning) && !isInitializing && (
+        {(error || !status.is_running) && !isInitializing && (
           <Tooltip>
             <TooltipTrigger asChild>
               <Button

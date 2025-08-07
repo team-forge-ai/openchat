@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { useChatCompletion } from '@/hooks/use-chat-completion'
-import { dbPromise, insertMessage, updateMessage } from '@/lib/db'
+import { getMessages, insertMessage } from '@/lib/db'
 import type { Message } from '@/types'
+
+import { useUniqueId } from './use-unique-id'
 
 interface SendMessageVariables {
   conversationId: number
@@ -21,6 +23,7 @@ interface UseMessagesResult {
 
 export function useMessages(conversationId: number | null): UseMessagesResult {
   const queryClient = useQueryClient()
+  const uniqueId = useUniqueId()
   const { generateStreaming } = useChatCompletion()
 
   // -------------------------------
@@ -31,13 +34,7 @@ export function useMessages(conversationId: number | null): UseMessagesResult {
   >({
     queryKey: ['messages', conversationId],
     enabled: !!conversationId,
-    queryFn: async () => {
-      const db = await dbPromise
-      return await db.select<Message[]>(
-        'SELECT id, conversation_id, role, content, reasoning, created_at FROM messages WHERE conversation_id = ? ORDER BY id',
-        [conversationId],
-      )
-    },
+    queryFn: () => getMessages(conversationId!),
   })
 
   // -------------------------------
@@ -48,17 +45,34 @@ export function useMessages(conversationId: number | null): UseMessagesResult {
       // Insert user message locally
       await insertMessage(conversationId, 'user', content)
 
-      // Insert empty assistant message for streaming
-      const assistantMessageId = await insertMessage(
-        conversationId,
-        'assistant',
-        '',
-        undefined, // No reasoning initially
-      )
-
       // Track the accumulated content for optimistic updates
       let accumulatedContent = ''
       let accumulatedReasoning = ''
+      let tempMessageId = uniqueId() // Temporary ID for optimistic updates
+
+      const setQueryData = (callback: (data: Message[]) => Message[]) => {
+        queryClient.setQueryData<Message[]>(
+          ['messages', conversationId],
+          (oldMessages) => {
+            return callback(oldMessages ?? [])
+          },
+        )
+      }
+
+      // Add temporary assistant message to cache for UI
+      setQueryData((oldMessages) => {
+        return [
+          ...oldMessages,
+          {
+            id: tempMessageId,
+            conversation_id: conversationId,
+            role: 'assistant',
+            content: '',
+            reasoning: undefined,
+            created_at: new Date().toISOString(),
+          },
+        ]
+      })
 
       // Generate assistant reply with streaming
       await generateStreaming(conversationId, {
@@ -69,25 +83,22 @@ export function useMessages(conversationId: number | null): UseMessagesResult {
           accumulatedContent += chunk
 
           // Optimistically update the message in the cache
-          queryClient.setQueryData<Message[]>(
-            ['messages', conversationId],
-            (oldMessages) => {
-              if (!oldMessages) {
-                return oldMessages
-              }
+          setQueryData((oldMessages) => {
+            if (!oldMessages) {
+              return oldMessages
+            }
 
-              return oldMessages.map((msg) => {
-                if (msg.id === assistantMessageId) {
-                  return {
-                    ...msg,
-                    content: accumulatedContent,
-                    reasoning: accumulatedReasoning || undefined,
-                  }
+            return oldMessages.map((msg) => {
+              if (msg.id === tempMessageId) {
+                return {
+                  ...msg,
+                  content: accumulatedContent,
+                  reasoning: accumulatedReasoning || undefined,
                 }
-                return msg
-              })
-            },
-          )
+              }
+              return msg
+            })
+          })
         },
         onReasoningChunk: (chunk) => {
           console.log('[use-messages] onReasoningChunk', chunk)
@@ -96,35 +107,47 @@ export function useMessages(conversationId: number | null): UseMessagesResult {
           accumulatedReasoning += chunk
 
           // Optimistically update the message reasoning in the cache
-          queryClient.setQueryData<Message[]>(
-            ['messages', conversationId],
-            (oldMessages) => {
-              if (!oldMessages) {
-                return oldMessages
-              }
+          setQueryData((oldMessages) => {
+            if (!oldMessages) {
+              return oldMessages
+            }
 
-              return oldMessages.map((msg) => {
-                if (msg.id === assistantMessageId) {
-                  return {
-                    ...msg,
-                    content: accumulatedContent,
-                    reasoning: accumulatedReasoning,
-                  }
+            return oldMessages.map((msg) => {
+              if (msg.id === tempMessageId) {
+                return {
+                  ...msg,
+                  content: accumulatedContent,
+                  reasoning: accumulatedReasoning,
                 }
-                return msg
-              })
-            },
-          )
+              }
+              return msg
+            })
+          })
         },
         onComplete: async (fullContent, fullReasoning) => {
-          console.log('[use-messages] onComplete', fullContent, fullReasoning)
+          console.log('[use-messages] onComplete', {
+            fullReasoning,
+            fullContent,
+          })
 
-          // Update the message in the database with the complete content and reasoning
-          await updateMessage(assistantMessageId, fullContent, fullReasoning)
+          // Now insert the complete assistant message into the database
+          await insertMessage(
+            conversationId,
+            'assistant',
+            fullContent,
+            fullReasoning,
+          )
         },
         onError: (error) => {
           console.error('Streaming error:', error)
-          // Could potentially update the message with an error state here
+
+          // Remove the temporary message from cache on error
+          setQueryData((oldMessages) => {
+            if (!oldMessages) {
+              return oldMessages
+            }
+            return oldMessages.filter((msg) => msg.id !== tempMessageId)
+          })
         },
       })
     },

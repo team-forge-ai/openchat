@@ -1,6 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { dbPromise, deleteConversation, insertConversation } from '@/lib/db'
+import {
+  deleteConversation,
+  getConversations,
+  insertConversation,
+} from '@/lib/db'
 import type { Conversation } from '@/types'
 
 interface UseConversationsResult {
@@ -25,12 +29,7 @@ export function useConversations(): UseConversationsResult {
     Conversation[]
   >({
     queryKey: ['conversations'],
-    queryFn: async () => {
-      const db = await dbPromise
-      return await db.select<Conversation[]>(
-        'SELECT id, title, created_at, updated_at FROM conversations ORDER BY updated_at DESC',
-      )
-    },
+    queryFn: () => getConversations(),
   })
 
   const createConversationMutation = useMutation({

@@ -42,7 +42,7 @@ function AppContent() {
   const isLoading = isLoadingMessages || isSendingMessage
 
   // Disable chat if MLX server is not ready
-  const isChatDisabled = !mlxStatus.isRunning || isMLXInitializing
+  const isChatDisabled = !mlxStatus.is_running || isMLXInitializing
 
   return (
     <SidebarProvider defaultOpen={true}>
@@ -100,7 +100,7 @@ function AppContent() {
               disabledMessage={
                 isMLXInitializing
                   ? 'AI server is starting up, please wait...'
-                  : !mlxStatus.isRunning
+                  : !mlxStatus.is_running
                     ? 'AI server is not available. Please check the status above.'
                     : undefined
               }
@@ -114,7 +114,7 @@ function AppContent() {
 
 function App() {
   return (
-    <MLXServerProvider modelPath="models/Qwen3-0.6B-MLX-4bit">
+    <MLXServerProvider>
       <AppContent />
     </MLXServerProvider>
   )

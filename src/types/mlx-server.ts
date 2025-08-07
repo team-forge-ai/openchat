@@ -121,8 +121,6 @@ export class MLXServerStartupError extends MLXServerError {
 export const DEFAULT_CONFIG = {
   PORT: 8000,
   HOST: '127.0.0.1',
-  MAX_TOKENS: 150,
-  TEMPERATURE: 0.7,
   LOG_LEVEL: 'INFO' as const,
   MAX_STARTUP_ATTEMPTS: 30,
   STARTUP_CHECK_INTERVAL: 1000,

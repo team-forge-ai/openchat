@@ -32,11 +32,22 @@ export const ChatCompletionChoiceSchema = z.object({
     .optional(),
   delta: z
     .object({
+      role: z.string().optional(),
       content: z.string().optional(),
-      reasoning: z.string().optional(), // Streaming reasoning chunks
+      reasoning: z.string().optional(), // Streaming reasoning chunks (legacy)
     })
     .optional(),
   finish_reason: z.string().nullable().optional(),
+  logprobs: z.any().nullable().optional(),
+  reasoning_event: z
+    .object({
+      type: z.enum(['start', 'partial', 'complete']),
+      id: z.string(),
+      content: z.string().nullable(),
+      partial: z.boolean(),
+    })
+    .nullable()
+    .optional(),
 })
 
 export const ChatCompletionResponseSchema = z.object({
