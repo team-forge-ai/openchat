@@ -35,7 +35,7 @@ export function useChatCompletion(): UseChatCompletion {
       chatMessages.unshift({
         role: 'system',
         content:
-          'You are a helpful AI assistant. Provide clear, accurate, and helpful responses.',
+          'You are a helpful AI assistant. Provide clear, accurate, and helpful responses. Always respond with markdown.',
       })
     }
 

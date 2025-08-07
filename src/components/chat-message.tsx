@@ -41,9 +41,12 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
         )}
 
         <Markdown className="select-text">{message.content}</Markdown>
-        <div className="text-xs text-muted-foreground mt-2">
+        <time
+          className="text-xs text-muted-foreground mt-2"
+          title={new Date(message.created_at).toLocaleString()}
+        >
           {new Date(message.created_at).toLocaleTimeString()}
-        </div>
+        </time>
       </div>
     </div>
   )

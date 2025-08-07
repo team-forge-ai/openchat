@@ -136,7 +136,6 @@ export const ChatWindow: React.FC = () => {
                 ? 'AI server is not ready...'
                 : 'Type your message...'
             }
-            disabled={isLoading || isChatDisabled}
             className="flex-1"
             autoFocus
           />

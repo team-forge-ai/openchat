@@ -1,3 +1,4 @@
+import { AppShortcuts } from '@/components/app-shortcuts'
 import { AppSidebar } from '@/components/app-sidebar'
 import { ChatWindow } from '@/components/chat-window'
 import { MLXServerStatus } from '@/components/mlx-server-status'
@@ -44,6 +45,7 @@ function App() {
   return (
     <MLXServerProvider>
       <ConversationProvider>
+        <AppShortcuts />
         <AppContent />
       </ConversationProvider>
     </MLXServerProvider>
