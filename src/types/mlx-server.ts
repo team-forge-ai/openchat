@@ -27,7 +27,6 @@ export interface ChatCompletionOptions {
   maxTokens?: number
   temperature?: number
   stream?: boolean
-  port?: number
 }
 
 export interface ChatCompletionChoice {

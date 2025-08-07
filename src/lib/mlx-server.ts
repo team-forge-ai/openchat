@@ -144,7 +144,7 @@ class MLXServerService {
       throw new MLXServerNotRunningError()
     }
 
-    const port = options.port || status.port || DEFAULT_CONFIG.PORT
+    const port = status.port || DEFAULT_CONFIG.PORT
     const url = `http://${DEFAULT_CONFIG.HOST}:${port}/v1/chat/completions`
 
     const body = {
