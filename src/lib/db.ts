@@ -13,6 +13,16 @@ export async function insertConversation(): Promise<number> {
 }
 
 /**
+ * Deletes all conversations and their associated messages from the database.
+ */
+export async function deleteAllConversations(): Promise<void> {
+  const db = await dbPromise
+  // Delete all messages first due to foreign key constraint
+  await db.execute('DELETE FROM messages')
+  await db.execute('DELETE FROM conversations')
+}
+
+/**
  * Conditionally set conversation name if it has not been set yet.
  * Returns true if the name was updated, false otherwise.
  */
