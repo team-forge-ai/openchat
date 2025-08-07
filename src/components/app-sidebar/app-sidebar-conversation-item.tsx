@@ -1,4 +1,4 @@
-import { Loader2, Share2, Trash2 } from 'lucide-react'
+import { Loader2, MoreVertical, Share2, Trash2 } from 'lucide-react'
 
 import {
   AlertDialog,
@@ -59,21 +59,11 @@ export function AppSidebarConversationItem({
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <SidebarMenuAction
-            className="opacity-0 group-hover/menu-item:opacity-100 transition duration-75 text-muted-foreground/50"
-            disabled={isDeleting}
-            onClick={(e) => {
-              if (e.shiftKey) {
-                e.preventDefault()
-                e.stopPropagation()
-                onDelete(id)
-              }
-            }}
-          >
+          <SidebarMenuAction className="opacity-0 group-hover/menu-item:opacity-100 transition duration-75 text-muted-foreground/50">
             {isDeleting ? (
               <Loader2 className="h-2 w-2 animate-spin" />
             ) : (
-              <Trash2 className="h-2 w-2" />
+              <MoreVertical className="h-2 w-2" />
             )}
           </SidebarMenuAction>
         </DropdownMenuTrigger>
@@ -87,6 +77,7 @@ export function AppSidebarConversationItem({
             <AlertDialogTrigger asChild>
               <DropdownMenuItem
                 className="text-destructive focus:text-destructive"
+                disabled={isDeleting}
                 onSelect={(e) => {
                   // Allow AlertDialog to open; prevent default navigation semantics
                   e.preventDefault()
