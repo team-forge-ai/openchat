@@ -1,15 +1,14 @@
-export interface Conversation {
-  id: number
-  title: string
-  created_at: string
-  updated_at: string
-}
+import type { Insertable, Selectable, Updateable } from 'kysely'
 
-export interface Message {
-  id: number
-  conversation_id: number
-  role: 'user' | 'assistant'
-  content: string
-  reasoning?: string // Optional reasoning content for assistant messages
-  created_at: string
-}
+import type { DB } from '@/types/db'
+
+export type { DB }
+
+export type Conversation = Selectable<DB['conversations']>
+export type Message = Selectable<DB['messages']>
+export type MessageStatus = Selectable<DB['messages']>['status']
+
+export type NewConversation = Insertable<DB['conversations']>
+export type ConversationUpdate = Updateable<DB['conversations']>
+export type NewMessage = Insertable<DB['messages']>
+export type MessageUpdate = Updateable<DB['messages']>

@@ -1,7 +1,10 @@
 import { toJsxRuntime } from 'hast-util-to-jsx-runtime'
 import { memo, useEffect, useState } from 'react'
 import { Fragment, jsx, jsxs, type JSX } from 'react/jsx-runtime'
+//
 
+import { extractText } from '@/components/markdown/utils'
+import { CopyButton } from '@/components/ui/copy-button'
 import { cn } from '@/lib/utils'
 
 interface CodeBlockProps {
@@ -29,7 +32,6 @@ async function codeToReactNode(
 
 function CodeBlockComponent({ language, children, className }: CodeBlockProps) {
   const [reactNode, setReactNode] = useState<JSX.Element | null>(null)
-
   useEffect(() => {
     let canceled = false
     const run = async () => {
@@ -55,17 +57,27 @@ function CodeBlockComponent({ language, children, className }: CodeBlockProps) {
     className,
   )
 
-  if (reactNode) {
-    return <div className={codeBlockClasses}>{reactNode}</div>
-  } else {
-    return (
-      <div className={codeBlockClasses}>
-        <code>
-          <pre className="whitespace-pre">{children}</pre>
-        </code>
-      </div>
-    )
-  }
+  const getCopyText = () => extractText(children)
+
+  return (
+    <div className="relative group">
+      <CopyButton
+        getText={getCopyText}
+        ariaLabel="Copy code"
+        className="absolute right-2 top-2 z-10"
+      />
+
+      {reactNode ? (
+        <div className={codeBlockClasses}>{reactNode}</div>
+      ) : (
+        <div className={codeBlockClasses}>
+          <code>
+            <pre className="whitespace-pre">{children}</pre>
+          </code>
+        </div>
+      )}
+    </div>
+  )
 }
 
 export const CodeBlock = memo(CodeBlockComponent)

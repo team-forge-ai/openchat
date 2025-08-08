@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "openchat",
+  "productName": "OpenChat",
   "version": "0.1.0",
   "identifier": "com.openchat.app",
   "build": {
@@ -10,7 +10,18 @@
     "frontendDist": "../dist"
   },
   "app": {
-    "windows": [],
+    "macOSPrivateApi": true,
+    "windows": [
+      {
+        "title": "",
+        "width": 1200,
+        "height": 800,
+        "transparent": false,
+        "decorations": true,
+        "shadow": true,
+        "titleBarStyle": "Overlay"
+      }
+    ],
     "security": {
       "csp": null
     }
@@ -25,12 +36,12 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": ["models/*"],
+    "resources": ["models"],
     "externalBin": ["binaries/openchat-mlx-server"]
   },
   "plugins": {
     "sql": {
-      "preload": ["sqlite:openchat.db"]
+      "preload": ["sqlite:chatchat3.db"]
     }
   }
 }

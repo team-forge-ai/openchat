@@ -1,18 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { useConversation } from '@/contexts/conversation-context'
+import { useAppContext } from '@/contexts/app-context'
 import {
   deleteConversation,
   getConversations,
   insertConversation,
-} from '@/lib/db'
+} from '@/lib/db/conversations'
 import type { Conversation } from '@/types'
 
 interface UseConversationsResult {
   conversations: Conversation[]
   isLoading: boolean
   createConversation: {
-    mutateAsync: (title?: string) => Promise<number>
+    mutateAsync: () => Promise<number>
     isLoading: boolean
     error: Error | null
   }
@@ -23,22 +23,20 @@ interface UseConversationsResult {
   }
 }
 
-export function useConversations(): UseConversationsResult {
+export function useConversations(search?: string): UseConversationsResult {
   const queryClient = useQueryClient()
-  const { selectedConversationId, setSelectedConversationId } =
-    useConversation()
+  const { selectedConversationId, setSelectedConversationId } = useAppContext()
 
   const { data: conversations = [], isFetching: isLoading } = useQuery<
     Conversation[]
   >({
-    queryKey: ['conversations'],
-    queryFn: () => getConversations(),
+    queryKey: ['conversations', search ?? ''],
+    queryFn: () => getConversations(search),
   })
 
   const createConversationMutation = useMutation({
-    mutationFn: async (title?: string) => {
-      const finalTitle = title ?? `New Chat ${new Date().toLocaleString()}`
-      const id = await insertConversation(finalTitle)
+    mutationFn: async () => {
+      const id = await insertConversation()
       return id
     },
     onSuccess: async () => {

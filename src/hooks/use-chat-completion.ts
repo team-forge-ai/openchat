@@ -1,4 +1,6 @@
-import { getMessagesForChat } from '@/lib/db'
+import { useRef } from 'react'
+
+import { getMessagesForChat } from '@/lib/db/messages'
 import { mlxServer } from '@/lib/mlx-server'
 import { StreamChunkSchema } from '@/lib/mlx-server-schemas'
 import type { ChatMessage } from '@/types/mlx-server'
@@ -15,9 +17,24 @@ interface UseChatCompletion {
     conversationId: number,
     options: StreamingOptions,
   ) => Promise<string>
+  abortStreaming: () => void
 }
 
 export function useChatCompletion(): UseChatCompletion {
+  const activeReaderRef =
+    useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null)
+  const abortRequestedRef = useRef<boolean>(false)
+
+  const abortStreaming = (): void => {
+    abortRequestedRef.current = true
+    if (activeReaderRef.current) {
+      try {
+        void activeReaderRef.current.cancel()
+      } catch {
+        // ignore
+      }
+    }
+  }
   const buildChatMessages = async (
     conversationId: number,
   ): Promise<ChatMessage[]> => {
@@ -35,7 +52,7 @@ export function useChatCompletion(): UseChatCompletion {
       chatMessages.unshift({
         role: 'system',
         content:
-          'You are a helpful AI assistant. Provide clear, accurate, and helpful responses.',
+          'You are a helpful AI assistant. Provide clear, accurate, and helpful responses. Always respond with markdown.',
       })
     }
 
@@ -46,13 +63,14 @@ export function useChatCompletion(): UseChatCompletion {
     conversationId: number,
     options: StreamingOptions,
   ): Promise<string> => {
+    abortRequestedRef.current = false
     const chatMessages = await buildChatMessages(conversationId)
     let fullContent = ''
     let fullReasoning = ''
 
     try {
       // Make streaming request to MLX server
-      const response = await mlxServer.chatCompletion(chatMessages, {
+      const response = await mlxServer.chatCompletionRequest(chatMessages, {
         stream: true, // Enable streaming
       })
 
@@ -68,7 +86,18 @@ export function useChatCompletion(): UseChatCompletion {
         throw new Error('No response body from MLX server')
       }
 
+      activeReaderRef.current = reader
+
       while (true) {
+        if (abortRequestedRef.current) {
+          try {
+            await reader.cancel()
+          } catch {
+            // ignore
+          }
+          throw new Error('aborted')
+        }
+
         const { done, value } = await reader.read()
         if (done) {
           break
@@ -137,13 +166,16 @@ export function useChatCompletion(): UseChatCompletion {
       // Fallback message if MLX server fails
       if (error instanceof Error && error.message.includes('not running')) {
         throw new Error(
-          'AI server is not running. Please wait for it to start or restart the application.',
+          'AI is not running. Please wait for it to start or restart the application.',
         )
       }
 
       throw error
+    } finally {
+      activeReaderRef.current = null
+      abortRequestedRef.current = false
     }
   }
 
-  return { generateStreaming }
+  return { generateStreaming, abortStreaming }
 }

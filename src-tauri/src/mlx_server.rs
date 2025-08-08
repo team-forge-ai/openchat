@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::net::TcpListener;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Arc;
 use tauri::async_runtime::Mutex;
@@ -12,6 +13,7 @@ const DEFAULT_PORT: u16 = 8000;
 const DEFAULT_HOST: &str = "127.0.0.1";
 const DEFAULT_LOG_LEVEL: &str = "INFO";
 const DEFAULT_MAX_TOKENS: u32 = 32000;
+const MAX_PORT_SEARCH_RANGE: u16 = 100;
 
 const STARTUP_DELAY_SECS: u64 = 2;
 const HEALTH_CHECK_MAX_ATTEMPTS: usize = 60;
@@ -112,6 +114,32 @@ impl MLXServerManager {
     }
 
     // ============================================================================
+    // PORT MANAGEMENT METHODS
+    // ============================================================================
+
+    /// Check if a port is available for binding
+    fn is_port_available(host: &str, port: u16) -> bool {
+        match TcpListener::bind(format!("{}:{}", host, port)) {
+            Ok(_) => true,
+            Err(_) => false,
+        }
+    }
+
+    /// Find an available port starting from the default port
+    fn find_available_port(host: &str, start_port: u16) -> Result<u16, String> {
+        for port in start_port..start_port + MAX_PORT_SEARCH_RANGE {
+            if Self::is_port_available(host, port) {
+                return Ok(port);
+            }
+        }
+        Err(format!(
+            "No available ports found in range {}-{}",
+            start_port,
+            start_port + MAX_PORT_SEARCH_RANGE - 1
+        ))
+    }
+
+    // ============================================================================
     // HELPER METHODS
     // ============================================================================
 
@@ -124,6 +152,11 @@ impl MLXServerManager {
             "--host".to_string(),
             config.host.clone(),
         ];
+
+        // Add PID file with port prefix to avoid clashes
+        let pid_file = format!("{}_mlx_server.pid", config.port);
+        args.push("--pid-file".to_string());
+        args.push(pid_file);
 
         if let Some(log_level) = &config.log_level {
             args.push("--log-level".to_string());
@@ -267,12 +300,36 @@ impl MLXServerManager {
         });
     }
 
-    async fn start_server(&self, config: MLXServerConfig) -> Result<(), String> {
+    async fn start_server(&self, mut config: MLXServerConfig) -> Result<(), String> {
         let mut handle_guard = self.process_handle.lock().await;
 
         // Check if already running
         if handle_guard.is_some() {
             return Err("Server is already running".to_string());
+        }
+
+        // Check if the configured port is available, if not find an available one
+        if !Self::is_port_available(&config.host, config.port) {
+            log::warn!(
+                "Port {} is not available, searching for an alternative port...",
+                config.port
+            );
+
+            match Self::find_available_port(&config.host, config.port) {
+                Ok(available_port) => {
+                    log::info!(
+                        "Found available port: {} (original port {} was in use)",
+                        available_port,
+                        config.port
+                    );
+                    config.port = available_port;
+                }
+                Err(e) => {
+                    return Err(format!("Failed to find available port: {}", e));
+                }
+            }
+        } else {
+            log::info!("Using configured port: {}", config.port);
         }
 
         // Get the app handle

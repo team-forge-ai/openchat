@@ -4,17 +4,16 @@
 use std::fs;
 
 // --- External crate imports ---
-use tauri::{Manager, WebviewUrl, WebviewWindowBuilder, WindowEvent};
+use tauri::{Manager, WindowEvent};
 
 // --- Internal module imports ---
 mod commands;
 mod db;
 mod migrations;
 mod mlx_server;
-mod models;
 
 /// Name of the SQLite database file used by the app.
-const DB_FILE_NAME: &str = "openchat2.db";
+const DB_FILE_NAME: &str = "chatchat3.db";
 // OpenChat desktop – Tauri + Rust
 //
 // This crate hosts the native backend for the OpenChat app.
@@ -52,9 +51,6 @@ pub fn run() {
             // --- MLX Server Manager setup ---
             setup_mlx_server_manager(app);
 
-            // --- Main window creation ---
-            create_main_window(app)?;
-
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -71,18 +67,6 @@ pub fn run() {
         })
         .run(tauri::generate_context!())
         .expect("Error while running Tauri application");
-}
-
-/// Helper to create the main window with platform-specific options.
-fn create_main_window(app: &mut tauri::App) -> Result<(), String> {
-    let win_builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
-        .title("openchat")
-        .inner_size(800.0, 600.0);
-
-    win_builder
-        .build()
-        .map_err(|e| format!("Failed to create window: {}", e))?;
-    Ok(())
 }
 
 /// Helper to initialize and set up the MLX server manager.

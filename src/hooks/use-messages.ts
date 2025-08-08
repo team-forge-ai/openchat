@@ -1,7 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { useChatCompletion } from '@/hooks/use-chat-completion'
-import { getMessages, insertMessage, updateMessage } from '@/lib/db'
+import { touchConversation } from '@/lib/db/conversations'
+import { getMessages, insertMessage, updateMessage } from '@/lib/db/messages'
+import { setConversationTitleIfUnset } from '@/lib/set-conversation-title'
 import type { Message } from '@/types'
 
 interface SendMessageVariables {
@@ -17,11 +19,13 @@ interface UseMessagesResult {
   sendMessage: (vars: SendMessageVariables) => Promise<void>
   /** Loading state while a message/response round-trip is in flight */
   isSendingMessage: boolean
+  /** Abort the in-flight streaming response, if any */
+  abortStreaming: () => void
 }
 
 export function useMessages(conversationId: number | null): UseMessagesResult {
   const queryClient = useQueryClient()
-  const { generateStreaming } = useChatCompletion()
+  const { generateStreaming, abortStreaming } = useChatCompletion()
 
   // -------------------------------
   // Fetch messages for the selected conversation
@@ -45,9 +49,17 @@ export function useMessages(conversationId: number | null): UseMessagesResult {
         })
       }
 
-      // Insert user message locally
-      await insertMessage(conversationId, 'user', content)
+      // Insert user message locally (complete by default)
+      await insertMessage({
+        conversation_id: conversationId,
+        role: 'user',
+        content,
+        reasoning: null,
+        status: 'complete',
+      })
       await invalidateConverationQuery()
+
+      // Name setting moved to shared utility and invoked after streaming completes
 
       // Track the accumulated content for database updates
       let accumulatedContent = ''
@@ -62,18 +74,19 @@ export function useMessages(conversationId: number | null): UseMessagesResult {
 
           // Insert message to database on first chunk, update on subsequent chunks
           if (assistantMessageId === null) {
-            assistantMessageId = await insertMessage(
-              conversationId,
-              'assistant',
-              accumulatedContent,
-              accumulatedReasoning || undefined,
-            )
+            assistantMessageId = await insertMessage({
+              conversation_id: conversationId,
+              role: 'assistant',
+              content: accumulatedContent,
+              reasoning: accumulatedReasoning || null,
+              status: 'pending',
+              created_at: new Date().toISOString(),
+            })
           } else {
-            await updateMessage(
-              assistantMessageId,
-              accumulatedContent,
-              accumulatedReasoning || undefined,
-            )
+            await updateMessage(assistantMessageId, {
+              content: accumulatedContent,
+              reasoning: accumulatedReasoning || undefined,
+            })
           }
 
           // Invalidate React Query cache to refresh UI from database
@@ -85,18 +98,19 @@ export function useMessages(conversationId: number | null): UseMessagesResult {
 
           // Insert message to database on first reasoning chunk, update on subsequent chunks
           if (assistantMessageId === null) {
-            assistantMessageId = await insertMessage(
-              conversationId,
-              'assistant',
-              accumulatedContent,
-              accumulatedReasoning,
-            )
+            assistantMessageId = await insertMessage({
+              conversation_id: conversationId,
+              role: 'assistant',
+              content: accumulatedContent,
+              reasoning: accumulatedReasoning,
+              status: 'pending',
+              created_at: new Date().toISOString(),
+            })
           } else {
-            await updateMessage(
-              assistantMessageId,
-              accumulatedContent,
-              accumulatedReasoning,
-            )
+            await updateMessage(assistantMessageId, {
+              content: accumulatedContent,
+              reasoning: accumulatedReasoning,
+            })
           }
 
           // Invalidate React Query cache to refresh UI from database
@@ -110,15 +124,24 @@ export function useMessages(conversationId: number | null): UseMessagesResult {
 
           // Final update to ensure the message is complete in database
           if (assistantMessageId !== null) {
-            await updateMessage(assistantMessageId, fullContent, fullReasoning)
+            await updateMessage(assistantMessageId, {
+              content: fullContent,
+              reasoning: fullReasoning,
+              status: 'complete',
+            })
           }
+
+          void touchConversation(conversationId)
+
+          // Attempt to set conversation name only after server response completes
+          void setConversationTitleIfUnset(queryClient, conversationId)
         },
-        onError: (error) => {
+        onError: async (error) => {
           console.error('Streaming error:', error)
 
-          // If we created a message but got an error, we could optionally delete it
-          // For now, we'll leave partial messages in the database
-          // TODO: Consider if we want to delete incomplete messages on error
+          if (assistantMessageId !== null) {
+            await updateMessage(assistantMessageId, { status: 'error' })
+          }
         },
       })
     },
@@ -138,5 +161,6 @@ export function useMessages(conversationId: number | null): UseMessagesResult {
     isLoading: isLoadingMessages,
     sendMessage: mutation.mutateAsync,
     isSendingMessage: mutation.isPending,
+    abortStreaming,
   }
 }

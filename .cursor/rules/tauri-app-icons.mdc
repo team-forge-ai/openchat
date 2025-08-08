@@ -1,0 +1,89 @@
+---
+description: How to generate and configure Tauri app icons across platforms (macOS, Windows, Linux; mobile placed directly into Xcode/Android projects).
+---
+
+# Tauri App Icons
+
+Tauri ships a default icon set (Tauri logo). Replace it by generating icons from your app image.
+
+## Filetypes
+
+- icon.icns = macOS
+- icon.ico = Windows
+- \*.png = Linux
+- Square\*Logo.png & StoreLogo.png = Intended for AppX/MS Store (currently unused)
+
+Some formats (especially PNG) may be used across platforms. Include all icons even if you build for only some platforms.
+
+## Generate icons (pnpm)
+
+Use a squared PNG or SVG with transparency (e.g., 1024×1024).
+
+```bash
+pnpm run tauri icon ./app-icon.png
+```
+
+Arguments and options (common):
+
+- [INPUT]: Source icon path (default: ./app-icon.png)
+
+Desktop icons are generated to `src-tauri/icons/` by default and included automatically in builds.
+
+### macOS icon prep (padding + corners)
+
+MacOS requires icons to be artwork inside a padded canvas and apply rounded corners to the artwork itself before generating the icon set.
+
+- **Canvas**: 1024×1024, transparent
+- **Inner artwork size**: 826×826 (≈ 80.66% of canvas)
+- **Corner radius (Apple standard)**: 187 px on the 826 side (≈ 22.6% of inner side)
+
+General guidance for other base sizes:
+
+- **inner_size** = round(0.8066 × canvas_size)
+- **corner_radius** = round(0.226 × inner_size)
+
+#### Create previews with ImageMagick
+
+Generate two previews to compare composition, then pick one to feed into the Tauri icon generator.
+
+- **Center-cropped (cover) with rounded corners**
+
+```bash
+magick \
+  \( -size 1024x1024 canvas:none \) \
+  \( ./SOURCE.png \
+     -resize 826x826^ -gravity center -extent 826x826 \
+     \( -size 826x826 xc:none -fill white -draw "roundrectangle 0,0,825,825,187,187" \) \
+     -alpha set -compose CopyOpacity -composite \) \
+  -gravity center -compose over -composite \
+  ./app-icon-1024-preview-crop.png
+```
+
+- **Fit-within (letterbox) with rounded corners**
+
+```bash
+magick \
+  \( -size 1024x1024 canvas:none \) \
+  \( ./SOURCE.png \
+     -resize 826x826 -background none -gravity center -extent 826x826 \
+     \( -size 826x826 xc:none -fill white -draw "roundrectangle 0,0,825,825,187,187" \) \
+     -alpha set -compose CopyOpacity -composite \) \
+  -gravity center -compose over -composite \
+  ./app-icon-1024-preview-letterbox.png
+```
+
+After selecting the preferred preview, generate the full icon set (desktop + mobile) into `src-tauri/icons`:
+
+```bash
+pnpm run tauri icon ./app-icon-1024-preview-crop.png -o src-tauri/icons -v
+```
+
+## Icon workflow steps
+
+To generate icons, you can use the following steps:
+
+1. Receive a png file from the user, preferrably 1024x1024.
+2. Prep the icon (padding, corners) for macOS using the directions above.
+3. Run the `pnpm run tauri icon` command to generate the icons.
+
+You may overwrite existing icons. Imagemagick is already installed on the system.

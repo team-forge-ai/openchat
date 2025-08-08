@@ -1,0 +1,188 @@
+---
+description: Description of the backend rust frontend architecture (under ./src-tauri)
+alwaysApply: false
+---
+
+## OpenChat src-tauri/ architecture overview
+
+This document describes the native Rust/Tauri backend under `src-tauri/` that powers process management, database access, and the bridge between the React frontend and the local MLX model server.
+
+### Key technologies
+
+- **Tauri** application runtime with plugins:
+  - `tauri-plugin-sql` (SQLite via `sqlx` and built-in migrations)
+  - `tauri-plugin-shell` (spawning and managing child processes)
+  - `tauri-plugin-log` (structured logging)
+- **Rust async** with `tokio`
+- **Event bridge**: Tauri window events to notify the frontend (e.g., `mlx-status-changed`)
+
+## App bootstrap and lifecycle
+
+- `src-tauri/src/main.rs`
+  - Thin entry point calling `openchat_lib::run()`.
+- `src-tauri/src/lib.rs`
+  - Builds the Tauri app, registers plugins, sets up DB, wires state, and registers commands.
+  - On setup:
+    - Ensures app data directory exists and initializes a SQLite pool saved in Tauri state.
+    - Creates and stores an `MLXServerManager` in app state, then asynchronously sets its `AppHandle` and calls `auto_start()` to bring up the MLX server.
+  - `on_window_event`: on `Destroyed`, calls `handle_window_destroyed` which synchronously kills the MLX server (`kill_sync`) to ensure clean shutdown.
+
+## MLX server process management
+
+- `src-tauri/src/mlx_server.rs`
+  - Central manager: `MLXServerManager` (clonable, internally `Arc`-backed) maintains:
+    - Current config (model path, host/port, tokens, log level)
+    - Current status (`MLXServerStatus`: `is_running`, `is_ready`, `port`, `model_path`, `pid`, optional `error`)
+    - Process handle for the spawned `openchat-mlx-server` binary
+  - Responsibilities:
+    - `auto_start()` to find an available port, spawn the MLX server with correct args, and wait for readiness (health checks).
+    - Emits `mlx-status-changed` events via `AppHandle.emit(...)` whenever status transitions (`running`, `ready`, `stopped`, errors).
+    - `restart()` tears down and starts the process again, maintaining config and re-checking readiness.
+    - `kill_sync()` provides a fast, non-async kill path used during window teardown.
+    - Health checks poll the `/health` endpoint of the MLX server and update `is_ready` accordingly.
+
+### Frontend integration points
+
+- Events:
+  - The manager emits `mlx-status-changed` with the Rust status shape (snake_case). The TS service converts to camelCase via `convertRustStatusToJS` and notifies React listeners.
+- Invokes:
+  - `mlx_get_status` → returns current `MLXServerStatus` (snake_case) for conversion and caching in the frontend service.
+  - `mlx_restart` → restarts the MLX process and returns updated status.
+  - `mlx_health_check` → bool health probe.
+
+## Tauri commands bridge
+
+- `src-tauri/src/commands.rs`
+  - Port utilities:
+    - `check_port_available(port: u16)` – try to bind to 127.0.0.1:port to determine availability.
+    - `get_port_info(port: u16)` – attempts TCP connect and a basic HTTP `GET /health` probe to determine whether a live process seems to be the MLX server.
+  - MLX management commands:
+    - `mlx_get_status(manager: State<MLXServerManager>)` – current status.
+    - `mlx_restart(manager: State<MLXServerManager>)` – restart and return new status.
+    - `mlx_health_check(manager: State<MLXServerManager>)` – returns readiness probe.
+
+## Database layer and schema
+
+- SQLite DB is stored under the app data directory as `chatchat3.db`; connection pool is added to Tauri state during setup.
+- `src-tauri/src/migrations.rs` – returns an ordered list of migrations consumed by `tauri-plugin-sql`:
+  - `001_create_conversations.sql` – creates `conversations` table (id, title, timestamps).
+  - `002_create_messages.sql` – creates `messages` table (id, conversation_id, role, content, created_at, etc.).
+  - `003_index_messages_conv_id.sql` – index on `messages.conversation_id` for fast lookups.
+  - `004_add_reasoning_to_messages.sql` – adds optional `reasoning` column for assistant thinking traces.
+  - `005_add_status_to_messages.sql` – adds `status` enum (`pending`/`complete`/`error`) to track streaming lifecycle and failures.
+
+## Configuration and packaging
+
+- `src-tauri/tauri.conf.json`
+  - Defines build steps (`beforeDevCommand`/`beforeBuildCommand`), dev server URL, and frontend dist.
+  - Declares the app window (overlay title bar) and disables CSP for dev.
+  - Bundles icons, `resources: ["models"]`, and the external binary `binaries/openchat-mlx-server` required by the manager.
+  - Preloads SQLite database `sqlite:chatchat3.db` via SQL plugin.
+- `src-tauri/binaries/openchat-mlx-server.md`
+  - Notes around bundling and usage of the MLX server binary shipped with the app.
+- `src-tauri/capabilities/default.json` (and `gen/schemas/*`)
+  - Tauri capabilities/codesigning scaffolding for platform targets.
+
+## Primary backend flows
+
+- **Startup**: Builder initializes plugins → DB connection and migrations → MLX manager stored in state → async auto-start of the MLX server → emits `mlx-status-changed` transitions as the process comes online.
+- **Frontend status sync**: TS service registers a listener on `mlx-status-changed` and exposes `getStatus()`/`restart()`/`healthCheck()` via `invoke()` bridges.
+- **Shutdown**: When the window is destroyed, `kill_sync()` is called to stop the process promptly and avoid orphaned children.
+
+## Notes and extension points
+
+- Status emission is centralized in `emit_status_change()`; ensure any state mutation paths call it to keep UI in sync.
+- If adding new server args (e.g., temperature/tokens), update manager config and spawn arg builder accordingly.
+- DB schema changes must be new numbered migrations appended to `migrations.rs` in ascending order.
+
+## OpenChat src-tauri/ architecture overview
+
+This document describes the native Rust/Tauri backend under `src-tauri/` that powers process management, database access, and the bridge between the React frontend and the local MLX model server.
+
+### Key technologies
+
+- **Tauri** application runtime with plugins:
+  - `tauri-plugin-sql` (SQLite via `sqlx` and built-in migrations)
+  - `tauri-plugin-shell` (spawning and managing child processes)
+  - `tauri-plugin-log` (structured logging)
+- **Rust async** with `tokio`
+- **Event bridge**: Tauri window events to notify the frontend (e.g., `mlx-status-changed`)
+
+## App bootstrap and lifecycle
+
+- `src-tauri/src/main.rs`
+  - Thin entry point calling `openchat_lib::run()`.
+- `src-tauri/src/lib.rs`
+  - Builds the Tauri app, registers plugins, sets up DB, wires state, and registers commands.
+  - On setup:
+    - Ensures app data directory exists and initializes a SQLite pool saved in Tauri state.
+    - Creates and stores an `MLXServerManager` in app state, then asynchronously sets its `AppHandle` and calls `auto_start()` to bring up the MLX server.
+  - `on_window_event`: on `Destroyed`, calls `handle_window_destroyed` which synchronously kills the MLX server (`kill_sync`) to ensure clean shutdown.
+
+## MLX server process management
+
+- `src-tauri/src/mlx_server.rs`
+  - Central manager: `MLXServerManager` (clonable, internally `Arc`-backed) maintains:
+    - Current config (model path, host/port, tokens, log level)
+    - Current status (`MLXServerStatus`: `is_running`, `is_ready`, `port`, `model_path`, `pid`, optional `error`)
+    - Process handle for the spawned `openchat-mlx-server` binary
+  - Responsibilities:
+    - `auto_start()` to find an available port, spawn the MLX server with correct args, and wait for readiness (health checks).
+    - Emits `mlx-status-changed` events via `AppHandle.emit(...)` whenever status transitions (`running`, `ready`, `stopped`, errors).
+    - `restart()` tears down and starts the process again, maintaining config and re-checking readiness.
+    - `kill_sync()` provides a fast, non-async kill path used during window teardown.
+    - Health checks poll the `/health` endpoint of the MLX server and update `is_ready` accordingly.
+
+### Frontend integration points
+
+- Events:
+  - The manager emits `mlx-status-changed` with the Rust status shape (snake_case). The TS service converts to camelCase via `convertRustStatusToJS` and notifies React listeners.
+- Invokes:
+  - `mlx_get_status` → returns current `MLXServerStatus` (snake_case) for conversion and caching in the frontend service.
+  - `mlx_restart` → restarts the MLX process and returns updated status.
+  - `mlx_health_check` → bool health probe.
+
+## Tauri commands bridge
+
+- `src-tauri/src/commands.rs`
+  - Port utilities:
+    - `check_port_available(port: u16)` – try to bind to 127.0.0.1:port to determine availability.
+    - `get_port_info(port: u16)` – attempts TCP connect and a basic HTTP `GET /health` probe to determine whether a live process seems to be the MLX server.
+  - MLX management commands:
+    - `mlx_get_status(manager: State<MLXServerManager>)` – current status.
+    - `mlx_restart(manager: State<MLXServerManager>)` – restart and return new status.
+    - `mlx_health_check(manager: State<MLXServerManager>)` – returns readiness probe.
+
+## Database layer and schema
+
+- SQLite DB is stored under the app data directory as `chatchat3.db`; connection pool is added to Tauri state during setup.
+- `src-tauri/src/migrations.rs` – returns an ordered list of migrations consumed by `tauri-plugin-sql`:
+  - `001_create_conversations.sql` – creates `conversations` table (id, title, timestamps).
+  - `002_create_messages.sql` – creates `messages` table (id, conversation_id, role, content, created_at, etc.).
+  - `003_index_messages_conv_id.sql` – index on `messages.conversation_id` for fast lookups.
+  - `004_add_reasoning_to_messages.sql` – adds optional `reasoning` column for assistant thinking traces.
+  - `005_add_status_to_messages.sql` – adds `status` enum (`pending`/`complete`/`error`) to track streaming lifecycle and failures.
+
+## Configuration and packaging
+
+- `src-tauri/tauri.conf.json`
+  - Defines build steps (`beforeDevCommand`/`beforeBuildCommand`), dev server URL, and frontend dist.
+  - Declares the app window (overlay title bar) and disables CSP for dev.
+  - Bundles icons, `resources: ["models"]`, and the external binary `binaries/openchat-mlx-server` required by the manager.
+  - Preloads SQLite database `sqlite:chatchat3.db` via SQL plugin.
+- `src-tauri/binaries/openchat-mlx-server.md`
+  - Notes around bundling and usage of the MLX server binary shipped with the app.
+- `src-tauri/capabilities/default.json` (and `gen/schemas/*`)
+  - Tauri capabilities/codesigning scaffolding for platform targets.
+
+## Primary backend flows
+
+- **Startup**: Builder initializes plugins → DB connection and migrations → MLX manager stored in state → async auto-start of the MLX server → emits `mlx-status-changed` transitions as the process comes online.
+- **Frontend status sync**: TS service registers a listener on `mlx-status-changed` and exposes `getStatus()`/`restart()`/`healthCheck()` via `invoke()` bridges.
+- **Shutdown**: When the window is destroyed, `kill_sync()` is called to stop the process promptly and avoid orphaned children.
+
+## Notes and extension points
+
+- Status emission is centralized in `emit_status_change()`; ensure any state mutation paths call it to keep UI in sync.
+- If adding new server args (e.g., temperature/tokens), update manager config and spawn arg builder accordingly.
+- DB schema changes must be new numbered migrations appended to `migrations.rs` in ascending order.
