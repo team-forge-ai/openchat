@@ -2,7 +2,7 @@
 - chat message skeleton loading isn't working
 - [x] log all server info logs to stdout
 - [x] add status to message (pending|complete|error)
-- hide msg timestamp when pending
+- [x] hide msg timestamp when pending
 - add a way of stopping execution
 - plan settings
 - plan pdf extraction? mcp

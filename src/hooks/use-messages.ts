@@ -24,11 +24,13 @@ interface UseMessagesResult {
   sendMessage: (vars: SendMessageVariables) => Promise<void>
   /** Loading state while a message/response round-trip is in flight */
   isSendingMessage: boolean
+  /** Abort the in-flight streaming response, if any */
+  abortStreaming: () => void
 }
 
 export function useMessages(conversationId: number | null): UseMessagesResult {
   const queryClient = useQueryClient()
-  const { generateStreaming } = useChatCompletion()
+  const { generateStreaming, abortStreaming } = useChatCompletion()
 
   // -------------------------------
   // Fetch messages for the selected conversation
@@ -162,5 +164,6 @@ export function useMessages(conversationId: number | null): UseMessagesResult {
     isLoading: isLoadingMessages,
     sendMessage: mutation.mutateAsync,
     isSendingMessage: mutation.isPending,
+    abortStreaming,
   }
 }

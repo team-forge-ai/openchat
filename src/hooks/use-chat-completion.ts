@@ -1,3 +1,5 @@
+import { useRef } from 'react'
+
 import { getMessagesForChat } from '@/lib/db'
 import { mlxServer } from '@/lib/mlx-server'
 import { StreamChunkSchema } from '@/lib/mlx-server-schemas'
@@ -15,9 +17,24 @@ interface UseChatCompletion {
     conversationId: number,
     options: StreamingOptions,
   ) => Promise<string>
+  abortStreaming: () => void
 }
 
 export function useChatCompletion(): UseChatCompletion {
+  const activeReaderRef =
+    useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null)
+  const abortRequestedRef = useRef<boolean>(false)
+
+  const abortStreaming = (): void => {
+    abortRequestedRef.current = true
+    if (activeReaderRef.current) {
+      try {
+        void activeReaderRef.current.cancel()
+      } catch {
+        // ignore
+      }
+    }
+  }
   const buildChatMessages = async (
     conversationId: number,
   ): Promise<ChatMessage[]> => {
@@ -46,6 +63,7 @@ export function useChatCompletion(): UseChatCompletion {
     conversationId: number,
     options: StreamingOptions,
   ): Promise<string> => {
+    abortRequestedRef.current = false
     const chatMessages = await buildChatMessages(conversationId)
     let fullContent = ''
     let fullReasoning = ''
@@ -68,7 +86,18 @@ export function useChatCompletion(): UseChatCompletion {
         throw new Error('No response body from MLX server')
       }
 
+      activeReaderRef.current = reader
+
       while (true) {
+        if (abortRequestedRef.current) {
+          try {
+            await reader.cancel()
+          } catch {
+            // ignore
+          }
+          throw new Error('aborted')
+        }
+
         const { done, value } = await reader.read()
         if (done) {
           break
@@ -142,8 +171,11 @@ export function useChatCompletion(): UseChatCompletion {
       }
 
       throw error
+    } finally {
+      activeReaderRef.current = null
+      abortRequestedRef.current = false
     }
   }
 
-  return { generateStreaming }
+  return { generateStreaming, abortStreaming }
 }

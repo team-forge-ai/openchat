@@ -19,6 +19,7 @@ export const ChatWindow: React.FC = () => {
     isLoading: isLoadingMessages,
     sendMessage,
     isSendingMessage,
+    abortStreaming,
   } = useMessages(selectedConversationId)
 
   const { createConversation } = useConversations()
@@ -66,6 +67,7 @@ export const ChatWindow: React.FC = () => {
         disabled={isLoading || isChatDisabled}
         focusKey={selectedConversationId ?? 0}
         isLoading={isLoading}
+        onAbort={abortStreaming}
       />
     </div>
   )

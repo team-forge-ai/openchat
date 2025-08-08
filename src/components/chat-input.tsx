@@ -1,4 +1,4 @@
-import { Loader2, Plus, Send } from 'lucide-react'
+import { Plus, Send, Square } from 'lucide-react'
 import React, { useEffect, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
@@ -8,6 +8,7 @@ interface ChatInputProps {
   disabled: boolean
   isLoading?: boolean
   focusKey?: number
+  onAbort?: () => void
 }
 
 export const ChatInput: React.FC<ChatInputProps> = ({
@@ -15,6 +16,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   disabled,
   isLoading = false,
   focusKey,
+  onAbort,
 }) => {
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const [text, setText] = useState('')
@@ -94,19 +96,28 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                 autoFocus
               />
 
-              <Button
-                type="submit"
-                disabled={!text.trim() || disabled}
-                size="icon"
-                className="rounded-full"
-                aria-label="Send message"
-              >
-                {isLoading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
+              {isLoading && onAbort ? (
+                <Button
+                  type="button"
+                  onClick={() => onAbort()}
+                  size="icon"
+                  variant="destructive"
+                  className="rounded-full"
+                  aria-label="Abort generation"
+                >
+                  <Square className="w-4 h-4" />
+                </Button>
+              ) : (
+                <Button
+                  type="submit"
+                  disabled={!text.trim() || disabled}
+                  size="icon"
+                  className="rounded-full"
+                  aria-label="Send message"
+                >
                   <Send className="w-4 h-4" />
-                )}
-              </Button>
+                </Button>
+              )}
             </div>
           )
         })()}
