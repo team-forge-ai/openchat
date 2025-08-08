@@ -27,5 +27,11 @@ pub fn migrations() -> Vec<Migration> {
             sql: include_str!("../migrations/004_add_reasoning_to_messages.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 5,
+            description: "add_status_to_messages",
+            sql: include_str!("../migrations/005_add_status_to_messages.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }

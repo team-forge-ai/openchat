@@ -52,7 +52,9 @@ export function AppSidebarConversations() {
           </div>
         </div>
 
-        <SidebarGroupLabel>Recent Conversations</SidebarGroupLabel>
+        <SidebarGroupLabel className="sr-only">
+          Recent conversations
+        </SidebarGroupLabel>
         <SidebarGroupContent>
           {conversations.length === 0 ? (
             <div className="px-3 py-4 text-center text-sm text-muted-foreground">

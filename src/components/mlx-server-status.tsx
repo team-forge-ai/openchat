@@ -71,9 +71,12 @@ export function MLXServerStatus() {
       <div className="flex items-center gap-2">
         <Tooltip>
           <TooltipTrigger asChild>
-            <div className="flex items-center gap-2 text-sm">
+            <div
+              className="flex items-center gap-2 text-[10px] uppercase"
+              style={{ fontWeight: '600' }}
+            >
               {getStatusIcon()}
-              <span className="text-muted-foreground cursor-default">
+              <span className="text-muted-foreground/80 cursor-default">
                 {getStatusText()}
               </span>
             </div>

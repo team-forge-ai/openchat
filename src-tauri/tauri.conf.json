@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "openchat",
+  "productName": "OpenChat",
   "version": "0.1.0",
   "identifier": "com.openchat.app",
   "build": {

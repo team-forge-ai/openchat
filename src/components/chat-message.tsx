@@ -45,24 +45,26 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
           </Markdown>
         )}
 
-        <footer className="flex items-center justify-center gap-2 mt-1 group">
-          <time
-            className="text-xs text-muted-foreground opacity-50 group-hover:opacity-100 transition-opacity"
-            title={new Date(message.created_at).toLocaleString()}
-          >
-            {new Date(message.created_at).toLocaleTimeString()}
-          </time>
+        {message.status === 'complete' && (
+          <footer className="flex items-center justify-center gap-2 mt-1 group">
+            <time
+              className="text-xs text-muted-foreground opacity-50 group-hover:opacity-100 transition-opacity"
+              title={new Date(message.created_at).toLocaleString()}
+            >
+              {new Date(message.created_at).toLocaleTimeString()}
+            </time>
 
-          <div className="flex-1" />
+            <div className="flex-1" />
 
-          {message.content && (
-            <CopyButton
-              text={message.content}
-              ariaLabel="Copy message"
-              className="opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100"
-            />
-          )}
-        </footer>
+            {message.content && (
+              <CopyButton
+                text={message.content}
+                ariaLabel="Copy message"
+                className="opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100"
+              />
+            )}
+          </footer>
+        )}
       </div>
     </div>
   )

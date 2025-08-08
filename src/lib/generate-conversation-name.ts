@@ -1,5 +1,6 @@
 import { mlxServer } from '@/lib/mlx-server'
 import { ChatCompletionResponseSchema } from '@/lib/mlx-server-schemas'
+import { toTitleCase } from '@/lib/utils'
 import type { ChatMessage } from '@/types/mlx-server'
 
 /**
@@ -65,7 +66,8 @@ export async function generateConversationTitle(
       return null
     }
 
-    return cleaned
+    const titled = toTitleCase(cleaned)
+    return titled
   } catch {
     return null
   }

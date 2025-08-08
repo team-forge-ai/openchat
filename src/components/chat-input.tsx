@@ -88,7 +88,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                     handleFormSubmit(e)
                   }
                 }}
-                placeholder={disabled ? 'AI is not ready...' : 'Ask anything'}
+                placeholder="Ask anything"
                 className="flex-1 pl-10 border-0 bg-transparent shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-0 resize-none leading-6 py-1.5 min-h-[1.5rem] max-h-40 outline-none"
                 rows={1}
                 autoFocus

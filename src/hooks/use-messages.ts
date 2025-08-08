@@ -6,6 +6,7 @@ import {
   insertMessage,
   touchConversation,
   updateMessage,
+  updateMessageStatus,
 } from '@/lib/db'
 import { setConversationTitleIfUnset } from '@/lib/set-conversation-title'
 import type { Message } from '@/types'
@@ -51,8 +52,14 @@ export function useMessages(conversationId: number | null): UseMessagesResult {
         })
       }
 
-      // Insert user message locally
-      await insertMessage(conversationId, 'user', content)
+      // Insert user message locally (complete by default)
+      await insertMessage(
+        conversationId,
+        'user',
+        content,
+        undefined,
+        'complete',
+      )
       await invalidateConverationQuery()
 
       // Name setting moved to shared utility and invoked after streaming completes
@@ -75,13 +82,13 @@ export function useMessages(conversationId: number | null): UseMessagesResult {
               'assistant',
               accumulatedContent,
               accumulatedReasoning || undefined,
+              'pending',
             )
           } else {
-            await updateMessage(
-              assistantMessageId,
-              accumulatedContent,
-              accumulatedReasoning || undefined,
-            )
+            await updateMessage(assistantMessageId, {
+              content: accumulatedContent,
+              reasoning: accumulatedReasoning || undefined,
+            })
           }
 
           // Invalidate React Query cache to refresh UI from database
@@ -98,13 +105,13 @@ export function useMessages(conversationId: number | null): UseMessagesResult {
               'assistant',
               accumulatedContent,
               accumulatedReasoning,
+              'pending',
             )
           } else {
-            await updateMessage(
-              assistantMessageId,
-              accumulatedContent,
-              accumulatedReasoning,
-            )
+            await updateMessage(assistantMessageId, {
+              content: accumulatedContent,
+              reasoning: accumulatedReasoning,
+            })
           }
 
           // Invalidate React Query cache to refresh UI from database
@@ -118,7 +125,11 @@ export function useMessages(conversationId: number | null): UseMessagesResult {
 
           // Final update to ensure the message is complete in database
           if (assistantMessageId !== null) {
-            await updateMessage(assistantMessageId, fullContent, fullReasoning)
+            await updateMessage(assistantMessageId, {
+              content: fullContent,
+              reasoning: fullReasoning,
+              status: 'complete',
+            })
           }
 
           void touchConversation(conversationId)
@@ -126,12 +137,12 @@ export function useMessages(conversationId: number | null): UseMessagesResult {
           // Attempt to set conversation name only after server response completes
           void setConversationTitleIfUnset(queryClient, conversationId)
         },
-        onError: (error) => {
+        onError: async (error) => {
           console.error('Streaming error:', error)
 
-          // If we created a message but got an error, we could optionally delete it
-          // For now, we'll leave partial messages in the database
-          // TODO: Consider if we want to delete incomplete messages on error
+          if (assistantMessageId !== null) {
+            await updateMessageStatus(assistantMessageId, 'error')
+          }
         },
       })
     },

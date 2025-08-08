@@ -15,14 +15,18 @@ export const ChatMessagesList: React.FC<ChatMessagesListProps> = ({
   isLoading,
 }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const previousMessageCountRef = useRef<number>(messages.length)
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
 
   useEffect(() => {
-    scrollToBottom()
-  }, [messages, isLoading])
+    if (messages.length > previousMessageCountRef.current) {
+      scrollToBottom()
+    }
+    previousMessageCountRef.current = messages.length
+  }, [messages.length])
 
   return (
     <div className="flex-1 overflow-y-auto">

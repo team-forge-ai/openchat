@@ -1,5 +1,7 @@
 import Database from '@tauri-apps/plugin-sql'
 
+import type { MessageStatus } from '@/types'
+
 export const dbPromise = Database.load('sqlite:chatchat3.db')
 
 /**
@@ -45,26 +47,63 @@ export async function insertMessage(
   role: 'user' | 'assistant',
   content: string,
   reasoning?: string,
+  status: 'pending' | 'complete' | 'error' = 'complete',
 ): Promise<number> {
   const db = await dbPromise
   const result = await db.execute(
-    'INSERT INTO messages (conversation_id, role, content, reasoning, created_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)',
-    [conversationId, role, content, reasoning || null],
+    'INSERT INTO messages (conversation_id, role, content, reasoning, status, created_at) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)',
+    [conversationId, role, content, reasoning || null, status],
   )
   return result.lastInsertId as number
 }
 
-/** Update a message's content and reasoning */
+/** Update a message by setting only provided attributes */
+export interface UpdateMessageAttributes {
+  content?: string
+  reasoning?: string
+  status?: MessageStatus
+}
+
 export async function updateMessage(
   messageId: number,
-  content: string,
-  reasoning?: string,
+  attrs: UpdateMessageAttributes,
+): Promise<void> {
+  const fields: string[] = []
+  const params: unknown[] = []
+
+  if (attrs.content !== undefined) {
+    fields.push('content = ?')
+    params.push(attrs.content)
+  }
+  if (attrs.reasoning !== undefined) {
+    fields.push('reasoning = ?')
+    params.push(attrs.reasoning ?? null)
+  }
+  if (attrs.status !== undefined) {
+    fields.push('status = ?')
+    params.push(attrs.status)
+  }
+
+  if (fields.length === 0) {
+    return
+  }
+
+  const sql = `UPDATE messages SET ${fields.join(', ')} WHERE id = ?`
+  params.push(messageId)
+
+  const db = await dbPromise
+  await db.execute(sql, params)
+}
+
+export async function updateMessageStatus(
+  messageId: number,
+  status: 'pending' | 'complete' | 'error',
 ): Promise<void> {
   const db = await dbPromise
-  await db.execute(
-    'UPDATE messages SET content = ?, reasoning = ? WHERE id = ?',
-    [content, reasoning || null, messageId],
-  )
+  await db.execute('UPDATE messages SET status = ? WHERE id = ?', [
+    status,
+    messageId,
+  ])
 }
 
 export async function touchConversation(conversationId: number): Promise<void> {
@@ -108,12 +147,13 @@ export async function getMessagesForChat(conversationId: number): Promise<
     conversation_id: number
     role: 'user' | 'assistant'
     content: string
+    status: 'pending' | 'complete' | 'error'
     created_at: string
   }>
 > {
   const db = await dbPromise
   return await db.select(
-    'SELECT id, conversation_id, role, content, created_at FROM messages WHERE conversation_id = ? ORDER BY id',
+    'SELECT id, conversation_id, role, content, status, created_at FROM messages WHERE conversation_id = ? ORDER BY id',
     [conversationId],
   )
 }
@@ -128,12 +168,13 @@ export async function getMessages(conversationId: number): Promise<
     role: 'user' | 'assistant'
     content: string
     reasoning?: string
+    status: 'pending' | 'complete' | 'error'
     created_at: string
   }>
 > {
   const db = await dbPromise
   return await db.select(
-    'SELECT id, conversation_id, role, content, reasoning, created_at FROM messages WHERE conversation_id = ? ORDER BY id',
+    'SELECT id, conversation_id, role, content, reasoning, status, created_at FROM messages WHERE conversation_id = ? ORDER BY id',
     [conversationId],
   )
 }
