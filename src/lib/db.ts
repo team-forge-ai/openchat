@@ -78,7 +78,7 @@ export async function touchConversation(conversationId: number): Promise<void> {
 /**
  * Gets all conversations ordered by updated_at descending.
  */
-export async function getConversations(): Promise<
+export async function getConversations(search?: string): Promise<
   Array<{
     id: number
     title: string
@@ -87,6 +87,13 @@ export async function getConversations(): Promise<
   }>
 > {
   const db = await dbPromise
+  if (search && search.trim() !== '') {
+    const pattern = `%${search}%`
+    return await db.select(
+      'SELECT id, title, created_at, updated_at FROM conversations WHERE title LIKE ? COLLATE NOCASE ORDER BY updated_at DESC',
+      [pattern],
+    )
+  }
   return await db.select(
     'SELECT id, title, created_at, updated_at FROM conversations ORDER BY updated_at DESC',
   )

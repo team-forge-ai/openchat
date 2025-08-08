@@ -1,25 +1,27 @@
 import { Pencil } from 'lucide-react'
+import { useCallback } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { SidebarHeader } from '@/components/ui/sidebar'
 import { WindowDragRegion } from '@/components/window-drag-region'
+import { useConversation } from '@/contexts/conversation-context'
+import { useConversations } from '@/hooks/use-conversations'
 
-interface AppSidebarHeaderProps {
-  onCreate: () => void
-  disabled: boolean
-  isCreating: boolean
-}
+export function AppSidebarHeader() {
+  const { setSelectedConversationId } = useConversation()
+  const { isLoading, createConversation } = useConversations()
 
-export function AppSidebarHeader({
-  onCreate,
-  disabled,
-}: AppSidebarHeaderProps) {
+  const handleCreate = useCallback(async () => {
+    const id = await createConversation.mutateAsync()
+    setSelectedConversationId(id)
+  }, [createConversation, setSelectedConversationId])
+
   return (
     <WindowDragRegion>
       <SidebarHeader className="border-b h-[60px] flex items-end justify-center px-3">
         <Button
-          onClick={onCreate}
-          disabled={disabled}
+          onClick={handleCreate}
+          disabled={isLoading || createConversation.isLoading}
           size="sm"
           className="bg-purple-700"
         >

@@ -53,7 +53,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
         )}
 
         <time
-          className="mt-2 block text-xs text-muted-foreground"
+          className="mt-2 block text-xs text-muted-foreground opacity-50 hover:opacity-100 transition-opacity"
           title={new Date(message.created_at).toLocaleString()}
         >
           {new Date(message.created_at).toLocaleTimeString()}

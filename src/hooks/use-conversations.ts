@@ -23,7 +23,7 @@ interface UseConversationsResult {
   }
 }
 
-export function useConversations(): UseConversationsResult {
+export function useConversations(search?: string): UseConversationsResult {
   const queryClient = useQueryClient()
   const { selectedConversationId, setSelectedConversationId } =
     useConversation()
@@ -31,8 +31,8 @@ export function useConversations(): UseConversationsResult {
   const { data: conversations = [], isFetching: isLoading } = useQuery<
     Conversation[]
   >({
-    queryKey: ['conversations'],
-    queryFn: () => getConversations(),
+    queryKey: ['conversations', search ?? ''],
+    queryFn: () => getConversations(search),
   })
 
   const createConversationMutation = useMutation({

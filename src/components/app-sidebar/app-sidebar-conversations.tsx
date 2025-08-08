@@ -1,3 +1,7 @@
+import { Search } from 'lucide-react'
+import { useCallback, useDeferredValue, useState } from 'react'
+
+import { Input } from '@/components/ui/input'
 import {
   SidebarContent,
   SidebarGroup,
@@ -5,35 +9,54 @@ import {
   SidebarGroupLabel,
   SidebarMenu,
 } from '@/components/ui/sidebar'
-import type { Conversation } from '@/types'
+import { useConversation } from '@/contexts/conversation-context'
+import { useConversations } from '@/hooks/use-conversations'
 
 import { AppSidebarConversationItem } from './app-sidebar-conversation-item'
 
-interface AppSidebarConversationsProps {
-  conversations: Conversation[]
-  selectedConversationId: number | null
-  onSelect: (id: number) => void
-  onDelete: (id: number) => void
-  isDeleting: boolean
-}
+export function AppSidebarConversations() {
+  const { selectedConversationId, setSelectedConversationId } =
+    useConversation()
+  const [query, setQuery] = useState('')
+  const deferredQuery = useDeferredValue(query)
+  const { conversations, deleteConversation } = useConversations(deferredQuery)
 
-export function AppSidebarConversations({
-  conversations,
-  selectedConversationId,
-  onSelect,
-  onDelete,
-  isDeleting,
-}: AppSidebarConversationsProps) {
+  const handleSelect = useCallback(
+    (id: number) => setSelectedConversationId(id),
+    [setSelectedConversationId],
+  )
+  const handleDelete = useCallback(
+    (id: number) => {
+      if (selectedConversationId === id) {
+        setSelectedConversationId(null)
+      }
+      deleteConversation.mutate(id)
+    },
+    [deleteConversation, selectedConversationId, setSelectedConversationId],
+  )
   return (
     <SidebarContent>
       <SidebarGroup>
+        <div className="pt-0 pb-3">
+          <div className="relative backdrop-blur-sm">
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <Input
+              className="h-10 rounded-full bg-muted/50 border-0 pl-9 pr-4 shadow-none focus-visible:ring-2 focus-visible:ring-ring/40 placeholder:text-muted-foreground"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search conversations"
+            />
+          </div>
+        </div>
+
         <SidebarGroupLabel>Recent Conversations</SidebarGroupLabel>
         <SidebarGroupContent>
           {conversations.length === 0 ? (
             <div className="px-3 py-4 text-center text-sm text-muted-foreground">
-              No conversations yet.
-              <br />
-              Start a new chat to get started.
+              {query ? 'No conversations found.' : 'No conversations yet.'}
             </div>
           ) : (
             <SidebarMenu>
@@ -44,9 +67,9 @@ export function AppSidebarConversations({
                   title={conversation.title}
                   updatedAt={conversation.updated_at}
                   isActive={selectedConversationId === conversation.id}
-                  onSelect={onSelect}
-                  onDelete={onDelete}
-                  isDeleting={isDeleting}
+                  onSelect={handleSelect}
+                  onDelete={handleDelete}
+                  isDeleting={deleteConversation.isLoading}
                 />
               ))}
             </SidebarMenu>
