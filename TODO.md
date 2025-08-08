@@ -3,15 +3,14 @@
 - [x] log all server info logs to stdout
 - [x] add status to message (pending|complete|error)
 - [x] hide msg timestamp when pending
-- add a way of stopping execution
+- [x] add a way of stopping execution
 - plan settings
 - plan pdf extraction? mcp
 - plan mcp integration
 - add reasoning duration
 - request timeoued out after a while
 - seems to use an insane amount of resources. maybe lower context?
-- icon idea: purple lilly
-- react router?
+- [x] icon idea: purple lilly
 - [x] Add project structure/desc to always.md
 - add full-text search
 - [x] title-case response from generated name

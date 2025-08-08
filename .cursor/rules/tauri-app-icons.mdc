@@ -85,3 +85,5 @@ To generate icons, you can use the following steps:
 1. Receive a png file from the user, preferrably 1024x1024.
 2. Prep the icon (padding, corners) for macOS using the directions above.
 3. Run the `pnpm run tauri icon` command to generate the icons.
+
+You may overwrite existing icons. Imagemagick is already installed on the system.
