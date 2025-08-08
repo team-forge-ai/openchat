@@ -37,14 +37,14 @@ export function AppSidebarConversations() {
   return (
     <SidebarContent>
       <SidebarGroup>
-        <div className="pt-0 pb-3">
+        <div className="pt-1 pb-3 px-1">
           <div className="relative backdrop-blur-sm">
             <Search
               className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground"
               aria-hidden="true"
             />
             <Input
-              className="h-10 rounded-full bg-muted/50 border-0 pl-9 pr-4 shadow-none focus-visible:ring-2 focus-visible:ring-ring/40 placeholder:text-muted-foreground"
+              className="h-8 rounded-full bg-muted/50 border-0 pl-9 pr-4 shadow-none focus-visible:ring-2 focus-visible:ring-ring/40 placeholder:text-muted-foreground"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search conversations"
