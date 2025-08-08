@@ -27,14 +27,6 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
           isUser ? 'rounded-2xl px-4 py-2 bg-slate-100' : 'p-4'
         }`}
       >
-        {message.content && (
-          <CopyButton
-            text={message.content}
-            ariaLabel="Copy message"
-            className="absolute right-2 bottom-2 z-10 opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100"
-          />
-        )}
-
         {!isUser && message.reasoning && (
           <ReasoningDisplay
             reasoning={message.reasoning}
@@ -52,12 +44,24 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
           </Markdown>
         )}
 
-        <time
-          className="mt-2 block text-xs text-muted-foreground opacity-50 hover:opacity-100 transition-opacity"
-          title={new Date(message.created_at).toLocaleString()}
-        >
-          {new Date(message.created_at).toLocaleTimeString()}
-        </time>
+        <footer className="flex items-center gap-2">
+          <time
+            className="mt-2 text-xs text-muted-foreground opacity-50 hover:opacity-100 transition-opacity"
+            title={new Date(message.created_at).toLocaleString()}
+          >
+            {new Date(message.created_at).toLocaleTimeString()}
+          </time>
+
+          <div className="flex-1" />
+
+          {message.content && (
+            <CopyButton
+              text={message.content}
+              ariaLabel="Copy message"
+              className="opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100"
+            />
+          )}
+        </footer>
       </div>
     </div>
   )

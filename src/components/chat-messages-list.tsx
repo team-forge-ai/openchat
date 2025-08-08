@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react'
 
 import type { Message } from '@/types'
 
+import { ChatEmptyState } from './chat-empty-state'
 import { ChatMessage } from './chat-message'
 
 interface ChatMessagesListProps {
@@ -26,12 +27,7 @@ export const ChatMessagesList: React.FC<ChatMessagesListProps> = ({
   return (
     <div className="flex-1 overflow-y-auto">
       {messages.length === 0 && !isLoading ? (
-        <div className="flex items-center justify-center h-full">
-          <div className="text-center text-muted-foreground">
-            <div className="text-lg font-medium mb-2">Welcome to OpenChat</div>
-            <div>Send a message to get started.</div>
-          </div>
-        </div>
+        <ChatEmptyState />
       ) : (
         <div>
           {messages.map((message) => (

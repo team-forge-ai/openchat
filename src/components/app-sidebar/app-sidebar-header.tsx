@@ -1,4 +1,4 @@
-import { Pencil } from 'lucide-react'
+import { SquarePen } from 'lucide-react'
 import { useCallback } from 'react'
 
 import { Button } from '@/components/ui/button'
@@ -23,9 +23,10 @@ export function AppSidebarHeader() {
           onClick={handleCreate}
           disabled={isLoading || createConversation.isLoading}
           size="sm"
-          className="bg-purple-700"
+          variant="ghost"
+          title="New chat"
         >
-          <Pencil className="h-4 w-4" />
+          <SquarePen className="h-4 w-4" />
         </Button>
       </SidebarHeader>
     </WindowDragRegion>

@@ -73,7 +73,9 @@ export function MLXServerStatus() {
           <TooltipTrigger asChild>
             <div className="flex items-center gap-2 text-sm">
               {getStatusIcon()}
-              <span className="text-muted-foreground">{getStatusText()}</span>
+              <span className="text-muted-foreground cursor-default">
+                {getStatusText()}
+              </span>
             </div>
           </TooltipTrigger>
           <TooltipContent>{getTooltipContent()}</TooltipContent>

@@ -1,8 +1,7 @@
-import { Camera, Loader2, Mic, Plus, Send } from 'lucide-react'
+import { Loader2, Mic, Plus, Send } from 'lucide-react'
 import React, { useEffect, useRef } from 'react'
 
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 
 interface ChatInputProps {
   value: string
@@ -23,7 +22,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   isLoading = false,
   focusKey,
 }) => {
-  const inputRef = useRef<HTMLInputElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
     if (!disabled) {
@@ -46,25 +45,17 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             <Plus className="w-4 h-4" />
           </Button>
 
-          <Input
+          <textarea
             ref={inputRef}
             value={value}
             onChange={(e) => onChange(e.target.value)}
             onKeyDown={onEnterKey}
             placeholder={disabled ? 'AI is not ready...' : 'Ask anything'}
-            className="flex-1 pl-10 border-0 bg-transparent shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-0"
+            className="flex-1 pl-10 border-0 bg-transparent shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-0 resize-none leading-6 py-1.5 min-h-[1.5rem] max-h-40 outline-none"
+            rows={1}
             autoFocus
           />
 
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            disabled={disabled}
-            aria-label="Camera"
-          >
-            <Camera className="w-4 h-4" />
-          </Button>
           <Button
             type="button"
             variant="ghost"
