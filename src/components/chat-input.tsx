@@ -1,4 +1,4 @@
-import { Loader2, Mic, Plus, Send } from 'lucide-react'
+import { Loader2, Plus, Send } from 'lucide-react'
 import React, { useEffect, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
@@ -93,16 +93,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                 rows={1}
                 autoFocus
               />
-
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                disabled={disabled}
-                aria-label="Microphone"
-              >
-                <Mic className="w-4 h-4" />
-              </Button>
 
               <Button
                 type="submit"
