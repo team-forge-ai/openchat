@@ -10,7 +10,6 @@ import { ChatInput } from './chat-input'
 import { ChatMessagesList } from './chat-messages-list'
 
 export const ChatWindow: React.FC = () => {
-  const [inputValue, setInputValue] = useState('')
   const [error, setError] = useState<string | null>(null)
   const { selectedConversationId, setSelectedConversationId } =
     useConversation()
@@ -29,14 +28,12 @@ export const ChatWindow: React.FC = () => {
   // Aggregate loading state: fetching or sending
   const isLoading = isLoadingMessages || isSendingMessage
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!inputValue.trim() || isLoading || isChatDisabled) {
+  const handleSubmit = async (text: string) => {
+    if (!text.trim() || isLoading || isChatDisabled) {
       return
     }
 
-    const messageContent = inputValue.trim()
-    setInputValue('')
+    const messageContent = text.trim()
     setError(null)
 
     try {
@@ -54,18 +51,9 @@ export const ChatWindow: React.FC = () => {
         content: messageContent,
       })
     } catch (error) {
-      // Re-set the input value if the message failed to send
-      setInputValue(messageContent)
       setError(
         error instanceof Error ? error.message : 'Failed to send message',
       )
-    }
-  }
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      void handleSubmit(e)
     }
   }
 
@@ -74,10 +62,7 @@ export const ChatWindow: React.FC = () => {
       <ChatMessagesList messages={messages} isLoading={isLoading} />
       {error && <ChatErrorBanner error={error} />}
       <ChatInput
-        value={inputValue}
-        onChange={setInputValue}
         onSubmit={handleSubmit}
-        onEnterKey={handleKeyDown}
         disabled={isLoading || isChatDisabled}
         focusKey={selectedConversationId ?? 0}
         isLoading={isLoading}
