@@ -1,4 +1,3 @@
-import { Bot } from 'lucide-react'
 import React from 'react'
 
 import { Skeleton } from '@/components/ui/skeleton'
@@ -72,9 +71,6 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
 function AssistantMessageSkeleton() {
   return (
     <div className="flex gap-3 p-4 bg-muted/30">
-      <div className="w-8 h-8 rounded-full bg-secondary text-secondary-foreground flex items-center justify-center flex-shrink-0">
-        <Bot className="w-4 h-4 opacity-50" />
-      </div>
       <div className="flex-1 min-w-0 flex flex-col gap-2">
         <Skeleton className="h-4 w-3/4" />
         <Skeleton className="h-4 w-1/2" />

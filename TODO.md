@@ -1,0 +1,3 @@
+- only scroll the chat when a new message is received
+- chat message skeleton loading isn't working
+- log all server info logs to stdout

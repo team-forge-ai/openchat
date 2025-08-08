@@ -30,7 +30,7 @@ export function ReasoningDisplay({
       <CollapsibleTrigger asChild>
         <Button
           variant="ghost"
-          className="flex w-full justify-between text-sm font-medium -mx-5"
+          className="flex flex-1 justify-between text-sm font-medium -mx-5"
         >
           <span className="flex items-center gap-1">
             {isOpen ? (

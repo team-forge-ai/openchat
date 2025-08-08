@@ -8,7 +8,7 @@ use tauri::{AppHandle, Emitter};
 use tauri_plugin_shell::{process::CommandEvent, ShellExt};
 
 // Constants for server configuration and timeouts
-const DEFAULT_MODEL_PATH: &str = "models/Qwen3-0.6B-MLX-4bit";
+const DEFAULT_MODEL_PATH: &str = "models/Qwen3-32B-MLX-4bit";
 const DEFAULT_PORT: u16 = 8000;
 const DEFAULT_HOST: &str = "127.0.0.1";
 const DEFAULT_LOG_LEVEL: &str = "INFO";
