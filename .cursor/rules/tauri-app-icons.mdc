@@ -26,36 +26,12 @@ pnpm run tauri icon ./app-icon.png
 Arguments and options (common):
 
 - [INPUT]: Source icon path (default: ./app-icon.png)
-- -o, --output <OUTPUT>: Output directory (default: `src-tauri/icons`)
-- -p, --png <PNG>: Custom PNG sizes; overrides defaults
-- --ios-color <IOS_COLOR>: iOS icon background color (default: #fff)
-- -v, --verbose: Verbose logging
-
-## Where icons are placed
 
 Desktop icons are generated to `src-tauri/icons/` by default and included automatically in builds.
 
-To source icons from a different location, set `bundle.icon` in [src-tauri/tauri.conf.json](mdc:src-tauri/tauri.conf.json):
+### macOS icon prep (padding + corners)
 
-```json
-{
-  "bundle": {
-    "icon": [
-      "icons/32x32.png",
-      "icons/128x128.png",
-      "icons/128x128@2x.png",
-      "icons/icon.icns",
-      "icons/icon.ico"
-    ]
-  }
-}
-```
-
-Mobile icons are written directly into the native Xcode/Android Studio projects.
-
-### Recommended source icon prep (padding + corners)
-
-For best results across platforms, place your artwork inside a padded canvas and apply rounded corners to the artwork itself before generating the icon set.
+MacOS requires icons to be artwork inside a padded canvas and apply rounded corners to the artwork itself before generating the icon set.
 
 - **Canvas**: 1024×1024, transparent
 - **Inner artwork size**: 826×826 (≈ 80.66% of canvas)
@@ -102,8 +78,10 @@ After selecting the preferred preview, generate the full icon set (desktop + mob
 pnpm run tauri icon ./app-icon-1024-preview-crop.png -o src-tauri/icons -v
 ```
 
-Notes:
+## Icon workflow steps
 
-- Desktop builds automatically use icons from `src-tauri/icons`.
-- Mobile assets are written into the native projects.
-- For iOS background color when composing from a non-transparent source, you can pass `--ios-color "#fff"`.
+To generate icons, you can use the following steps:
+
+1. Receive a png file from the user, preferrably 1024x1024.
+2. Prep the icon (padding, corners) for macOS using the directions above.
+3. Run the `pnpm run tauri icon` command to generate the icons.
