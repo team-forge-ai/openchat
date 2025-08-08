@@ -50,13 +50,13 @@ export function useMessages(conversationId: number | null): UseMessagesResult {
       }
 
       // Insert user message locally (complete by default)
-      await insertMessage(
-        conversationId,
-        'user',
+      await insertMessage({
+        conversation_id: conversationId,
+        role: 'user',
         content,
-        undefined,
-        'complete',
-      )
+        reasoning: null,
+        status: 'complete',
+      })
       await invalidateConverationQuery()
 
       // Name setting moved to shared utility and invoked after streaming completes
@@ -74,13 +74,14 @@ export function useMessages(conversationId: number | null): UseMessagesResult {
 
           // Insert message to database on first chunk, update on subsequent chunks
           if (assistantMessageId === null) {
-            assistantMessageId = await insertMessage(
-              conversationId,
-              'assistant',
-              accumulatedContent,
-              accumulatedReasoning || undefined,
-              'pending',
-            )
+            assistantMessageId = await insertMessage({
+              conversation_id: conversationId,
+              role: 'assistant',
+              content: accumulatedContent,
+              reasoning: accumulatedReasoning || null,
+              status: 'pending',
+              created_at: new Date().toISOString(),
+            })
           } else {
             await updateMessage(assistantMessageId, {
               content: accumulatedContent,
@@ -97,13 +98,14 @@ export function useMessages(conversationId: number | null): UseMessagesResult {
 
           // Insert message to database on first reasoning chunk, update on subsequent chunks
           if (assistantMessageId === null) {
-            assistantMessageId = await insertMessage(
-              conversationId,
-              'assistant',
-              accumulatedContent,
-              accumulatedReasoning,
-              'pending',
-            )
+            assistantMessageId = await insertMessage({
+              conversation_id: conversationId,
+              role: 'assistant',
+              content: accumulatedContent,
+              reasoning: accumulatedReasoning,
+              status: 'pending',
+              created_at: new Date().toISOString(),
+            })
           } else {
             await updateMessage(assistantMessageId, {
               content: accumulatedContent,

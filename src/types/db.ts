@@ -1,7 +1,5 @@
 import type { ColumnType } from 'kysely'
 
-import type { MessageStatus } from '@/types'
-
 export interface ConversationsTable {
   id: ColumnType<number, never, never>
   title: ColumnType<string | null, string | null | undefined, string | null>
@@ -15,7 +13,11 @@ export interface MessagesTable {
   role: ColumnType<'user' | 'assistant', 'user' | 'assistant', never>
   content: ColumnType<string, string, string>
   reasoning: ColumnType<string | null, string | null | undefined, string | null>
-  status: ColumnType<MessageStatus, MessageStatus | undefined, MessageStatus>
+  status: ColumnType<
+    'pending' | 'complete' | 'error',
+    'pending' | 'complete' | 'error' | undefined,
+    'pending' | 'complete' | 'error'
+  >
   created_at: ColumnType<string, string | undefined, never>
 }
 

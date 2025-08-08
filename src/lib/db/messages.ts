@@ -1,6 +1,7 @@
 import type { Insertable, Selectable, Updateable } from 'kysely'
 
 import { getKysely } from '@/lib/kysely'
+import type { Message } from '@/types'
 import type { DB } from '@/types/db'
 
 export async function insertMessage(
@@ -46,9 +47,7 @@ export async function getMessagesForChat(
     .execute()
 }
 
-export async function getMessages(
-  conversationId: number,
-): Promise<Selectable<DB['messages']>[]> {
+export async function getMessages(conversationId: number): Promise<Message[]> {
   const db = await getKysely()
   const rows = await db
     .selectFrom('messages')
