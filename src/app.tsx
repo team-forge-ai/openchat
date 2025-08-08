@@ -3,7 +3,7 @@ import { AppShortcuts } from '@/components/app-shortcuts'
 import { AppSidebar } from '@/components/app-sidebar'
 import { ChatWindow } from '@/components/chat-window'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
-import { ConversationProvider } from '@/contexts/conversation-context'
+import { AppContextProvider } from '@/contexts/app-context'
 import { MLXServerProvider } from '@/contexts/mlx-server-context'
 
 import './App.css'
@@ -33,10 +33,10 @@ function AppContent() {
 function App() {
   return (
     <MLXServerProvider>
-      <ConversationProvider>
+      <AppContextProvider>
         <AppShortcuts />
         <AppContent />
-      </ConversationProvider>
+      </AppContextProvider>
     </MLXServerProvider>
   )
 }

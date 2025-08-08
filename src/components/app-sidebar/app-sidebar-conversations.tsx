@@ -9,14 +9,13 @@ import {
   SidebarGroupLabel,
   SidebarMenu,
 } from '@/components/ui/sidebar'
-import { useConversation } from '@/contexts/conversation-context'
+import { useAppContext } from '@/contexts/app-context'
 import { useConversations } from '@/hooks/use-conversations'
 
 import { AppSidebarConversationItem } from './app-sidebar-conversation-item'
 
 export function AppSidebarConversations() {
-  const { selectedConversationId, setSelectedConversationId } =
-    useConversation()
+  const { selectedConversationId, setSelectedConversationId } = useAppContext()
   const [query, setQuery] = useState('')
   const deferredQuery = useDeferredValue(query)
   const { conversations, deleteConversation } = useConversations(deferredQuery)

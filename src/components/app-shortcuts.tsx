@@ -1,11 +1,11 @@
 import { useCallback } from 'react'
 
-import { useConversation } from '@/contexts/conversation-context'
+import { useAppContext } from '@/contexts/app-context'
 import { useConversations } from '@/hooks/use-conversations'
 import { useShortcut } from '@/hooks/use-shortcut'
 
 export function AppShortcuts(): null {
-  const { setSelectedConversationId } = useConversation()
+  const { setSelectedConversationId } = useAppContext()
   const { createConversation, isLoading } = useConversations()
 
   const createNewConversation = useCallback(async () => {

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { useConversation } from '@/contexts/conversation-context'
+import { useAppContext } from '@/contexts/app-context'
 import {
   deleteConversation,
   getConversations,
@@ -25,8 +25,7 @@ interface UseConversationsResult {
 
 export function useConversations(search?: string): UseConversationsResult {
   const queryClient = useQueryClient()
-  const { selectedConversationId, setSelectedConversationId } =
-    useConversation()
+  const { selectedConversationId, setSelectedConversationId } = useAppContext()
 
   const { data: conversations = [], isFetching: isLoading } = useQuery<
     Conversation[]

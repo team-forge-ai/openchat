@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 
-import { useConversation } from '@/contexts/conversation-context'
+import { useAppContext } from '@/contexts/app-context'
 import { useMLXServer } from '@/contexts/mlx-server-context'
 import { useConversations } from '@/hooks/use-conversations'
 import { useMessages } from '@/hooks/use-messages'
@@ -11,8 +11,7 @@ import { ChatMessagesList } from './chat-messages-list'
 
 export const ChatWindow: React.FC = () => {
   const [error, setError] = useState<string | null>(null)
-  const { selectedConversationId, setSelectedConversationId } =
-    useConversation()
+  const { selectedConversationId, setSelectedConversationId } = useAppContext()
 
   const {
     messages,

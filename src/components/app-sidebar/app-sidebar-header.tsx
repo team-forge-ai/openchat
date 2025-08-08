@@ -4,11 +4,11 @@ import { useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { SidebarHeader } from '@/components/ui/sidebar'
 import { WindowDragRegion } from '@/components/window-drag-region'
-import { useConversation } from '@/contexts/conversation-context'
+import { useAppContext } from '@/contexts/app-context'
 import { useConversations } from '@/hooks/use-conversations'
 
 export function AppSidebarHeader() {
-  const { setSelectedConversationId } = useConversation()
+  const { setSelectedConversationId } = useAppContext()
   const { isLoading, createConversation } = useConversations()
 
   const handleCreate = useCallback(async () => {
