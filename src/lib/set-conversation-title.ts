@@ -1,6 +1,7 @@
 import type { QueryClient } from '@tanstack/react-query'
 
-import { getMessagesForChat, updateConversationTitleIfUnset } from '@/lib/db'
+import { updateConversationTitleIfUnset } from '@/lib/db/conversations'
+import { getMessagesForChat } from '@/lib/db/messages'
 import { generateConversationTitle } from '@/lib/generate-conversation-name'
 import type { ChatMessage } from '@/types/mlx-server'
 

@@ -1,6 +1,6 @@
 import { useRef } from 'react'
 
-import { getMessagesForChat } from '@/lib/db'
+import { getMessagesForChat } from '@/lib/db/messages'
 import { mlxServer } from '@/lib/mlx-server'
 import { StreamChunkSchema } from '@/lib/mlx-server-schemas'
 import type { ChatMessage } from '@/types/mlx-server'

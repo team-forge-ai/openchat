@@ -5,7 +5,7 @@ import {
   deleteConversation,
   getConversations,
   insertConversation,
-} from '@/lib/db'
+} from '@/lib/db/conversations'
 import type { Conversation } from '@/types'
 
 interface UseConversationsResult {

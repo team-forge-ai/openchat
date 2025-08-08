@@ -1,0 +1,112 @@
+---
+alwaysApply: false
+description: How to import a source image and generate Tauri app icons (macOS ICNS, Windows ICO, and required PNGs) on macOS; includes verification and troubleshooting.
+---
+
+# Tauri App Icons (macOS workflow)
+
+Use this when you have a new source image and need to produce all app icons referenced by [src-tauri/tauri.conf.json](mdc:src-tauri/tauri.conf.json). Outputs land in [src-tauri/icons](mdc:src-tauri/icons).
+
+## Requirements
+
+- macOS built-ins: `sips`, `iconutil`
+- ImageMagick for ICO and PNG32 RGBA: `brew install imagemagick`
+
+## Expected outputs (defaults in tauri.conf.json)
+
+- `src-tauri/icons/32x32.png`
+- `src-tauri/icons/128x128.png`
+- `src-tauri/icons/128x128@2x.png`
+- `src-tauri/icons/icon.icns`
+- `src-tauri/icons/icon.ico`
+
+## Variables
+
+```sh
+SRC="/absolute/path/to/source.png"   # square, transparent PNG preferred
+OUTDIR="/absolute/path/to/repo/src-tauri/icons"
+ICONSET="$OUTDIR/openchat.iconset"
+```
+
+## 1) Generate macOS iconset and ICNS
+
+```sh
+mkdir -p "$OUTDIR" "$ICONSET"
+
+# 1x / @2x sizes required by iconutil
+sips -z 16 16     "$SRC" --out "$ICONSET/icon_16x16.png"
+sips -z 32 32     "$SRC" --out "$ICONSET/icon_16x16@2x.png"
+sips -z 32 32     "$SRC" --out "$ICONSET/icon_32x32.png"
+sips -z 64 64     "$SRC" --out "$ICONSET/icon_32x32@2x.png"
+sips -z 128 128   "$SRC" --out "$ICONSET/icon_128x128.png"
+sips -z 256 256   "$SRC" --out "$ICONSET/icon_128x128@2x.png"
+sips -z 256 256   "$SRC" --out "$ICONSET/icon_256x256.png"
+sips -z 512 512   "$SRC" --out "$ICONSET/icon_256x256@2x.png"
+sips -z 512 512   "$SRC" --out "$ICONSET/icon_512x512.png"
+sips -z 1024 1024 "$SRC" --out "$ICONSET/icon_512x512@2x.png"
+
+# Build ICNS
+iconutil -c icns -o "$OUTDIR/icon.icns" "$ICONSET"
+```
+
+## 2) Generate Tauri PNGs as PNG32 (RGBA)
+
+Tauri may require truecolor + alpha (PNG32). Re-encode with ImageMagick:
+
+```sh
+# 32x32
+magick "$SRC" -resize 32x32  -background none -alpha on -strip PNG32:"$OUTDIR/32x32.png"
+
+# 128x128
+magick "$SRC" -resize 128x128 -background none -alpha on -strip PNG32:"$OUTDIR/128x128.png"
+
+# 128x128@2x (256x256)
+magick "$SRC" -resize 256x256 -background none -alpha on -strip PNG32:"$OUTDIR/128x128@2x.png"
+```
+
+## 3) Generate multi-size Windows ICO
+
+```sh
+magick "$SRC" -alpha on -background none \
+  -define icon:auto-resize=16,24,32,48,64,128,256 \
+  "$OUTDIR/icon.ico"
+```
+
+## 4) Verify outputs
+
+```sh
+# Check PNGs are RGBA (PNG32)
+magick identify -format "%f: %m %z-bit %[channels]\n" \
+  "$OUTDIR/32x32.png" "$OUTDIR/128x128.png" "$OUTDIR/128x128@2x.png"
+
+# Optional: sips metadata
+sips -g format -g hasAlpha -g bitsPerSample "$OUTDIR/32x32.png"
+```
+
+Expected channels include `Alpha`, e.g., `srgba` and 8-bit depth.
+
+## 5) Cleanup (optional)
+
+```sh
+rm -rf "$ICONSET"  # remove temporary iconset after ICNS is created
+```
+
+## Troubleshooting
+
+- Error: `icon ... is not RGBA` during Tauri build
+  - Re-encode with PNG32: `magick input.png -strip PNG32:output.png`
+  - Ensure `hasAlpha: yes` with `sips -g hasAlpha output.png`
+
+- Missing `iconutil` or `sips`
+  - Install Xcode CLT: `xcode-select --install`
+
+- Missing ImageMagick
+  - `brew install imagemagick`
+
+- Stale build artifacts
+  - Delete `dist/` and `src-tauri/target/`, then rebuild.
+
+## Notes
+
+- If you change file names or add sizes, update [src-tauri/tauri.conf.json](mdc:src-tauri/tauri.conf.json) accordingly.
+- Prefer a high-resolution square PNG with transparency as your source (≥ 1024×1024).

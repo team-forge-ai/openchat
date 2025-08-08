@@ -1,13 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { useChatCompletion } from '@/hooks/use-chat-completion'
-import {
-  getMessages,
-  insertMessage,
-  touchConversation,
-  updateMessage,
-  updateMessageStatus,
-} from '@/lib/db'
+import { touchConversation } from '@/lib/db/conversations'
+import { getMessages, insertMessage, updateMessage } from '@/lib/db/messages'
 import { setConversationTitleIfUnset } from '@/lib/set-conversation-title'
 import type { Message } from '@/types'
 
@@ -143,7 +138,7 @@ export function useMessages(conversationId: number | null): UseMessagesResult {
           console.error('Streaming error:', error)
 
           if (assistantMessageId !== null) {
-            await updateMessageStatus(assistantMessageId, 'error')
+            await updateMessage(assistantMessageId, { status: 'error' })
           }
         },
       })

@@ -35,6 +35,8 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "hast-util-to-jsx-runtime": "^2.3.6",
+    "kysely": "^0.28.4",
+    "kysely-dialect-tauri": "^1.2.1",
     "lodash-es": "^4.17.21",
     "lucide-react": "^0.537.0",
     "react": "^19.1.1",
