@@ -24,7 +24,7 @@ type Props = {
   onTest: (config: McpServerConfig) => Promise<{ ok: boolean; message: string }>
 }
 
-type Transport = 'stdio' | 'websocket' | 'http'
+type Transport = 'stdio' | 'http'
 
 export function McpServerFormDialog({
   open,
@@ -49,24 +49,7 @@ export function McpServerFormDialog({
         })),
       }
     }
-    if (initial?.transport === 'websocket') {
-      const result: McpServerFormValues = {
-        transport: 'websocket',
-        name: initial.name ?? '',
-        description: initial.description ?? undefined,
-        enabled: initial.enabled ?? false,
-        url: initial.url ?? '',
-        headers: Object.entries<string>(initial.headers ?? {}).map(
-          ([key, value]) => ({
-            key,
-            value: String(value ?? ''),
-          }),
-        ),
-        auth: initial.auth ?? undefined,
-        heartbeatSec: initial.heartbeatSec ?? undefined,
-      }
-      return result
-    }
+    // websocket transport removed
     // Default to stdio when not editing or not websocket
     return {
       transport: 'stdio',
@@ -199,7 +182,6 @@ export function McpServerFormDialog({
                 }
               >
                 <option value="stdio">stdio</option>
-                <option value="websocket">websocket</option>
                 <option value="http">http</option>
               </select>
             </label>

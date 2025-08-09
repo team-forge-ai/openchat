@@ -29,11 +29,6 @@ pub enum TransportConfig<'a> {
         connect_timeout_ms: u64,
         list_tools_timeout_ms: u64,
     },
-    WebSocket {
-        url: &'a str,
-        connect_timeout_ms: u64,
-        list_tools_timeout_ms: u64,
-    },
     Http {
         url: &'a str,
         connect_timeout_ms: u64,
@@ -305,13 +300,6 @@ pub async fn check_server(config: TransportConfig<'_>) -> McpCheckResult {
                 error: None,
             }
         }
-        TransportConfig::WebSocket { .. } => McpCheckResult {
-            ok: false,
-            tools_count: None,
-            tools: None,
-            warning: None,
-            error: Some("WebSocket transport validation not implemented yet".into()),
-        },
         TransportConfig::Http { .. } => McpCheckResult {
             ok: false,
             tools_count: None,

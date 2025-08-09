@@ -1,4 +1,4 @@
-export type McpTransport = 'stdio' | 'websocket' | 'http'
+export type McpTransport = 'stdio' | 'http'
 
 export interface McpServerBase {
   id?: number
@@ -17,14 +17,6 @@ export interface McpServerStdio extends McpServerBase {
   cwd?: string | null
 }
 
-export interface McpServerWebSocket extends McpServerBase {
-  transport: 'websocket'
-  url: string
-  headers?: Record<string, string>
-  auth?: string | null
-  heartbeatSec?: number | null
-}
-
 export interface McpServerHttp extends McpServerBase {
   transport: 'http'
   url: string
@@ -33,10 +25,7 @@ export interface McpServerHttp extends McpServerBase {
   heartbeatSec?: number | null
 }
 
-export type McpServerConfig =
-  | McpServerStdio
-  | McpServerWebSocket
-  | McpServerHttp
+export type McpServerConfig = McpServerStdio | McpServerHttp
 
 export interface McpToolInfo {
   name: string

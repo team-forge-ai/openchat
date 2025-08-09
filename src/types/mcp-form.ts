@@ -18,14 +18,6 @@ export const McpServerFormSchema = z.discriminatedUnion('transport', [
     env: z.array(stringKV).default([]),
   }),
   z.object({
-    transport: z.literal('websocket'),
-    ...common,
-    url: z.string().url('Must be a valid URL'),
-    headers: z.array(stringKV).default([]),
-    auth: z.string().optional().nullable(),
-    heartbeatSec: z.number().int().nonnegative().optional().nullable(),
-  }),
-  z.object({
     transport: z.literal('http'),
     ...common,
     url: z.string().url('Must be a valid URL'),

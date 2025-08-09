@@ -25,9 +25,7 @@ export function rowToForm(row: McpServerRow): McpServerFormValues {
     auth: row.auth ?? undefined,
     heartbeatSec: row.heartbeat_sec ?? undefined,
   }
-  return row.transport === 'websocket'
-    ? { transport: 'websocket', ...base }
-    : { transport: 'http', ...base }
+  return { transport: 'http', ...base }
 }
 
 export function formToConfig(values: McpServerFormValues): McpServerConfig {
@@ -44,7 +42,7 @@ export function formToConfig(values: McpServerFormValues): McpServerConfig {
     }
   }
   return {
-    transport: values.transport,
+    transport: 'http',
     name: values.name,
     description: values.description ?? undefined,
     enabled: values.enabled,

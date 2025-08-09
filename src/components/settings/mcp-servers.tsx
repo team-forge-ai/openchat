@@ -129,21 +129,6 @@ function formValuesFromConfig(config: McpServerConfig): McpServerFormValues {
       })),
     }
   }
-  if (config.transport === 'websocket') {
-    return {
-      transport: 'websocket',
-      name: config.name,
-      description: config.description,
-      enabled: config.enabled,
-      url: config.url,
-      headers: Object.entries(config.headers ?? {}).map(([key, value]) => ({
-        key,
-        value,
-      })),
-      auth: config.auth,
-      heartbeatSec: config.heartbeatSec ?? undefined,
-    }
-  }
   return {
     transport: 'http',
     name: config.name,

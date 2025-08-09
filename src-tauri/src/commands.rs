@@ -152,18 +152,6 @@ pub enum McpServerConfig {
         env: Option<serde_json::Value>,
         cwd: Option<String>,
     },
-    #[serde(rename = "websocket")]
-    WebSocket {
-        name: String,
-        description: Option<String>,
-        enabled: bool,
-        connect_timeout_ms: Option<u64>,
-        list_tools_timeout_ms: Option<u64>,
-        url: String,
-        headers: Option<serde_json::Value>,
-        auth: Option<String>,
-        heartbeat_sec: Option<u64>,
-    },
     #[serde(rename = "http")]
     Http {
         name: String,
@@ -198,19 +186,6 @@ pub async fn mcp_check_server(config: McpServerConfig) -> Result<McpCheckResult,
                 args: &args_vec,
                 env: env.as_ref(),
                 cwd: cwd.as_deref(),
-                connect_timeout_ms: connect_timeout_ms.unwrap_or(5_000),
-                list_tools_timeout_ms: list_tools_timeout_ms.unwrap_or(5_000),
-            })
-            .await
-        }
-        McpServerConfig::WebSocket {
-            url,
-            connect_timeout_ms,
-            list_tools_timeout_ms,
-            ..
-        } => {
-            mcp::check_server(mcp::TransportConfig::WebSocket {
-                url: &url,
                 connect_timeout_ms: connect_timeout_ms.unwrap_or(5_000),
                 list_tools_timeout_ms: list_tools_timeout_ms.unwrap_or(5_000),
             })

@@ -31,16 +31,6 @@ function transformConfigToRust(
     }
   }
 
-  if (config.transport === 'websocket') {
-    return {
-      ...base,
-      url: config.url,
-      headers: config.headers ?? {},
-      auth: config.auth ?? null,
-      heartbeat_sec: config.heartbeatSec ?? null,
-    }
-  }
-
   // http
   return {
     ...base,
