@@ -50,19 +50,22 @@ export function McpServerFormDialog({
       }
     }
     if (initial?.transport === 'websocket') {
-      return {
+      const result: McpServerFormValues = {
         transport: 'websocket',
         name: initial.name ?? '',
         description: initial.description ?? undefined,
         enabled: initial.enabled ?? false,
         url: initial.url ?? '',
-        headers: Object.entries(initial.headers ?? {}).map(([key, value]) => ({
-          key,
-          value: String(value ?? ''),
-        })),
+        headers: Object.entries<string>(initial.headers ?? {}).map(
+          ([key, value]) => ({
+            key,
+            value: String(value ?? ''),
+          }),
+        ),
         auth: initial.auth ?? undefined,
         heartbeatSec: initial.heartbeatSec ?? undefined,
       }
+      return result
     }
     // Default to stdio when not editing or not websocket
     return {

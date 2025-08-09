@@ -85,8 +85,17 @@ function parseStringArray(input: string | null): string[] {
     return []
   }
   try {
-    const arr = JSON.parse(input)
-    return Array.isArray(arr) ? arr.filter((v) => typeof v === 'string') : []
+    const parsed: unknown = JSON.parse(input)
+    if (Array.isArray(parsed)) {
+      const onlyStrings: string[] = []
+      for (const value of parsed) {
+        if (typeof value === 'string') {
+          onlyStrings.push(value)
+        }
+      }
+      return onlyStrings
+    }
+    return []
   } catch {
     return []
   }
@@ -99,8 +108,18 @@ function parseStringRecord(
     return []
   }
   try {
-    const obj = JSON.parse(input) as Record<string, string>
-    return Object.entries(obj).map(([key, value]) => ({ key, value }))
+    const parsed: unknown = JSON.parse(input)
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      const entries = Object.entries(parsed as Record<string, unknown>)
+      const result: { key: string; value: string }[] = []
+      for (const [key, value] of entries) {
+        if (typeof value === 'string') {
+          result.push({ key, value })
+        }
+      }
+      return result
+    }
+    return []
   } catch {
     return []
   }
