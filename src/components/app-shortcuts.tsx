@@ -5,7 +5,7 @@ import { useConversations } from '@/hooks/use-conversations'
 import { useShortcut } from '@/hooks/use-shortcut'
 
 export function AppShortcuts(): null {
-  const { setSelectedConversationId } = useAppContext()
+  const { setSelectedConversationId, view, setView } = useAppContext()
   const { createConversation, isLoading } = useConversations()
 
   const createNewConversation = useCallback(async () => {
@@ -20,8 +20,14 @@ export function AppShortcuts(): null {
     }
   }, [createConversation, isLoading, setSelectedConversationId])
 
+  // Create new conversation
   useShortcut('mod+n', () => {
     void createNewConversation()
+  })
+
+  // Toggle preferences
+  useShortcut('mod+,', () => {
+    setView(view === 'settings' ? 'conversations' : 'settings')
   })
 
   return null
