@@ -4,6 +4,7 @@ import { getSystemPrompt } from '@/lib/db/app-settings'
 import { getMessagesForChat } from '@/lib/db/messages'
 import { mlxServer } from '@/lib/mlx-server'
 import { StreamChunkSchema } from '@/lib/mlx-server-schemas'
+import { DEFAULT_SETTINGS_PROMPT, SYSTEM_PROMPT } from '@/lib/prompt'
 import type { ChatMessage } from '@/types/mlx-server'
 
 interface StreamingOptions {
@@ -50,13 +51,14 @@ export function useChatCompletion(): UseChatCompletion {
 
     // Add system prompt if no messages yet or first message isn't system
     if (chatMessages.length === 0 || chatMessages[0].role !== 'system') {
-      const savedPrompt = await getSystemPrompt()
-      const fallback =
-        'You are a helpful AI assistant. Provide clear, accurate, and helpful responses. Always respond with markdown.'
-      chatMessages.unshift({
+      const settingsPrompt =
+        (await getSystemPrompt()) || DEFAULT_SETTINGS_PROMPT
+      const systemPrompt: ChatMessage = {
         role: 'system',
-        content: savedPrompt?.trim() ? savedPrompt : fallback,
-      })
+        content: [SYSTEM_PROMPT, settingsPrompt].join('\n'),
+      }
+
+      chatMessages.unshift(systemPrompt)
     }
 
     return chatMessages
