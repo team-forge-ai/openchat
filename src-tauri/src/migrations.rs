@@ -39,5 +39,17 @@ pub fn migrations() -> Vec<Migration> {
             sql: include_str!("../migrations/006_create_app_settings.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 7,
+            description: "create_messages_fts",
+            sql: include_str!("../migrations/007_create_messages_fts.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 8,
+            description: "create_conversations_fts",
+            sql: include_str!("../migrations/008_create_conversations_fts.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }

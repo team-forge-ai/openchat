@@ -62,12 +62,33 @@ export async function getConversations(
 
   if (search?.trim()) {
     const pattern = `%${search}%`
-    query = query.where('title', 'like', pattern)
+    const ftsTerms = search
+      .trim()
+      .split(/\s+/)
+      .map((t) => t.replace(/["']/g, ''))
+      .filter(Boolean)
+    const ftsQuery = ftsTerms.map((t) => `${t}*`).join(' AND ')
+
+    query = query.where((wb) =>
+      wb.or([
+        wb('title', 'like', pattern),
+        // Match conversations by any message content via FTS
+        sql<boolean>`id IN (
+          SELECT conversation_id FROM messages_fts
+          WHERE messages_fts MATCH ${ftsQuery}
+        )`,
+        // Match conversations by title via FTS
+        sql<boolean>`id IN (
+          SELECT rowid FROM conversations_fts
+          WHERE conversations_fts MATCH ${ftsQuery}
+        )`,
+      ]),
+    )
   }
 
   const rows = await query.orderBy('updated_at', 'desc').execute()
 
-  return rows.map((r) => ({ ...r, title: r.title ?? '' }))
+  return rows
 }
 
 export async function deleteConversation(

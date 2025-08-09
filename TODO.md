@@ -4,7 +4,7 @@
 - [x] add status to message (pending|complete|error)
 - [x] hide msg timestamp when pending
 - [x] add a way of stopping execution
-- plan settings
+- [x] plan settings
 - plan pdf extraction? mcp
 - plan mcp integration
 - add reasoning duration
@@ -14,5 +14,5 @@
 - [x] Add project structure/desc to always.md
 - add full-text search
 - [x] title-case response from generated name
-- add system prompt to settings
+- [x] add system prompt to settings
 - need to decide if I'm going to allow multiple or arb models
