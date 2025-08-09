@@ -70,13 +70,14 @@ export function useChatCompletion(): UseChatCompletion {
   ): Promise<string> => {
     abortRequestedRef.current = false
     const chatMessages = await buildChatMessages(conversationId)
+
     let fullContent = ''
     let fullReasoning = ''
 
     try {
       // Make streaming request to MLX server
       const response = await mlxServer.chatCompletionRequest(chatMessages, {
-        stream: true, // Enable streaming
+        stream: true,
       })
 
       if (!response.ok) {

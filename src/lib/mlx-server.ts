@@ -139,7 +139,7 @@ class MLXServerService {
   ): Promise<Response> {
     const path = `/v1/chat/completions`
 
-    const body = {
+    const body: Record<string, unknown> = {
       messages,
       stream: options.stream || false,
     }

@@ -1,7 +1,11 @@
-import { Plus, Send, Square } from 'lucide-react'
+import { Send, Square } from 'lucide-react'
 import React, { useEffect, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
+
+import { ChatToolsDropdown } from './chat/chat-tools-dropdown'
+// tools dropdown provided by parent via toolsDropdown prop
+// Dropdown provided via toolsDropdown prop
 
 interface ChatInputProps {
   onSubmit: (text: string) => void
@@ -69,16 +73,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             <div
               className={`flex w-full relative items-center gap-1 ${radiusClass} border border-input bg-muted/50 px-2 py-1.5 transition-[color,box-shadow] focus-within:border-ring focus-within:ring-ring/50 focus-within:ring-[3px]`}
             >
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                disabled={disabled}
-                aria-label="Add"
-                className="absolute left-2 rounded-full"
-              >
-                <Plus className="w-4 h-4" />
-              </Button>
+              <div className="absolute left-2">
+                <ChatToolsDropdown />
+              </div>
 
               <textarea
                 ref={inputRef}

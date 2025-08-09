@@ -60,7 +60,9 @@ export const ChatWindow: React.FC = () => {
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       <ChatMessagesList messages={messages} isLoading={isLoading} />
+
       {error && <ChatErrorBanner error={error} />}
+
       <ChatInput
         onSubmit={handleSubmit}
         disabled={isLoading || isChatDisabled}
