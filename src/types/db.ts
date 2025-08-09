@@ -21,7 +21,15 @@ export interface MessagesTable {
   created_at: ColumnType<string, string | undefined, never>
 }
 
+export interface AppSettingsTable {
+  id: ColumnType<number, number, number>
+  system_prompt: ColumnType<string, string | undefined, string>
+  created_at: ColumnType<string, string | undefined, never>
+  updated_at: ColumnType<string, string | undefined, string>
+}
+
 export interface DB {
   conversations: ConversationsTable
   messages: MessagesTable
+  app_settings: AppSettingsTable
 }

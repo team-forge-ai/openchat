@@ -1,5 +1,6 @@
 import { useRef } from 'react'
 
+import { getSystemPrompt } from '@/lib/db/app-settings'
 import { getMessagesForChat } from '@/lib/db/messages'
 import { mlxServer } from '@/lib/mlx-server'
 import { StreamChunkSchema } from '@/lib/mlx-server-schemas'
@@ -49,10 +50,12 @@ export function useChatCompletion(): UseChatCompletion {
 
     // Add system prompt if no messages yet or first message isn't system
     if (chatMessages.length === 0 || chatMessages[0].role !== 'system') {
+      const savedPrompt = await getSystemPrompt()
+      const fallback =
+        'You are a helpful AI assistant. Provide clear, accurate, and helpful responses. Always respond with markdown.'
       chatMessages.unshift({
         role: 'system',
-        content:
-          'You are a helpful AI assistant. Provide clear, accurate, and helpful responses. Always respond with markdown.',
+        content: savedPrompt?.trim() ? savedPrompt : fallback,
       })
     }
 

@@ -33,5 +33,11 @@ pub fn migrations() -> Vec<Migration> {
             sql: include_str!("../migrations/005_add_status_to_messages.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 6,
+            description: "create_app_settings",
+            sql: include_str!("../migrations/006_create_app_settings.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
