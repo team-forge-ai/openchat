@@ -1,4 +1,5 @@
 use crate::mcp;
+use crate::mcp::McpManager;
 use crate::mlx_server::{MLXServerManager, MLXServerStatus};
 use serde::{Deserialize, Serialize};
 use std::net::{SocketAddr, TcpListener};
@@ -206,4 +207,26 @@ pub async fn mcp_check_server(config: McpServerConfig) -> Result<McpCheckResult,
         }
     };
     Ok(result)
+}
+
+// ------------------ MCP list/call commands ------------------
+
+#[tauri::command]
+pub async fn mcp_list_tools(
+    id: i64,
+    manager: tauri::State<'_, std::sync::Arc<McpManager>>,
+) -> Result<Vec<mcp::McpToolInfo>, String> {
+    // Default timeout for listing
+    manager.list_tools(id, 5_000).await
+}
+
+#[tauri::command]
+pub async fn mcp_call_tool(
+    id: i64,
+    tool: String,
+    args: serde_json::Value,
+    manager: tauri::State<'_, std::sync::Arc<McpManager>>,
+) -> Result<String, String> {
+    // Default timeout for calling a tool
+    manager.call_tool(id, &tool, args, 20_000).await
 }

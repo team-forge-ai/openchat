@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core'
 
-import type { McpCheckResult, McpServerConfig } from '@/types/mcp'
+import type { McpCheckResult, McpServerConfig, McpToolInfo } from '@/types/mcp'
 
 export async function mcpCheckServer(
   config: McpServerConfig,
@@ -39,4 +39,16 @@ function transformConfigToRust(
     auth: config.auth ?? null,
     heartbeat_sec: config.heartbeatSec ?? null,
   }
+}
+
+export async function mcpListTools(id: number): Promise<McpToolInfo[]> {
+  return await invoke<McpToolInfo[]>('mcp_list_tools', { id })
+}
+
+export async function mcpCallTool(
+  id: number,
+  tool: string,
+  args: unknown,
+): Promise<string> {
+  return await invoke<string>('mcp_call_tool', { id, tool, args })
 }

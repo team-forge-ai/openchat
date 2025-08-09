@@ -1,8 +1,10 @@
 use serde::{Deserialize, Serialize};
 use std::io;
 use std::process::Stdio;
+use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::Command;
+use tokio::sync::Mutex;
 use tokio::time::{timeout, Duration};
 
 #[derive(Serialize)]
@@ -307,5 +309,174 @@ pub async fn check_server(config: TransportConfig<'_>) -> McpCheckResult {
             warning: None,
             error: Some("HTTP transport validation not implemented yet".into()),
         },
+    }
+}
+
+// ---------------- Persistent stdio session manager ----------------
+
+pub struct McpSession {
+    child: tokio::process::Child,
+    stdin: tokio::process::ChildStdin,
+    reader: BufReader<tokio::process::ChildStdout>,
+    next_id: u64,
+}
+
+impl McpSession {
+    async fn send(
+        &mut self,
+        method: &str,
+        params: serde_json::Value,
+        timeout_ms: u64,
+    ) -> Result<serde_json::Value, String> {
+        self.next_id = self.next_id.saturating_add(1);
+        let req = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": self.next_id,
+            "method": method,
+            "params": params,
+        });
+        let mut line = serde_json::to_string(&req).map_err(|e| e.to_string())?;
+        line.push('\n');
+        timeout(
+            Duration::from_millis(timeout_ms),
+            self.stdin.write_all(line.as_bytes()),
+        )
+        .await
+        .map_err(|_| "write timeout".to_string())
+        .and_then(|r| r.map_err(|e| e.to_string()))?;
+
+        let mut buf = String::new();
+        timeout(
+            Duration::from_millis(timeout_ms),
+            self.reader.read_line(&mut buf),
+        )
+        .await
+        .map_err(|_| "read timeout".to_string())
+        .and_then(|r| r.map_err(|e| e.to_string()))?;
+        let v: serde_json::Value = serde_json::from_str(&buf).map_err(|e| e.to_string())?;
+        if let Some(err) = v.get("error") {
+            let msg = err
+                .get("message")
+                .and_then(|m| m.as_str())
+                .unwrap_or("rpc error")
+                .to_string();
+            return Err(msg);
+        }
+        Ok(v.get("result").cloned().unwrap_or(serde_json::Value::Null))
+    }
+}
+
+pub struct McpManager {
+    sessions: Mutex<std::collections::HashMap<i64, McpSession>>,
+}
+
+impl McpManager {
+    pub fn new() -> Arc<Self> {
+        Arc::new(Self {
+            sessions: Mutex::new(std::collections::HashMap::new()),
+        })
+    }
+
+    pub async fn ensure_stdio(
+        &self,
+        id: i64,
+        command: &str,
+        args: &[String],
+        env: &serde_json::Value,
+        cwd: Option<&str>,
+        connect_timeout_ms: u64,
+    ) -> Result<(), String> {
+        let mut sessions = self.sessions.lock().await;
+        if sessions.contains_key(&id) {
+            return Ok(());
+        }
+
+        let mut cmd = Command::new(command);
+        cmd.args(args);
+        cmd.stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+        if let Some(cwd) = cwd {
+            cmd.current_dir(cwd);
+        }
+        if let Some(env_obj) = env.as_object() {
+            for (k, val) in env_obj.iter() {
+                if let Some(s) = val.as_str() {
+                    cmd.env(k, s);
+                }
+            }
+        }
+
+        let mut child = timeout(Duration::from_millis(connect_timeout_ms), async {
+            cmd.spawn()
+        })
+        .await
+        .map_err(|_| "spawn timeout".to_string())
+        .and_then(|r| r.map_err(|e| e.to_string()))?;
+        let stdin = child.stdin.take().ok_or("no stdin")?;
+        let stdout = child.stdout.take().ok_or("no stdout")?;
+        let mut session = McpSession {
+            child,
+            stdin,
+            reader: BufReader::new(stdout),
+            next_id: 0,
+        };
+        let _ = session
+            .send(
+                "initialize",
+                serde_json::json!({
+                    "client": { "name": "OpenChat", "version": "0.1.0" }
+                }),
+                connect_timeout_ms,
+            )
+            .await?;
+        sessions.insert(id, session);
+        Ok(())
+    }
+
+    pub async fn list_tools(&self, id: i64, timeout_ms: u64) -> Result<Vec<McpToolInfo>, String> {
+        let mut sessions = self.sessions.lock().await;
+        let s = sessions.get_mut(&id).ok_or("not connected")?;
+        let result = s
+            .send("tools/list", serde_json::json!({}), timeout_ms)
+            .await?;
+        let tools = result
+            .get("tools")
+            .and_then(|t| t.as_array())
+            .ok_or("invalid tools")?;
+        let mut out = Vec::with_capacity(tools.len());
+        for t in tools {
+            if let Some(name) = t.get("name").and_then(|n| n.as_str()) {
+                out.push(McpToolInfo {
+                    name: name.to_string(),
+                    description: None,
+                });
+            }
+        }
+        Ok(out)
+    }
+
+    pub async fn call_tool(
+        &self,
+        id: i64,
+        tool: &str,
+        args: serde_json::Value,
+        timeout_ms: u64,
+    ) -> Result<String, String> {
+        let mut sessions = self.sessions.lock().await;
+        let s = sessions.get_mut(&id).ok_or("not connected")?;
+        let result = s
+            .send(
+                "tools/call",
+                serde_json::json!({ "name": tool, "arguments": args }),
+                timeout_ms,
+            )
+            .await?;
+        let content = result
+            .get("content")
+            .and_then(|c| c.as_str())
+            .unwrap_or("")
+            .to_string();
+        Ok(content)
     }
 }

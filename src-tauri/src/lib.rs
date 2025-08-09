@@ -52,6 +52,10 @@ pub fn run() {
             // --- MLX Server Manager setup ---
             setup_mlx_server_manager(app);
 
+            // --- MCP Manager setup ---
+            let mcp_manager = mcp::McpManager::new();
+            app.manage(mcp_manager);
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -61,6 +65,8 @@ pub fn run() {
             commands::mlx_restart,
             commands::mlx_health_check,
             commands::mcp_check_server,
+            commands::mcp_list_tools,
+            commands::mcp_call_tool,
         ])
         .on_window_event(move |window, event| {
             if let WindowEvent::Destroyed = event {
