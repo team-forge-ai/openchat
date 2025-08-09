@@ -1,4 +1,6 @@
+use crate::mcp;
 use crate::mlx_server::{MLXServerManager, MLXServerStatus};
+use serde::{Deserialize, Serialize};
 use std::net::{SocketAddr, TcpListener};
 use tauri::State;
 
@@ -131,4 +133,102 @@ pub async fn mlx_restart(manager: State<'_, MLXServerManager>) -> Result<MLXServ
 #[tauri::command]
 pub async fn mlx_health_check(manager: State<'_, MLXServerManager>) -> Result<bool, String> {
     Ok(manager.health_check().await)
+}
+
+// ------------------ MCP check command ------------------
+
+#[derive(Deserialize)]
+#[serde(tag = "transport")] // discriminated union by transport
+pub enum McpServerConfig {
+    #[serde(rename = "stdio")]
+    Stdio {
+        name: String,
+        description: Option<String>,
+        enabled: bool,
+        connect_timeout_ms: Option<u64>,
+        list_tools_timeout_ms: Option<u64>,
+        command: String,
+        args: Option<Vec<String>>,
+        env: Option<serde_json::Value>,
+        cwd: Option<String>,
+    },
+    #[serde(rename = "websocket")]
+    WebSocket {
+        name: String,
+        description: Option<String>,
+        enabled: bool,
+        connect_timeout_ms: Option<u64>,
+        list_tools_timeout_ms: Option<u64>,
+        url: String,
+        headers: Option<serde_json::Value>,
+        auth: Option<String>,
+        heartbeat_sec: Option<u64>,
+    },
+    #[serde(rename = "http")]
+    Http {
+        name: String,
+        description: Option<String>,
+        enabled: bool,
+        connect_timeout_ms: Option<u64>,
+        list_tools_timeout_ms: Option<u64>,
+        url: String,
+        headers: Option<serde_json::Value>,
+        auth: Option<String>,
+        heartbeat_sec: Option<u64>,
+    },
+}
+
+pub use crate::mcp::{McpCheckResult, McpToolInfo};
+
+#[tauri::command]
+pub async fn mcp_check_server(config: McpServerConfig) -> Result<McpCheckResult, String> {
+    let result = match config {
+        McpServerConfig::Stdio {
+            command,
+            args,
+            env,
+            cwd,
+            connect_timeout_ms,
+            list_tools_timeout_ms,
+            ..
+        } => {
+            let args_vec = args.unwrap_or_default();
+            mcp::check_server(mcp::TransportConfig::Stdio {
+                command: &command,
+                args: &args_vec,
+                env: env.as_ref(),
+                cwd: cwd.as_deref(),
+                connect_timeout_ms: connect_timeout_ms.unwrap_or(5_000),
+                list_tools_timeout_ms: list_tools_timeout_ms.unwrap_or(5_000),
+            })
+            .await
+        }
+        McpServerConfig::WebSocket {
+            url,
+            connect_timeout_ms,
+            list_tools_timeout_ms,
+            ..
+        } => {
+            mcp::check_server(mcp::TransportConfig::WebSocket {
+                url: &url,
+                connect_timeout_ms: connect_timeout_ms.unwrap_or(5_000),
+                list_tools_timeout_ms: list_tools_timeout_ms.unwrap_or(5_000),
+            })
+            .await
+        }
+        McpServerConfig::Http {
+            url,
+            connect_timeout_ms,
+            list_tools_timeout_ms,
+            ..
+        } => {
+            mcp::check_server(mcp::TransportConfig::Http {
+                url: &url,
+                connect_timeout_ms: connect_timeout_ms.unwrap_or(5_000),
+                list_tools_timeout_ms: list_tools_timeout_ms.unwrap_or(5_000),
+            })
+            .await
+        }
+    };
+    Ok(result)
 }

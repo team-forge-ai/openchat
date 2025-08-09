@@ -23,6 +23,7 @@ type SettingsSection = {
 
 const settingsSections: SettingsSection[] = [
   { id: 'system-prompt', title: 'System Prompt', icon: SettingsIcon },
+  { id: 'mcp-servers', title: 'MCP Servers', icon: SettingsIcon },
 ]
 
 export function SettingsSidebar() {

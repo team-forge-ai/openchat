@@ -51,5 +51,11 @@ pub fn migrations() -> Vec<Migration> {
             sql: include_str!("../migrations/008_create_conversations_fts.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 9,
+            description: "create_mcp_servers",
+            sql: include_str!("../migrations/009_create_mcp_servers.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }

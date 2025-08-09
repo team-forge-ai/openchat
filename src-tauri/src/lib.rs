@@ -9,6 +9,7 @@ use tauri::{Manager, WindowEvent};
 // --- Internal module imports ---
 mod commands;
 mod db;
+mod mcp;
 mod migrations;
 mod mlx_server;
 
@@ -59,6 +60,7 @@ pub fn run() {
             commands::mlx_get_status,
             commands::mlx_restart,
             commands::mlx_health_check,
+            commands::mcp_check_server,
         ])
         .on_window_event(move |window, event| {
             if let WindowEvent::Destroyed = event {
