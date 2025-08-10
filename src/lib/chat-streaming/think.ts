@@ -48,7 +48,10 @@ export class ThinkSplitter {
         }
       }
     }
-
+    // Discard processed prefix when we fully consumed the buffer
+    if (i > 0) {
+      this.buffer = this.buffer.slice(i)
+    }
     return { visibleDelta, reasoningDelta }
   }
 

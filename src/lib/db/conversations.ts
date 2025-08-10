@@ -104,3 +104,15 @@ export async function deleteConversation(
     .where('id', '=', conversationId)
     .execute()
 }
+
+export async function getConversation(
+  conversationId: number,
+): Promise<Conversation> {
+  const db = await getKysely()
+  const row = await db
+    .selectFrom('conversations')
+    .selectAll()
+    .where('id', '=', conversationId)
+    .executeTakeFirstOrThrow()
+  return row
+}

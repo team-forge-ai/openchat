@@ -21,7 +21,7 @@ export async function generateConversationTitle(
     {
       role: 'user',
       content:
-        'Given the following conversation messages, output a short, descriptive title of 2-5 words. Title case. No quotes, emojis, or trailing punctuation. If no good title is possible, respond exactly with: None\n\n' +
+        'Given the following conversation messages, output a short, descriptive title of 2-3 words. Title case. No quotes, emojis, or trailing punctuation. If no good title is possible, respond exactly with: None\n\n' +
         JSON.stringify(messages) +
         '\n\n' +
         'Output only the title, no other text.',
@@ -42,7 +42,7 @@ export async function generateConversationTitle(
     }
 
     const wordCount = cleaned.trim().split(/\s+/).length
-    if (wordCount < 2 || wordCount > 8) {
+    if (wordCount < 2 || wordCount > 10) {
       return null
     }
 
@@ -52,7 +52,8 @@ export async function generateConversationTitle(
 
     const titled = toTitleCase(cleaned)
     return titled
-  } catch {
+  } catch (error) {
+    console.error('Failed to generate conversation title:', error)
     return null
   }
 }
