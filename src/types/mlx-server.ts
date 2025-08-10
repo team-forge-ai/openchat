@@ -10,7 +10,8 @@ export interface MLXServerConfig {
 
 export interface MLXServerStatus {
   isRunning: boolean
-  isReady: boolean
+  isHttpReady: boolean
+  isModelReady: boolean
   port?: number
   pid?: number | null
 }

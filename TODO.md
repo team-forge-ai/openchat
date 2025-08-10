@@ -17,3 +17,4 @@
 - [ ] request timeoued out after a while
 - [ ] seems to use an insane amount of resources. maybe lower context?
 - [ ] PDF export / print as pdf
+- [] Figure out if model is loaded (can we preload?)

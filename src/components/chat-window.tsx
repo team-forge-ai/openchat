@@ -22,8 +22,8 @@ export const ChatWindow: React.FC = () => {
   } = useMessages(selectedConversationId)
 
   const { createConversation } = useConversations()
-  const { status: mlxStatus } = useMLXServer()
-  const isChatDisabled = !mlxStatus.isRunning || !mlxStatus.isReady
+  const { isReady } = useMLXServer()
+  const isChatDisabled = !isReady
 
   // Aggregate loading state: fetching or sending
   const isLoading = isLoadingMessages || isSendingMessage

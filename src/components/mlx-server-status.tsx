@@ -10,16 +10,16 @@ import {
 import { useMLXServer } from '@/contexts/mlx-server-context'
 
 export function MLXServerStatus() {
-  const { status, error, restartServer } = useMLXServer()
+  const { status, error, restartServer, isReady } = useMLXServer()
 
   const getStatusIcon = () => {
     if (error) {
       return <AlertCircle className="h-4 w-4 text-red-500" />
     }
-    if (status.isRunning && status.isReady) {
+    if (isReady) {
       return <CheckCircle className="h-4 w-4 text-green-500" />
     }
-    if (status.isRunning && !status.isReady) {
+    if (status.isRunning && !isReady) {
       return <Loader2 className="h-4 w-4 animate-spin text-orange-500" />
     }
     return <AlertCircle className="h-4 w-4 text-gray-400" />
@@ -29,10 +29,10 @@ export function MLXServerStatus() {
     if (error) {
       return 'AI error'
     }
-    if (status.isRunning && status.isReady) {
+    if (isReady) {
       return 'AI ready'
     }
-    if (status.isRunning && !status.isReady) {
+    if (status.isRunning && !isReady) {
       return 'AI starting...'
     }
     return 'AI offline'
@@ -47,10 +47,10 @@ export function MLXServerStatus() {
         </div>
       )
     }
-    if (status.isRunning && status.isReady) {
+    if (isReady) {
       return <div className="space-y-1">Status: Ready</div>
     }
-    if (status.isRunning && !status.isReady) {
+    if (status.isRunning && !isReady) {
       return <div className="space-y-1">Status: Starting up...</div>
     }
     return 'AI is not running'
@@ -74,9 +74,7 @@ export function MLXServerStatus() {
           <TooltipContent>{getTooltipContent()}</TooltipContent>
         </Tooltip>
 
-        {(error ||
-          !status.isRunning ||
-          (status.isRunning && !status.isReady)) && (
+        {(error || !status.isRunning || (status.isRunning && !isReady)) && (
           <Tooltip>
             <TooltipTrigger asChild>
               <Button

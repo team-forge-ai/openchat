@@ -7,6 +7,7 @@ interface MLXServerContextValue {
   status: MLXServerStatus
   error: string | null
   restartServer: () => Promise<void>
+  isReady: boolean
 }
 
 const MLXServerContext = createContext<MLXServerContextValue | undefined>(
@@ -20,9 +21,12 @@ interface MLXServerProviderProps {
 export function MLXServerProvider({ children }: MLXServerProviderProps) {
   const [status, setStatus] = useState<MLXServerStatus>({
     isRunning: false,
-    isReady: false,
+    isHttpReady: false,
+    isModelReady: false,
   })
   const [error, setError] = useState<string | null>(null)
+
+  const isReady = status.isRunning && status.isHttpReady && status.isModelReady
 
   useEffect(() => {
     let removeStatusListener: (() => void) | undefined
@@ -79,6 +83,7 @@ export function MLXServerProvider({ children }: MLXServerProviderProps) {
         status,
         error,
         restartServer,
+        isReady,
       }}
     >
       {children}

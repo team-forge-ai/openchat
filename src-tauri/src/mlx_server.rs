@@ -42,7 +42,7 @@ impl Default for MLXServerConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MLXServerStatus {
     pub is_running: bool,
-    pub is_ready: bool,
+    pub is_http_ready: bool,
     pub port: Option<u16>,
     pub pid: Option<u32>,
     pub error: Option<String>,
@@ -52,7 +52,7 @@ impl Default for MLXServerStatus {
     fn default() -> Self {
         Self {
             is_running: false,
-            is_ready: false,
+            is_http_ready: false,
             port: None,
             pid: None,
             error: None,
@@ -164,7 +164,7 @@ impl MLXServerManager {
     async fn update_status_running(&self, config: &MLXServerConfig, pid: u32) {
         let mut status = self.status.write().await;
         status.is_running = true;
-        status.is_ready = false;
+        status.is_http_ready = false;
         status.port = Some(config.port);
         status.pid = Some(pid);
         status.error = None;
@@ -174,7 +174,7 @@ impl MLXServerManager {
     async fn update_status_stopped(&self) {
         let mut status = self.status.write().await;
         status.is_running = false;
-        status.is_ready = false;
+        status.is_http_ready = false;
         status.port = None;
         status.pid = None;
         self.pid_atomic.store(0, Ordering::SeqCst);
@@ -264,7 +264,7 @@ impl MLXServerManager {
                         // Update status
                         let mut status = status_clone.write().await;
                         status.is_running = false;
-                        status.is_ready = false;
+                        status.is_http_ready = false;
                         status.port = None;
                         status.pid = None;
                         if payload.code != Some(0) {
@@ -403,7 +403,7 @@ impl MLXServerManager {
 
                         // Update status to ready
                         let mut status = self.status.write().await;
-                        status.is_ready = true;
+                        status.is_http_ready = true;
                         drop(status);
 
                         // Emit status change event
@@ -572,10 +572,10 @@ impl MLXServerManager {
                 );
 
                 // Update ready state based on health check
-                if is_healthy != status.is_ready {
+                if is_healthy != status.is_http_ready {
                     drop(status);
                     let mut status_mut = self.status.write().await;
-                    status_mut.is_ready = is_healthy;
+                    status_mut.is_http_ready = is_healthy;
                     drop(status_mut);
 
                     // Emit status change if ready state changed
@@ -594,10 +594,10 @@ impl MLXServerManager {
                 log::debug!("Health check request failed: {}", e);
 
                 // If health check fails, mark as not ready
-                if status.is_ready {
+                if status.is_http_ready {
                     drop(status);
                     let mut status_mut = self.status.write().await;
-                    status_mut.is_ready = false;
+                    status_mut.is_http_ready = false;
                     drop(status_mut);
 
                     // Emit status change
