@@ -48,20 +48,10 @@ export function MLXServerStatus() {
       )
     }
     if (status.isRunning && status.isReady) {
-      return (
-        <div className="space-y-1">
-          <p>Status: Ready</p>
-          <p>Model: {status.modelPath?.split('/').pop()}</p>
-        </div>
-      )
+      return <div className="space-y-1">Status: Ready</div>
     }
     if (status.isRunning && !status.isReady) {
-      return (
-        <div className="space-y-1">
-          <p>Status: Starting up...</p>
-          <p>Model: {status.modelPath?.split('/').pop()}</p>
-        </div>
-      )
+      return <div className="space-y-1">Status: Starting up...</div>
     }
     return 'AI is not running'
   }

@@ -1,12 +1,16 @@
 import { invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 
+import { ChatCompletionResponseSchema } from '@/lib/mlx-server-schemas'
 import type {
   ChatCompletionOptions,
+  ChatCompletionResponse,
   ChatMessage,
   MLXServerStatus,
 } from '@/types/mlx-server'
 import { DEFAULT_CONFIG, MLXServerNotRunningError } from '@/types/mlx-server'
+
+export const DEFAULT_MODEL = 'mlx-community/qwen3-4b-4bit-DWQ'
 
 /**
  * MLX Server Service - Frontend facade for the Rust-managed MLX server
@@ -38,7 +42,6 @@ class MLXServerService {
         isRunning: status.is_running,
         isReady: status.is_ready,
         port: status.port,
-        modelPath: status.model_path,
         pid: status.pid ?? null,
       }
 
@@ -63,7 +66,6 @@ class MLXServerService {
         is_running: boolean
         is_ready: boolean
         port?: number
-        model_path?: string
         pid?: number
         error?: string
       }>('mlx-status-changed', (event) => {
@@ -142,6 +144,7 @@ class MLXServerService {
     const body: Record<string, unknown> = {
       messages,
       stream: options.stream || false,
+      model: options.model || DEFAULT_MODEL,
     }
 
     return await this.makeRequest(path, {
@@ -151,6 +154,37 @@ class MLXServerService {
       },
       body: JSON.stringify(body),
     })
+  }
+
+  /**
+   * Non-streaming chat completion that validates and returns parsed JSON
+   */
+  async chatCompletion(
+    messages: ChatMessage[],
+    options: ChatCompletionOptions = {},
+  ): Promise<ChatCompletionResponse> {
+    const response = await this.chatCompletionRequest(messages, {
+      ...options,
+      stream: false,
+    })
+
+    if (!response.ok) {
+      throw new Error(
+        `MLX server request failed: ${response.status} ${response.statusText}`,
+      )
+    }
+
+    const data: unknown = await response.json()
+    const parsed = ChatCompletionResponseSchema.safeParse(data)
+    if (!parsed.success) {
+      throw new Error('Invalid chat completion response format')
+    }
+
+    return parsed.data
+  }
+
+  async listModels(): Promise<Response> {
+    return await this.makeRequest(`/v1/models`, { method: 'GET' })
   }
 
   private async makeRequest(
@@ -175,7 +209,6 @@ export function convertRustStatusToJS(rustStatus: {
   is_running: boolean
   is_ready: boolean
   port?: number
-  model_path?: string
   pid?: number
   error?: string
 }): MLXServerStatus {
@@ -183,7 +216,6 @@ export function convertRustStatusToJS(rustStatus: {
     isRunning: rustStatus.is_running,
     isReady: rustStatus.is_ready,
     port: rustStatus.port,
-    modelPath: rustStatus.model_path,
     pid: rustStatus.pid ?? null,
   }
 }

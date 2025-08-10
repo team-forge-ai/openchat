@@ -3,7 +3,6 @@
 export interface MLXServerConfig {
   port?: number
   host?: string
-  modelPath: string
   logLevel?: 'DEBUG' | 'INFO' | 'WARNING' | 'ERROR'
   maxTokens?: number
   temperature?: number
@@ -13,7 +12,6 @@ export interface MLXServerStatus {
   isRunning: boolean
   isReady: boolean
   port?: number
-  modelPath?: string
   pid?: number | null
 }
 
@@ -24,6 +22,7 @@ export interface ChatMessage {
 }
 
 export interface ChatCompletionOptions {
+  model?: string
   maxTokens?: number
   temperature?: number
   stream?: boolean

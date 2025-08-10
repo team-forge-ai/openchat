@@ -1,11 +1,16 @@
 import { useRef } from 'react'
 
+import { createChunkToTextStream } from '@/lib/chat-streaming/chunk-to-text-stream'
+import { CollectResponseStream } from '@/lib/chat-streaming/collect-response-stream'
+import { createStreamChunkStream } from '@/lib/chat-streaming/schema-stream'
+import { createSSEPayloadStream } from '@/lib/chat-streaming/sse-stream'
+import { createVisibleTextStream } from '@/lib/chat-streaming/visible-text-stream'
 import { getSystemPrompt } from '@/lib/db/app-settings'
 import { getMessagesForChat } from '@/lib/db/messages'
 import { mlxServer } from '@/lib/mlx-server'
-import { StreamChunkSchema } from '@/lib/mlx-server-schemas'
 import { DEFAULT_SETTINGS_PROMPT, SYSTEM_PROMPT } from '@/lib/prompt'
 import type { ChatMessage } from '@/types/mlx-server'
+//
 
 interface StreamingOptions {
   onChunk?: (chunk: string) => void
@@ -23,15 +28,12 @@ interface UseChatCompletion {
 }
 
 export function useChatCompletion(): UseChatCompletion {
-  const activeReaderRef =
-    useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null)
-  const abortRequestedRef = useRef<boolean>(false)
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   const abortStreaming = (): void => {
-    abortRequestedRef.current = true
-    if (activeReaderRef.current) {
+    if (abortControllerRef.current) {
       try {
-        void activeReaderRef.current.cancel()
+        abortControllerRef.current.abort()
       } catch {
         // ignore
       }
@@ -68,7 +70,6 @@ export function useChatCompletion(): UseChatCompletion {
     conversationId: number,
     options: StreamingOptions,
   ): Promise<string> => {
-    abortRequestedRef.current = false
     const chatMessages = await buildChatMessages(conversationId)
 
     let fullContent = ''
@@ -84,102 +85,69 @@ export function useChatCompletion(): UseChatCompletion {
         throw new Error(`MLX server request failed: ${response.statusText}`)
       }
 
-      // Read the streaming response
-      const reader = response.body?.getReader()
-      const decoder = new TextDecoder()
-
-      if (!reader) {
+      const body = response.body
+      if (!body) {
         throw new Error('No response body from MLX server')
       }
 
-      activeReaderRef.current = reader
+      const abortController = new AbortController()
+      abortControllerRef.current = abortController
 
-      while (true) {
-        if (abortRequestedRef.current) {
-          try {
-            await reader.cancel()
-          } catch {
-            // ignore
-          }
-          throw new Error('aborted')
-        }
-
-        const { done, value } = await reader.read()
-        if (done) {
-          break
-        }
-
-        const chunk = decoder.decode(value, { stream: true })
-        const lines = chunk.split('\n')
-
-        for (const line of lines) {
-          if (line.trim() === '') {
-            continue
-          }
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6) // Remove 'data: ' prefix
-            if (data === '[DONE]') {
-              options.onComplete?.(fullContent, fullReasoning || undefined)
-              break
-            }
-
-            try {
-              const jsonData: unknown = JSON.parse(data)
-              const parseResult = StreamChunkSchema.safeParse(jsonData)
-
-              if (!parseResult.success) {
-                console.error(
-                  'Invalid streaming chunk format:',
-                  parseResult.error,
-                )
-                continue
-              }
-
-              const choice = parseResult.data.choices[0]
-              const content = choice?.delta?.content
-              const reasoningEvent = choice?.reasoning_event
-
-              if (content) {
-                fullContent += content
-                options.onChunk?.(content)
-              }
-
-              if (reasoningEvent) {
-                if (
-                  reasoningEvent.type === 'partial' &&
-                  reasoningEvent.content
-                ) {
-                  fullReasoning += reasoningEvent.content
-                  options.onReasoningChunk?.(reasoningEvent.content)
-                }
-              }
-            } catch (e) {
-              console.error('Failed to parse streaming chunk:', e)
-            }
-          }
-        }
-      }
+      const textStream = body.pipeThrough(new TextDecoderStream())
+      const sseStream = textStream.pipeThrough(createSSEPayloadStream())
+      const schemaStream = sseStream.pipeThrough(createStreamChunkStream())
+      const textDeltaStream = schemaStream.pipeThrough(
+        createChunkToTextStream({
+          onReasoningEvent: (delta) => {
+            fullReasoning += delta
+            options.onReasoningChunk?.(delta)
+          },
+        }),
+      )
+      const visibleTextStream = textDeltaStream.pipeThrough(
+        createVisibleTextStream({
+          onChunk: (delta) => {
+            fullContent += delta
+            options.onChunk?.(delta)
+          },
+          onReasoningChunk: (delta) => {
+            fullReasoning += delta
+            options.onReasoningChunk?.(delta)
+          },
+          onFlush: (content, reasoning) => {
+            fullContent = content
+            fullReasoning = reasoning
+          },
+        }),
+      )
+      await visibleTextStream
+        .pipeThrough(
+          new CollectResponseStream({
+            onComplete: (result) => {
+              options.onComplete?.(result, fullReasoning || undefined)
+            },
+          }),
+        )
+        .pipeTo(new WritableStream(), { signal: abortController.signal })
 
       return fullContent
     } catch (error) {
+      // Suppress error callback on intentional aborts
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        return fullContent
+      }
       console.error('Failed to generate streaming response:', error)
-
-      // Call error callback
       if (error instanceof Error) {
         options.onError?.(error)
       }
-
-      // Fallback message if MLX server fails
       if (error instanceof Error && error.message.includes('not running')) {
         throw new Error(
           'AI is not running. Please wait for it to start or restart the application.',
         )
       }
-
       throw error
     } finally {
-      activeReaderRef.current = null
-      abortRequestedRef.current = false
+      // no-op
     }
   }
 

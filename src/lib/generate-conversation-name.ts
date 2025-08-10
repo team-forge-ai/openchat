@@ -1,5 +1,4 @@
 import { mlxServer } from '@/lib/mlx-server'
-import { ChatCompletionResponseSchema } from '@/lib/mlx-server-schemas'
 import { toTitleCase } from '@/lib/utils'
 import type { ChatMessage } from '@/types/mlx-server'
 
@@ -30,23 +29,8 @@ export async function generateConversationTitle(
   ]
 
   try {
-    const response = await mlxServer.chatCompletionRequest(chatMessages)
-    if (!response.ok) {
-      return null
-    }
-
-    const data: unknown = await response.json()
-    const parsed = ChatCompletionResponseSchema.safeParse(data)
-    if (!parsed.success) {
-      return null
-    }
-
-    console.log(parsed.data)
-
-    const content =
-      parsed.data.choices[0]?.message?.content ??
-      parsed.data.choices[0]?.delta?.content ??
-      ''
+    const response = await mlxServer.chatCompletion(chatMessages)
+    const content = response.choices[0]?.message?.content ?? ''
 
     const cleaned = sanitizeTitle(content)
     if (!cleaned || isGenericTitle(cleaned)) {

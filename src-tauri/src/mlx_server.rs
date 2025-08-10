@@ -8,7 +8,6 @@ use tauri::{AppHandle, Emitter};
 use tauri_plugin_shell::{process::CommandEvent, ShellExt};
 
 // Constants for server configuration and timeouts
-const DEFAULT_MODEL_PATH: &str = "models/Qwen3-0.6B-MLX-4bit";
 const DEFAULT_PORT: u16 = 8000;
 const DEFAULT_HOST: &str = "127.0.0.1";
 const DEFAULT_LOG_LEVEL: &str = "INFO";
@@ -23,7 +22,6 @@ const RESTART_DELAY_MILLIS: u64 = 500;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MLXServerConfig {
-    pub model_path: String,
     pub port: u16,
     pub host: String,
     pub log_level: Option<String>,
@@ -33,7 +31,6 @@ pub struct MLXServerConfig {
 impl Default for MLXServerConfig {
     fn default() -> Self {
         Self {
-            model_path: DEFAULT_MODEL_PATH.to_string(),
             port: DEFAULT_PORT,
             host: DEFAULT_HOST.to_string(),
             log_level: Some(DEFAULT_LOG_LEVEL.to_string()),
@@ -47,7 +44,6 @@ pub struct MLXServerStatus {
     pub is_running: bool,
     pub is_ready: bool,
     pub port: Option<u16>,
-    pub model_path: Option<String>,
     pub pid: Option<u32>,
     pub error: Option<String>,
 }
@@ -58,7 +54,6 @@ impl Default for MLXServerStatus {
             is_running: false,
             is_ready: false,
             port: None,
-            model_path: None,
             pid: None,
             error: None,
         }
@@ -146,17 +141,11 @@ impl MLXServerManager {
     /// Build command arguments for the MLX server
     fn build_command_args(config: &MLXServerConfig) -> Vec<String> {
         let mut args = vec![
-            config.model_path.clone(),
             "--port".to_string(),
             config.port.to_string(),
             "--host".to_string(),
             config.host.clone(),
         ];
-
-        // Add PID file with port prefix to avoid clashes
-        let pid_file = format!("{}_mlx_server.pid", config.port);
-        args.push("--pid-file".to_string());
-        args.push(pid_file);
 
         if let Some(log_level) = &config.log_level {
             args.push("--log-level".to_string());
@@ -177,7 +166,6 @@ impl MLXServerManager {
         status.is_running = true;
         status.is_ready = false;
         status.port = Some(config.port);
-        status.model_path = Some(config.model_path.clone());
         status.pid = Some(pid);
         status.error = None;
     }
@@ -188,7 +176,6 @@ impl MLXServerManager {
         status.is_running = false;
         status.is_ready = false;
         status.port = None;
-        status.model_path = None;
         status.pid = None;
         self.pid_atomic.store(0, Ordering::SeqCst);
     }
@@ -217,6 +204,9 @@ impl MLXServerManager {
         app.shell()
             .sidecar("openchat-mlx-server")
             .map_err(|e| format!("Failed to create sidecar command: {}", e))?
+            // // Ensure Python subprocesses spawned by the wrapper use a real Python interpreter
+            // .env("PYTHONEXECUTABLE", "/usr/bin/python3")
+            // .env("PYTHON", "/usr/bin/python3")
             .args(args)
             .spawn()
             .map_err(|e| format!("Failed to spawn MLX server: {}", e))
