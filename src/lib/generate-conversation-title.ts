@@ -29,7 +29,9 @@ export async function generateConversationTitle(
   ]
 
   try {
+    console.log('Generating conversation title with messages:', chatMessages)
     const response = await mlxServer.chatCompletion(chatMessages)
+    console.log('Conversation title response:', response)
     const content = response.choices[0]?.message?.content ?? ''
 
     const cleaned = sanitizeTitle(content)

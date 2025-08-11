@@ -1,1 +1,1 @@
-export const DEFAULT_MODEL = 'mlx-community/qwen3-4b-4bit-DWQ'
+export const DEFAULT_MODEL = 'Qwen/Qwen3-0.6B-MLX-4bit'

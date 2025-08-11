@@ -4,7 +4,7 @@
 use std::fs;
 
 // --- External crate imports ---
-use tauri::{Manager, WindowEvent};
+use tauri::{Manager, RunEvent, WindowEvent};
 
 // --- Internal module imports ---
 mod commands;
@@ -30,7 +30,7 @@ pub fn run() {
     // Load environment variables
     dotenvy::dotenv().ok();
 
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(
             tauri_plugin_sql::Builder::default()
@@ -72,9 +72,16 @@ pub fn run() {
             if let WindowEvent::Destroyed = event {
                 handle_window_destroyed(window);
             }
-        })
-        .run(tauri::generate_context!())
-        .expect("Error while running Tauri application");
+        });
+
+    let app = app
+        .build(tauri::generate_context!())
+        .expect("Error while building Tauri application");
+
+    app.run(|app, event| match event {
+        RunEvent::Exit => handle_app_exit(app),
+        _ => {}
+    });
 }
 
 /// Helper to initialize and set up the MLX server manager.
@@ -108,18 +115,13 @@ fn setup_sqlite_pool(app: &mut tauri::App, app_data_dir: &std::path::Path) -> Re
 }
 
 /// Handles cleanup when the main window is destroyed (shuts down MLX server).
-fn handle_window_destroyed(window: &tauri::Window) {
-    log::info!("Window destroyed, shutting down MLX server...");
+fn handle_window_destroyed(_window: &tauri::Window) {
+    log::info!("Window destroyed...");
+}
 
-    // Grab the MLX manager and shut it down on the existing async runtime
-    let app_handle = window.app_handle().clone();
-    tauri::async_runtime::spawn(async move {
-        let mlx_manager = app_handle.state::<MLXServerManager>().clone();
-        log::info!("Killing MLX server...");
-        // Attempt fast synchronous kill, this is because we can't use async locks or Tokio runtimes here
-        mlx_manager.kill_sync();
-        log::info!("MLX server killed");
-    });
-
-    log::info!("MLX server shutdown complete");
+/// Handles cleanup when the application is exiting (shuts down MLX server).
+fn handle_app_exit(app: &tauri::AppHandle) {
+    log::info!("App exiting; killing MLX server...");
+    let mlx_manager = app.state::<MLXServerManager>().clone();
+    mlx_manager.kill_sync();
 }
