@@ -305,6 +305,11 @@ class MLXServerService {
       ...(typeof options.temperature === 'number'
         ? { temperature: options.temperature }
         : {}),
+      ...(options.tools ? { tools: options.tools } : {}),
+      ...(options.toolChoice ? { tool_choice: options.toolChoice } : {}),
+      ...(typeof options.parallelToolCalls === 'boolean'
+        ? { parallel_tool_calls: options.parallelToolCalls }
+        : {}),
     }
 
     return await this.makeRequest(path, {

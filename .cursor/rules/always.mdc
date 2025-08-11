@@ -8,6 +8,7 @@ alwaysApply: true
 
 1. Before writing any code, come up with an extremely good plan, review the plan, and then ask the user for permission to execute the plan.
 2. Then PAUSE and ask the user for permission to execute the plan.
+3. Once the plan has completed, suggest areas of improvement and refactoring.
 
 ## Notes
 
@@ -15,7 +16,5 @@ alwaysApply: true
 - To check Rust changes run: `cd src-tauri && cargo check`
 - If there are any Typescript linting errors, run `pnpm fix` before attempting to fix the errors yourself.
 - Never try to start a dev server or run `tauri dev` - prompt the user to do this.
-
-Only make the exact changes I request—do not modify, remove, or alter any other code, styling, or page elements unless explicitly instructed. If my request conflicts with existing code, styling, or functionality, or if you anticipate any issues, pause execution and notify me for confirmation before proceeding. Always follow this rule for every modification. If in doubt, ask before making any change.
 
 REMEMBER you must always come up with a plan, and get sign off from the user, BEFORE writing any code.

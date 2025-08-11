@@ -2,8 +2,9 @@ import { z } from 'zod'
 
 // Chat completion schemas
 export const ChatMessageSchema = z.object({
-  role: z.enum(['system', 'user', 'assistant']),
-  content: z.string(),
+  role: z.enum(['system', 'user', 'assistant', 'tool']),
+  content: z.string().nullable().optional(),
+  tool_call_id: z.string().optional(),
 })
 
 // Reasoning schemas
@@ -26,8 +27,20 @@ export const ChatCompletionChoiceSchema = z.object({
   message: z
     .object({
       role: z.string(),
-      content: z.string(),
+      content: z.string().nullable(),
       reasoning: z.string().optional(), // Reasoning content if available
+      tool_calls: z
+        .array(
+          z.object({
+            id: z.string(),
+            type: z.literal('function'),
+            function: z.object({
+              name: z.string(),
+              arguments: z.string(),
+            }),
+          }),
+        )
+        .optional(),
     })
     .optional(),
   delta: z
@@ -35,6 +48,21 @@ export const ChatCompletionChoiceSchema = z.object({
       role: z.string().optional(),
       content: z.string().optional(),
       reasoning: z.string().optional(), // Streaming reasoning chunks (legacy)
+      tool_calls: z
+        .array(
+          z.object({
+            index: z.number().optional(),
+            id: z.string().optional(),
+            type: z.literal('function').optional(),
+            function: z
+              .object({
+                name: z.string().optional(),
+                arguments: z.string().optional(),
+              })
+              .optional(),
+          }),
+        )
+        .optional(),
     })
     .optional(),
   finish_reason: z.string().nullable().optional(),

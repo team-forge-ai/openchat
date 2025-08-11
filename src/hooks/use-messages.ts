@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useRef } from 'react'
 
-import { useChatCompletion } from '@/hooks/use-chat-completion'
+import { generateStreamingChatCompletion } from '@/lib/chat-streaming/generate-chat-completion'
 import { touchConversation } from '@/lib/db/conversations'
 import { getMessages, insertMessage, updateMessage } from '@/lib/db/messages'
 import { setConversationTitleIfUnset } from '@/lib/set-conversation-title'
@@ -25,7 +26,17 @@ interface UseMessagesResult {
 
 export function useMessages(conversationId: number | null): UseMessagesResult {
   const queryClient = useQueryClient()
-  const { generateStreaming, abortStreaming } = useChatCompletion()
+  const abortControllerRef = useRef<AbortController | null>(null)
+
+  const abortStreaming = (): void => {
+    if (abortControllerRef.current) {
+      try {
+        abortControllerRef.current.abort()
+      } catch {
+        // ignore
+      }
+    }
+  }
 
   // -------------------------------
   // Fetch messages for the selected conversation
@@ -67,83 +78,89 @@ export function useMessages(conversationId: number | null): UseMessagesResult {
       let assistantMessageId: number | null = null
 
       // Generate assistant reply with streaming
-      await generateStreaming(conversationId, {
-        onChunk: async (chunk) => {
-          // Accumulate content
-          accumulatedContent += chunk
+      const abortController = new AbortController()
+      abortControllerRef.current = abortController
+      await generateStreamingChatCompletion(
+        conversationId,
+        {
+          onChunk: async (chunk) => {
+            // Accumulate content
+            accumulatedContent += chunk
 
-          // Insert message to database on first chunk, update on subsequent chunks
-          if (assistantMessageId === null) {
-            assistantMessageId = await insertMessage({
-              conversation_id: conversationId,
-              role: 'assistant',
-              content: accumulatedContent,
-              reasoning: accumulatedReasoning || null,
-              status: 'pending',
-              created_at: new Date().toISOString(),
-            })
-          } else {
-            await updateMessage(assistantMessageId, {
-              content: accumulatedContent,
-              reasoning: accumulatedReasoning || undefined,
-            })
-          }
+            // Insert message to database on first chunk, update on subsequent chunks
+            if (assistantMessageId === null) {
+              assistantMessageId = await insertMessage({
+                conversation_id: conversationId,
+                role: 'assistant',
+                content: accumulatedContent,
+                reasoning: accumulatedReasoning || null,
+                status: 'pending',
+                created_at: new Date().toISOString(),
+              })
+            } else {
+              await updateMessage(assistantMessageId, {
+                content: accumulatedContent,
+                reasoning: accumulatedReasoning || undefined,
+              })
+            }
 
-          // Invalidate React Query cache to refresh UI from database
-          void invalidateConverationQuery()
+            // Invalidate React Query cache to refresh UI from database
+            void invalidateConverationQuery()
+          },
+          onReasoningChunk: async (chunk) => {
+            // Accumulate reasoning
+            accumulatedReasoning += chunk
+
+            // Insert message to database on first reasoning chunk, update on subsequent chunks
+            if (assistantMessageId === null) {
+              assistantMessageId = await insertMessage({
+                conversation_id: conversationId,
+                role: 'assistant',
+                content: accumulatedContent,
+                reasoning: accumulatedReasoning,
+                status: 'pending',
+                created_at: new Date().toISOString(),
+              })
+            } else {
+              await updateMessage(assistantMessageId, {
+                content: accumulatedContent,
+                reasoning: accumulatedReasoning,
+              })
+            }
+
+            // Invalidate React Query cache to refresh UI from database
+            void invalidateConverationQuery()
+          },
+          onComplete: async (fullContent, fullReasoning) => {
+            console.log('[use-messages] onComplete', {
+              fullReasoning,
+              fullContent,
+            })
+
+            // Final update to ensure the message is complete in database
+            if (assistantMessageId !== null) {
+              await updateMessage(assistantMessageId, {
+                content: fullContent,
+                reasoning: fullReasoning,
+                status: 'complete',
+              })
+            }
+
+            void touchConversation(conversationId)
+
+            // Attempt to set conversation name only after server response completes
+            void setConversationTitleIfUnset(queryClient, conversationId)
+          },
+          onError: async (error) => {
+            console.error('Streaming error:', error)
+
+            if (assistantMessageId !== null) {
+              await updateMessage(assistantMessageId, { status: 'error' })
+            }
+          },
         },
-        onReasoningChunk: async (chunk) => {
-          // Accumulate reasoning
-          accumulatedReasoning += chunk
-
-          // Insert message to database on first reasoning chunk, update on subsequent chunks
-          if (assistantMessageId === null) {
-            assistantMessageId = await insertMessage({
-              conversation_id: conversationId,
-              role: 'assistant',
-              content: accumulatedContent,
-              reasoning: accumulatedReasoning,
-              status: 'pending',
-              created_at: new Date().toISOString(),
-            })
-          } else {
-            await updateMessage(assistantMessageId, {
-              content: accumulatedContent,
-              reasoning: accumulatedReasoning,
-            })
-          }
-
-          // Invalidate React Query cache to refresh UI from database
-          void invalidateConverationQuery()
-        },
-        onComplete: async (fullContent, fullReasoning) => {
-          console.log('[use-messages] onComplete', {
-            fullReasoning,
-            fullContent,
-          })
-
-          // Final update to ensure the message is complete in database
-          if (assistantMessageId !== null) {
-            await updateMessage(assistantMessageId, {
-              content: fullContent,
-              reasoning: fullReasoning,
-              status: 'complete',
-            })
-          }
-
-          void touchConversation(conversationId)
-
-          // Attempt to set conversation name only after server response completes
-          void setConversationTitleIfUnset(queryClient, conversationId)
-        },
-        onError: async (error) => {
-          console.error('Streaming error:', error)
-
-          if (assistantMessageId !== null) {
-            await updateMessage(assistantMessageId, { status: 'error' })
-          }
-        },
-      })
+        abortController.signal,
+      )
     },
     onSuccess: async (_data, variables) => {
       // Refresh caches when the round-trip completes

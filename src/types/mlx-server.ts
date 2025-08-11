@@ -17,9 +17,11 @@ export interface MLXServerStatus {
 }
 
 export interface ChatMessage {
-  role: 'system' | 'user' | 'assistant'
-  content: string
+  role: 'system' | 'user' | 'assistant' | 'tool'
+  content?: string | null
   reasoning?: string // Optional reasoning content
+  tool_call_id?: string
+  tool_calls?: ToolCall[]
 }
 
 export interface ChatCompletionOptions {
@@ -28,18 +30,23 @@ export interface ChatCompletionOptions {
   temperature?: number
   stream?: boolean
   signal?: AbortSignal
+  tools?: ToolSpec[]
+  toolChoice?: ToolChoice
+  parallelToolCalls?: boolean
 }
 
 export interface ChatCompletionChoice {
   index: number
   message?: {
     role: string
-    content: string
+    content: string | null
     reasoning?: string // Optional reasoning content
+    tool_calls?: ToolCall[]
   }
   delta?: {
     content?: string
     reasoning?: string // Optional reasoning chunk for streaming
+    tool_calls?: ToolCallDelta[]
   }
   finish_reason?: string | null
 }
@@ -67,6 +74,51 @@ export interface ChatCompletionResponse {
     total_tokens: number
     reasoning_tokens?: number // Optional reasoning tokens count
   }
+}
+
+// OpenAI-compatible tool spec and tool call types
+export interface ToolFunction {
+  name: string
+  description?: string
+  // JSON Schema for function parameters. Use unknown to avoid any.
+  parameters?: Record<string, unknown>
+}
+
+export interface ToolSpec {
+  type: 'function'
+  function: ToolFunction
+}
+
+export type ToolChoice =
+  | 'none'
+  | 'auto'
+  | 'required'
+  | {
+      type: 'function'
+      function: { name: string }
+    }
+
+export interface ToolCallFunctionSpec {
+  name: string
+  arguments: string
+}
+
+export interface ToolCall {
+  id: string
+  type: 'function'
+  function: ToolCallFunctionSpec
+}
+
+export interface ToolCallDeltaFunctionSpec {
+  name?: string
+  arguments?: string
+}
+
+export interface ToolCallDelta {
+  index?: number
+  id?: string
+  type?: 'function'
+  function?: ToolCallDeltaFunctionSpec
 }
 
 export interface Model {
