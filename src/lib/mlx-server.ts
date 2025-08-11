@@ -22,48 +22,179 @@ type RustMLXServerStatus = {
 }
 
 /**
+ * Centralized status management with immutable updates and listener notifications
+ */
+class MLXStatusManager {
+  private status: MLXServerStatus
+  private listeners = new Set<(status: MLXServerStatus) => void>()
+
+  constructor(initialStatus?: Partial<MLXServerStatus>) {
+    this.status = {
+      isRunning: false,
+      isHttpReady: false,
+      isModelReady: false,
+      port: undefined,
+      pid: null,
+      ...initialStatus,
+    }
+  }
+
+  getStatus(): MLXServerStatus {
+    return { ...this.status }
+  }
+
+  updateStatus(partial: Partial<MLXServerStatus>): MLXServerStatus {
+    const prevStatus = this.status
+    this.status = { ...prevStatus, ...partial }
+
+    // Notify listeners if anything changed
+    if (this.hasStatusChanged(prevStatus, this.status)) {
+      const snapshot = this.getStatus()
+      this.listeners.forEach((listener) => listener(snapshot))
+    }
+
+    return this.getStatus()
+  }
+
+  addListener(listener: (status: MLXServerStatus) => void): () => void {
+    this.listeners.add(listener)
+    return () => this.listeners.delete(listener)
+  }
+
+  clearListeners(): void {
+    this.listeners.clear()
+  }
+
+  private hasStatusChanged(
+    prev: MLXServerStatus,
+    next: MLXServerStatus,
+  ): boolean {
+    return (
+      prev.isRunning !== next.isRunning ||
+      prev.isHttpReady !== next.isHttpReady ||
+      prev.isModelReady !== next.isModelReady ||
+      prev.port !== next.port ||
+      prev.pid !== next.pid
+    )
+  }
+}
+
+/**
+ * Manages model readiness polling with proper cleanup
+ */
+class ModelReadinessPoller {
+  private timer: number | null = null
+  private isRunning = false
+
+  start(checkFn: () => Promise<boolean>, intervalMs = 2000): void {
+    if (this.isRunning) {
+      return
+    }
+
+    this.isRunning = true
+
+    // Immediate check
+    void this.performCheck(checkFn)
+
+    // Then poll until success
+    this.timer = window.setInterval(async () => {
+      const success = await this.performCheck(checkFn)
+      if (success) {
+        this.stop()
+      }
+    }, intervalMs)
+  }
+
+  stop(): void {
+    if (this.timer !== null) {
+      clearInterval(this.timer)
+      this.timer = null
+    }
+    this.isRunning = false
+  }
+
+  cleanup(): void {
+    this.stop()
+  }
+
+  private async performCheck(
+    checkFn: () => Promise<boolean>,
+  ): Promise<boolean> {
+    try {
+      return await checkFn()
+    } catch (error) {
+      console.warn('Model readiness check failed:', error)
+      return false
+    }
+  }
+}
+
+/**
  * MLX Server Service - Frontend facade for the Rust-managed MLX server
  *
  * This class provides a familiar interface for the frontend while delegating
  * all process management to the Rust backend.
  */
 class MLXServerService {
-  private cachedStatus: MLXServerStatus | null = null
-  private statusListeners = new Set<(status: MLXServerStatus) => void>()
+  private statusManager: MLXStatusManager
+  private modelPoller: ModelReadinessPoller
   private eventUnlisteners: UnlistenFn[] = []
-  private modelReadyPollTimer: number | null = null
+
+  constructor() {
+    this.statusManager = new MLXStatusManager()
+    this.modelPoller = new ModelReadinessPoller()
+  }
 
   /**
    * Get the current status of the MLX server from Rust
    */
   async getStatus(): Promise<MLXServerStatus> {
     try {
-      const status = await invoke<RustMLXServerStatus>('mlx_get_status')
+      const rustStatus = await invoke<RustMLXServerStatus>('mlx_get_status')
+      const jsStatus = convertRustStatusToJS(rustStatus)
 
-      // Convert Rust snake_case to JS camelCase for compatibility
-      this.cachedStatus = {
-        isRunning: status.is_running,
-        isHttpReady: status.is_http_ready,
-        isModelReady:
-          (this.cachedStatus?.isModelReady ?? false) &&
-          status.is_http_ready &&
-          status.is_running,
-        port: status.port,
-        pid: status.pid ?? null,
-      }
+      // Preserve existing model ready state if conditions allow
+      const currentStatus = this.statusManager.getStatus()
+      const isModelReady =
+        jsStatus.isRunning && jsStatus.isHttpReady && currentStatus.isModelReady
 
-      // Start polling once when HTTP becomes ready; stop when not ready
-      if (this.cachedStatus.isRunning && this.cachedStatus.isHttpReady) {
-        this.startModelReadyPolling()
-      } else {
-        this.stopModelReadyPolling()
-        this.cachedStatus.isModelReady = false
-      }
+      const updatedStatus = this.statusManager.updateStatus({
+        ...jsStatus,
+        isModelReady,
+      })
 
-      return this.cachedStatus
+      // Handle state transitions
+      this.handleStateTransition(currentStatus, updatedStatus)
+
+      return updatedStatus
     } catch (error) {
       console.error('Failed to get MLX server status:', error)
       throw error
+    }
+  }
+
+  /**
+   * Handle state transitions and side effects
+   */
+  private handleStateTransition(
+    prev: MLXServerStatus,
+    next: MLXServerStatus,
+  ): void {
+    // Start model polling when HTTP becomes ready
+    if (
+      next.isRunning &&
+      next.isHttpReady &&
+      (!prev.isHttpReady || !prev.isRunning)
+    ) {
+      this.startModelPolling()
+    }
+
+    // Stop model polling and reset model ready when server not ready
+    if (!next.isRunning || !next.isHttpReady) {
+      this.stopModelPolling()
+      if (next.isModelReady) {
+        this.statusManager.updateStatus({ isModelReady: false })
+      }
     }
   }
 
@@ -81,26 +212,7 @@ class MLXServerService {
         'mlx-status-changed',
         (event) => {
           console.log('MLX server status changed:', event.payload)
-
-          const status = convertRustStatusToJS(event.payload)
-          // Reset model-ready when server not ready
-          if (!status.isRunning || !status.isHttpReady) {
-            status.isModelReady = false
-          } else {
-            // Keep previous model-ready state if available until refreshed
-            status.isModelReady = this.cachedStatus?.isModelReady ?? false
-          }
-          this.cachedStatus = status
-
-          // Notify all status listeners
-          this.statusListeners.forEach((listener) => listener(status))
-
-          // Start polling when HTTP becomes ready; stop otherwise
-          if (status.isRunning && status.isHttpReady) {
-            this.startModelReadyPolling()
-          } else {
-            this.stopModelReadyPolling()
-          }
+          this.handleStatusUpdate(event.payload)
         },
       )
       this.eventUnlisteners.push(statusUnlisten)
@@ -110,27 +222,43 @@ class MLXServerService {
   }
 
   /**
-   * Add a listener for status changes
+   * Handle status updates from Rust events
    */
-  addStatusListener(listener: (status: MLXServerStatus) => void): () => void {
-    this.statusListeners.add(listener)
+  private handleStatusUpdate(rustStatus: RustMLXServerStatus): void {
+    const jsStatus = convertRustStatusToJS(rustStatus)
+    const currentStatus = this.statusManager.getStatus()
 
-    // Return cleanup function
-    return () => {
-      this.statusListeners.delete(listener)
-    }
+    // Preserve model ready state if conditions allow
+    const isModelReady =
+      jsStatus.isRunning && jsStatus.isHttpReady && currentStatus.isModelReady
+
+    const updatedStatus = this.statusManager.updateStatus({
+      ...jsStatus,
+      isModelReady,
+    })
+
+    // Handle state transitions
+    this.handleStateTransition(currentStatus, updatedStatus)
   }
 
   /**
-   * Cleanup event listeners
+   * Add a listener for status changes
+   */
+  addStatusListener(listener: (status: MLXServerStatus) => void): () => void {
+    return this.statusManager.addListener(listener)
+  }
+
+  /**
+   * Cleanup event listeners and resources
    */
   cleanup(): void {
     // Clean up all event listeners
     this.eventUnlisteners.forEach((unlisten) => unlisten())
     this.eventUnlisteners = []
 
-    // Clear all listener sets
-    this.statusListeners.clear()
+    // Clean up status manager and model poller
+    this.statusManager.clearListeners()
+    this.modelPoller.cleanup()
   }
 
   /**
@@ -185,6 +313,7 @@ class MLXServerService {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(body),
+      signal: options.signal,
     })
   }
 
@@ -221,76 +350,64 @@ class MLXServerService {
 
   /** Returns true if running, healthy and model ping succeeds */
   get isReady(): boolean {
-    const s = this.cachedStatus
-    return !!(s && s.isRunning && s.isHttpReady && s.isModelReady)
+    const status = this.statusManager.getStatus()
+    return status.isRunning && status.isHttpReady && status.isModelReady
   }
 
   /** Public method to verify the default model responds */
-  async checkModelReady(): Promise<boolean> {
-    const status = this.cachedStatus ?? (await this.getStatus())
+  async checkModelReady(timeoutMs = 5000): Promise<boolean> {
+    const status = this.statusManager.getStatus()
     if (!status.isRunning || !status.isHttpReady) {
-      this.updateModelReady(false)
+      this.statusManager.updateStatus({ isModelReady: false })
       return false
     }
+
+    // Create an AbortController for request cancellation
+    const abortController = new AbortController()
 
     try {
+      // Create a timeout that will abort the request
+      const timeoutId = setTimeout(() => {
+        abortController.abort()
+      }, timeoutMs)
+
       const resp = await this.chatCompletionRequest(
         [{ role: 'user', content: 'ping' }],
-        { model: DEFAULT_MODEL, maxTokens: 1, temperature: 0, stream: false },
+        {
+          model: DEFAULT_MODEL,
+          maxTokens: 1,
+          temperature: 0,
+          stream: false,
+          signal: abortController.signal,
+        },
       )
-      const ok = resp.ok
-      this.updateModelReady(ok)
-      return ok
-    } catch (_err) {
-      this.updateModelReady(false)
+
+      clearTimeout(timeoutId)
+
+      const isReady = resp.ok
+      this.statusManager.updateStatus({ isModelReady: isReady })
+      return isReady
+    } catch (error) {
+      console.warn('Model readiness check failed:', error)
+      this.statusManager.updateStatus({ isModelReady: false })
       return false
     }
   }
 
-  private updateModelReady(value: boolean) {
-    if (!this.cachedStatus) {
-      this.cachedStatus = {
-        isRunning: false,
-        isHttpReady: false,
-        isModelReady: false,
-      }
-    }
-    const changed = this.cachedStatus.isModelReady !== value
-    this.cachedStatus.isModelReady = value
-    // no-op: polling manages freshness
-    if (changed) {
-      const snapshot = { ...this.cachedStatus }
-      this.statusListeners.forEach((l) => l(snapshot))
-    }
+  private startModelPolling(): void {
+    this.modelPoller.start(() => this.checkModelReady())
   }
 
-  private startModelReadyPolling(): void {
-    if (this.modelReadyPollTimer !== null) {
-      return
-    }
-    // Immediate check once
-    void this.checkModelReady()
-    // Then poll until success
-    this.modelReadyPollTimer = window.setInterval(async () => {
-      const ok = await this.checkModelReady()
-      if (ok) {
-        this.stopModelReadyPolling()
-      }
-    }, 2000)
-  }
-
-  private stopModelReadyPolling(): void {
-    if (this.modelReadyPollTimer !== null) {
-      clearInterval(this.modelReadyPollTimer)
-      this.modelReadyPollTimer = null
-    }
+  private stopModelPolling(): void {
+    this.modelPoller.stop()
   }
 
   private async makeRequest(
     path: string,
     init: RequestInit,
   ): Promise<Response> {
-    const status = await this.getStatus()
+    // Use cached status to avoid triggering getStatus side effects
+    const status = this.statusManager.getStatus()
 
     if (!status.isRunning || !status.isHttpReady) {
       throw new MLXServerNotRunningError()
