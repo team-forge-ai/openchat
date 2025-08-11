@@ -19,7 +19,7 @@ export const ReasoningItemSchema = z.object({
       }),
     )
     .optional(),
-  content: z.string().optional(), // Full reasoning content (may not be exposed)
+  content: z.string().optional(),
 })
 
 export const ChatCompletionChoiceSchema = z.object({
@@ -28,7 +28,7 @@ export const ChatCompletionChoiceSchema = z.object({
     .object({
       role: z.string(),
       content: z.string().nullable(),
-      reasoning: z.string().optional(), // Reasoning content if available
+      reasoning: z.string().optional(),
       tool_calls: z
         .array(
           z.object({
@@ -47,7 +47,7 @@ export const ChatCompletionChoiceSchema = z.object({
     .object({
       role: z.string().optional(),
       content: z.string().optional(),
-      reasoning: z.string().optional(), // Streaming reasoning chunks (legacy)
+      reasoning: z.string().optional(),
       tool_calls: z
         .array(
           z.object({
@@ -84,13 +84,13 @@ export const ChatCompletionResponseSchema = z.object({
   created: z.number(),
   model: z.string(),
   choices: z.array(ChatCompletionChoiceSchema),
-  reasoning: ReasoningItemSchema.optional(), // Top-level reasoning item
+  reasoning: ReasoningItemSchema.optional(),
   usage: z
     .object({
       prompt_tokens: z.number(),
       completion_tokens: z.number(),
       total_tokens: z.number(),
-      reasoning_tokens: z.number().optional(), // Reasoning tokens count
+      reasoning_tokens: z.number().optional(),
     })
     .optional(),
 })
@@ -104,19 +104,6 @@ export const StreamChunkSchema = z.object({
   choices: z.array(ChatCompletionChoiceSchema),
 })
 
-// Models endpoint schemas
-export const ModelSchema = z.object({
-  id: z.string(),
-  object: z.string(),
-  created: z.number(),
-  owned_by: z.string(),
-})
-
-export const ModelsResponseSchema = z.object({
-  object: z.string(),
-  data: z.array(ModelSchema),
-})
-
 // Type exports (inferred from schemas)
 export type ChatMessage = z.infer<typeof ChatMessageSchema>
 export type ReasoningItem = z.infer<typeof ReasoningItemSchema>
@@ -125,5 +112,3 @@ export type ChatCompletionResponse = z.infer<
   typeof ChatCompletionResponseSchema
 >
 export type StreamChunk = z.infer<typeof StreamChunkSchema>
-export type Model = z.infer<typeof ModelSchema>
-export type ModelsResponse = z.infer<typeof ModelsResponseSchema>

@@ -1,4 +1,4 @@
-import type { StreamChunk } from '@/lib/mlx-server-schemas'
+import type { StreamChunk } from '@/lib/mlx-server/schemas'
 import type { ToolCallDelta } from '@/types/mlx-server'
 
 export function createChunkToTextStream(options?: {

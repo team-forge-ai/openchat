@@ -1,5 +1,5 @@
-import type { StreamChunk } from '@/lib/mlx-server-schemas'
-import { StreamChunkSchema } from '@/lib/mlx-server-schemas'
+import type { StreamChunk } from '@/lib/mlx-server/schemas'
+import { StreamChunkSchema } from '@/lib/mlx-server/schemas'
 
 export function createStreamChunkStream(): TransformStream<
   string,
