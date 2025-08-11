@@ -4,4 +4,4 @@ export const DEFAULT_SETTINGS_PROMPT =
 
 // Always applied
 export const SYSTEM_PROMPT =
-  'Write using Markdown for structure (headings, lists, and links), but do not wrap the entire response in a fenced code block. Only use fenced code blocks for actual code snippets and include a language tag. Start directly with the content, not a code fence. Avoid emojis and canned greetings unless explicitly requested.'
+  'Write using Markdown for structure (headings, lists, and links) and images, but do not wrap the entire response in a fenced code block. Only use fenced code blocks for actual code snippets and include a language tag. Start directly with the content, not a code fence. Avoid emojis and canned greetings unless explicitly requested.'

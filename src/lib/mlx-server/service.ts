@@ -1,18 +1,19 @@
 import { invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
+import { generateText, type CoreMessage } from 'ai'
 
 import { DEFAULT_MODEL } from '@/lib/mlx-server/constants'
 import { ModelReadinessPoller } from '@/lib/mlx-server/model-readiness-poller'
-import { ChatCompletionResponseSchema } from '@/lib/mlx-server/schemas'
 import { MLXStatusManager } from '@/lib/mlx-server/status-manager'
 import { convertRustStatusToJS } from '@/lib/mlx-server/utils'
 import type {
   ChatCompletionOptions,
-  ChatCompletionResponse,
   ChatMessage,
   MLXServerStatus,
 } from '@/types/mlx-server'
 import { DEFAULT_CONFIG, MLXServerNotRunningError } from '@/types/mlx-server'
+
+import { createMlxClient } from './client'
 
 type RustMLXServerStatus = {
   is_running: boolean
@@ -30,10 +31,16 @@ export class MLXServerService {
   private statusManager: MLXStatusManager
   private modelPoller: ModelReadinessPoller
   private eventUnlisteners: UnlistenFn[] = []
+  protected modelId: string
 
   constructor() {
     this.statusManager = new MLXStatusManager()
     this.modelPoller = new ModelReadinessPoller()
+    this.modelId = DEFAULT_MODEL
+  }
+
+  get model() {
+    return createMlxClient({ modelId: this.modelId, endpoint: this.endpoint })
   }
 
   async getStatus(): Promise<MLXServerStatus> {
@@ -168,23 +175,21 @@ export class MLXServerService {
 
   async chatCompletion(
     messages: ChatMessage[],
-    options: ChatCompletionOptions = {},
-  ): Promise<ChatCompletionResponse> {
-    const response = await this.chatCompletionRequest(messages, {
-      ...options,
-      stream: false,
-    })
-    if (!response.ok) {
-      throw new Error(
-        `MLX server request failed: ${response.status} ${response.statusText}`,
+    _options: ChatCompletionOptions = {},
+  ): Promise<string> {
+    const model = this.model
+    const coreMessages: CoreMessage[] = messages
+      .filter(
+        (m) =>
+          m.role === 'system' || m.role === 'user' || m.role === 'assistant',
       )
-    }
-    const data: unknown = await response.json()
-    const parsed = ChatCompletionResponseSchema.safeParse(data)
-    if (!parsed.success) {
-      throw new Error('Invalid chat completion response format')
-    }
-    return parsed.data
+      .map((m) => ({
+        role: m.role as 'system' | 'user' | 'assistant',
+        content: m.content ?? '',
+      }))
+
+    const result = await generateText({ model, messages: coreMessages })
+    return result.text
   }
 
   async listModels(): Promise<Response> {
@@ -196,33 +201,47 @@ export class MLXServerService {
     return status.isRunning && status.isHttpReady && status.isModelReady
   }
 
+  get endpoint(): string {
+    const status = this.statusManager.getStatus()
+    const port = status.port || DEFAULT_CONFIG.PORT
+    return `http://${DEFAULT_CONFIG.HOST}:${port}`
+  }
+
   async checkModelReady(timeoutMs = 5000): Promise<boolean> {
     const status = this.statusManager.getStatus()
     if (!status.isRunning || !status.isHttpReady) {
       this.statusManager.updateStatus({ isModelReady: false })
       return false
     }
+
+    const model = this.model
+
     const abortController = new AbortController()
+    const timeoutId = setTimeout(() => abortController.abort(), timeoutMs)
+
+    const readinessProbe = async (): Promise<boolean> => {
+      try {
+        const result = await generateText({
+          model,
+          messages: [
+            { role: 'system', content: 'respond with: ok' },
+            { role: 'user', content: 'ping' },
+          ],
+          abortSignal: abortController.signal,
+        })
+        return typeof result.text === 'string' && result.text.length > 0
+      } catch {
+        return false
+      }
+    }
+
     try {
-      const timeoutId = setTimeout(() => {
-        abortController.abort()
-      }, timeoutMs)
-      const resp = await this.chatCompletionRequest(
-        [{ role: 'user', content: 'ping' }],
-        {
-          model: DEFAULT_MODEL,
-          maxTokens: 1,
-          temperature: 0,
-          stream: false,
-          signal: abortController.signal,
-        },
-      )
+      const isReady = await readinessProbe()
       clearTimeout(timeoutId)
-      const isReady = resp.ok
-      this.statusManager.updateStatus({ isModelReady: isReady })
-      return isReady
-    } catch (error) {
-      console.warn('Model readiness check failed:', error)
+      this.statusManager.updateStatus({ isModelReady: Boolean(isReady) })
+      return Boolean(isReady)
+    } catch {
+      clearTimeout(timeoutId)
       this.statusManager.updateStatus({ isModelReady: false })
       return false
     }
@@ -244,9 +263,7 @@ export class MLXServerService {
     if (!status.isRunning || !status.isHttpReady) {
       throw new MLXServerNotRunningError()
     }
-    const port = status.port || DEFAULT_CONFIG.PORT
-    const url = `http://${DEFAULT_CONFIG.HOST}:${port}${path}`
-    return await fetch(url, init)
+    return await fetch(new URL(path, this.endpoint), init)
   }
 }
 

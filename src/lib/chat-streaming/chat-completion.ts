@@ -18,6 +18,12 @@ export interface StreamingOptions {
   onError?: (error: Error) => void
 }
 
+/**
+ * Builds a chat messages array for the given conversation, ensuring a system prompt is present.
+ *
+ * @param conversationId - The ID of the conversation to build messages for
+ * @returns A promise that resolves to an array of ChatMessage objects
+ */
 async function buildChatMessages(
   conversationId: number,
 ): Promise<ChatMessage[]> {
@@ -40,6 +46,22 @@ async function buildChatMessages(
   return chatMessages
 }
 
+/**
+ * Generates a streaming chat completion for the given conversation.
+ *
+ * This function:
+ * 1. Builds the chat messages array with system prompts
+ * 2. Makes a streaming request to the MLX server
+ * 3. Processes the response through multiple transform streams
+ * 4. Handles reasoning events, tool calls, and visible text chunks
+ * 5. Invokes callbacks for real-time updates during streaming
+ *
+ * @param conversationId - The ID of the conversation to generate completion for
+ * @param options - Streaming options with callbacks for chunk handling
+ * @param signal - AbortSignal to cancel the request
+ * @returns Promise that resolves to the complete response content
+ * @throws Error if the MLX server request fails or response processing fails
+ */
 export async function generateStreamingChatCompletion(
   conversationId: number,
   options: StreamingOptions,

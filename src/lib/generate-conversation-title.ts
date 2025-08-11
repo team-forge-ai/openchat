@@ -1,3 +1,6 @@
+import type { ModelMessage } from 'ai'
+import { generateText } from 'ai'
+
 import { mlxServer } from '@/lib/mlx-server'
 import { toTitleCase } from '@/lib/utils'
 import type { ChatMessage } from '@/types/mlx-server'
@@ -13,7 +16,7 @@ export async function generateConversationTitle(
     return null
   }
 
-  const chatMessages: ChatMessage[] = [
+  const chatMessages: ModelMessage[] = [
     {
       role: 'system',
       content: 'Follow the users instructions exactly.',
@@ -28,11 +31,13 @@ export async function generateConversationTitle(
     },
   ]
 
+  const model = mlxServer.model
+
   try {
     console.log('Generating conversation title with messages:', chatMessages)
-    const response = await mlxServer.chatCompletion(chatMessages)
-    console.log('Conversation title response:', response)
-    const content = response.choices[0]?.message?.content ?? ''
+    const result = await generateText({ model, messages: chatMessages })
+    const content = result.text
+    console.log('Conversation title content:', content)
 
     const cleaned = sanitizeTitle(content)
     if (!cleaned || isGenericTitle(cleaned)) {
