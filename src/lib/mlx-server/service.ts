@@ -31,12 +31,11 @@ export class MLXServerService {
   private statusManager: MLXStatusManager
   private modelPoller: ModelReadinessPoller
   private eventUnlisteners: UnlistenFn[] = []
-  protected modelId: string
+  protected modelId = DEFAULT_MODEL
 
   constructor() {
     this.statusManager = new MLXStatusManager()
     this.modelPoller = new ModelReadinessPoller()
-    this.modelId = DEFAULT_MODEL
   }
 
   get model() {
