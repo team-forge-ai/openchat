@@ -1,16 +1,15 @@
 import type { ModelMessage } from 'ai'
 import { generateText } from 'ai'
 
-import { mlxServer } from '@/lib/mlx-server'
+import { mlxServer } from '@/lib/mlc-server'
 import { toTitleCase } from '@/lib/utils'
-import type { ChatMessage } from '@/types/mlx-server'
 
 /**
  * Attempts to generate a short, descriptive conversation name from the given chat messages.
  * Returns the name as a string, or null if a suitable name could not be generated.
  */
 export async function generateConversationTitle(
-  messages: ChatMessage[],
+  messages: ModelMessage[],
 ): Promise<string | null> {
   if (!Array.isArray(messages) || messages.length === 0) {
     return null

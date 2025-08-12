@@ -19,7 +19,7 @@ export function MLXServerStatus() {
     if (isReady) {
       return <CheckCircle className="h-4 w-4 text-green-500" />
     }
-    if (status.isRunning && !isReady) {
+    if (!isReady) {
       return <Loader2 className="h-4 w-4 animate-spin text-orange-500" />
     }
     return <AlertCircle className="h-4 w-4 text-gray-400" />
@@ -32,7 +32,7 @@ export function MLXServerStatus() {
     if (isReady) {
       return 'AI ready'
     }
-    if (status.isRunning && !isReady) {
+    if (!isReady) {
       return 'AI starting...'
     }
     return 'AI offline'
@@ -50,7 +50,7 @@ export function MLXServerStatus() {
     if (isReady) {
       return <div className="space-y-1">Status: Ready</div>
     }
-    if (status.isRunning && !isReady) {
+    if (!isReady && status.isReady) {
       return <div className="space-y-1">Status: Starting up...</div>
     }
     return 'AI is not running'
@@ -74,7 +74,7 @@ export function MLXServerStatus() {
           <TooltipContent>{getTooltipContent()}</TooltipContent>
         </Tooltip>
 
-        {(error || !status.isRunning || (status.isRunning && !isReady)) && (
+        {error && (
           <Tooltip>
             <TooltipTrigger asChild>
               <Button

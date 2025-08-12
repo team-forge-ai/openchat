@@ -1,18 +1,22 @@
 import { createOpenAI } from '@ai-sdk/openai'
 import { extractReasoningMiddleware, wrapLanguageModel } from 'ai'
 
-export function createMlxClient({
-  modelId,
-  endpoint,
-}: {
+// Standalone MLX client factory; does not depend on the service to avoid cycles
+
+export function createMlcClient(options: {
   modelId: string
   endpoint: string
 }) {
+  const endpoint = options.endpoint
+  if (!endpoint) {
+    throw new Error('MLC endpoint is not available')
+  }
+
   const openai = createOpenAI({ baseURL: endpoint, apiKey: 'dummy' })
 
   // Wrap the model with middleware that extracts <think> ... </think>
   const model = wrapLanguageModel({
-    model: openai.chat(modelId),
+    model: openai.chat(options.modelId),
     middleware: extractReasoningMiddleware({ tagName: 'think' }),
   })
 

@@ -11,7 +11,7 @@ import {
   insertMessage,
   updateMessage,
 } from '@/lib/db/messages'
-import { mlxServer } from '@/lib/mlx-server'
+import { mlxServer } from '@/lib/mlc-server'
 import { DEFAULT_SETTINGS_PROMPT, SYSTEM_PROMPT } from '@/lib/prompt'
 import { setConversationTitleIfUnset } from '@/lib/set-conversation-title'
 import type { Message } from '@/types'

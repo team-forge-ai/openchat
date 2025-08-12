@@ -1,10 +1,10 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 
-import { mlxServer } from '@/lib/mlx-server'
-import type { MLXServerStatus } from '@/types/mlx-server'
+import { mlxServer } from '@/lib/mlc-server'
+import type { MLCStatus } from '@/types/mlc-server'
 
 interface MLXServerContextValue {
-  status: MLXServerStatus
+  status: MLCStatus
   error: string | null
   restartServer: () => Promise<void>
   isReady: boolean
@@ -19,14 +19,15 @@ interface MLXServerProviderProps {
 }
 
 export function MLXServerProvider({ children }: MLXServerProviderProps) {
-  const [status, setStatus] = useState<MLXServerStatus>({
-    isRunning: false,
-    isHttpReady: false,
-    isModelReady: false,
+  const [status, setStatus] = useState<MLCStatus>({
+    isReady: false,
+    port: undefined,
+    modelPath: undefined,
+    error: null,
   })
   const [error, setError] = useState<string | null>(null)
 
-  const isReady = status.isRunning && status.isHttpReady && status.isModelReady
+  const isReady = status.isReady
 
   useEffect(() => {
     let removeStatusListener: (() => void) | undefined
@@ -37,7 +38,7 @@ export function MLXServerProvider({ children }: MLXServerProviderProps) {
         await mlxServer.initializeEventListeners()
 
         // Get initial status using the service layer
-        const initialStatus = await mlxServer.getStatus()
+        const initialStatus = await mlxServer.fetchStatus()
         setStatus(initialStatus)
 
         // Subscribe to status changes through service layer
@@ -66,7 +67,7 @@ export function MLXServerProvider({ children }: MLXServerProviderProps) {
       await mlxServer.restart()
 
       // Get updated status after restart
-      const newStatus = await mlxServer.getStatus()
+      const newStatus = await mlxServer.fetchStatus()
 
       setStatus(newStatus)
       console.log('MLX server restarted successfully:', newStatus)

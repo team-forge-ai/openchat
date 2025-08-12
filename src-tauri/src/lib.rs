@@ -4,6 +4,7 @@
 use std::fs;
 
 // --- External crate imports ---
+use std::sync::Arc;
 use tauri::{Manager, RunEvent, WindowEvent};
 
 // --- Internal module imports ---
@@ -11,7 +12,7 @@ mod commands;
 mod db;
 mod mcp;
 mod migrations;
-mod mlx_server;
+mod mlc_server;
 
 /// Name of the SQLite database file used by the app.
 const DB_FILE_NAME: &str = "chatchat3.db";
@@ -22,8 +23,6 @@ const DB_FILE_NAME: &str = "chatchat3.db";
 // 1.  Database (SQLite via sqlx)
 // 2.  Tauri command handlers bridging React ↔︎ Rust
 // Note: LLM interactions now happen through the openchat-mlx-server
-
-use mlx_server::MLXServerManager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -49,21 +48,25 @@ pub fn run() {
                 .map_err(|e| format!("Failed to get app data dir: {e}"))?;
             setup_sqlite_pool(app, &app_data_dir)?;
 
-            // --- MLX Server Manager setup ---
-            setup_mlx_server_manager(app);
+            // Set up MLC server manager in app state and auto-start
+            let handle = app.handle().clone();
+            let manager: Arc<crate::mlc_server::MLCServerManager> =
+                Arc::new(crate::mlc_server::MLCServerManager::new(handle));
+            let manager_for_start = Arc::clone(&manager);
+            app.manage(manager);
 
-            // --- MCP Manager setup ---
-            let mcp_manager = mcp::McpManager::new();
-            app.manage(mcp_manager);
+            // Auto-start the server in the background
+            tauri::async_runtime::spawn(async move {
+                let _ = manager_for_start.restart().await;
+            });
 
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            commands::check_port_available,
-            commands::get_port_info,
-            commands::mlx_get_status,
-            commands::mlx_restart,
-            commands::mlx_health_check,
+            // MLC server management
+            commands::mlc_get_status,
+            commands::mlc_restart,
+            // MCP commands
             commands::mcp_check_server,
             commands::mcp_list_tools,
             commands::mcp_call_tool,
@@ -78,29 +81,10 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("Error while building Tauri application");
 
-    app.run(|app, event| match event {
-        RunEvent::Exit => handle_app_exit(app),
+    app.run(|app_handle, event| match event {
+        RunEvent::Exit => handle_app_exit(app_handle),
         _ => {}
     });
-}
-
-/// Helper to initialize and set up the MLX server manager.
-fn setup_mlx_server_manager(app: &mut tauri::App) {
-    let mlx_manager = MLXServerManager::new();
-    let mlx_manager_clone = mlx_manager.clone();
-    let app_handle = app.handle().clone(); // Clone the AppHandle here
-
-    // Set the app handle for event emission and auto-start MLX server
-    tauri::async_runtime::spawn(async move {
-        mlx_manager_clone.set_app_handle(app_handle).await;
-        // Auto-start the MLX server
-        if let Err(e) = mlx_manager_clone.auto_start().await {
-            log::error!("Failed to auto-start MLX server: {}", e);
-        }
-    });
-
-    // Store the manager in Tauri's state
-    app.manage(mlx_manager);
 }
 
 /// Sets up the SQLite connection pool and stores it in Tauri's app state.
@@ -114,14 +98,19 @@ fn setup_sqlite_pool(app: &mut tauri::App, app_data_dir: &std::path::Path) -> Re
     Ok(())
 }
 
-/// Handles cleanup when the main window is destroyed (shuts down MLX server).
+/// Handles cleanup when the main window is destroyed (shuts down server).
 fn handle_window_destroyed(_window: &tauri::Window) {
     log::info!("Window destroyed...");
 }
 
-/// Handles cleanup when the application is exiting (shuts down MLX server).
+/// Handles cleanup when the application is exiting (shuts down server).
 fn handle_app_exit(app: &tauri::AppHandle) {
-    log::info!("App exiting; killing MLX server...");
-    let mlx_manager = app.state::<MLXServerManager>().clone();
-    mlx_manager.kill_sync();
+    log::info!("App exiting; stopping MLC server...");
+    if let Some(state) = app.try_state::<Arc<crate::mlc_server::MLCServerManager>>() {
+        // Block until stop completes to ensure process is terminated
+        let manager: Arc<crate::mlc_server::MLCServerManager> = state.inner().clone();
+        let _ = tauri::async_runtime::block_on(async move {
+            manager.stop().await;
+        });
+    }
 }

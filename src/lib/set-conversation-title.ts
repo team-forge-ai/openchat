@@ -1,4 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query'
+import type { ModelMessage } from 'ai'
 
 import {
   getConversation,
@@ -6,7 +7,6 @@ import {
 } from '@/lib/db/conversations'
 import { getMessagesForChat } from '@/lib/db/messages'
 import { generateConversationTitle } from '@/lib/generate-conversation-title'
-import type { ChatMessage } from '@/types/mlx-server'
 
 export async function setConversationTitleIfUnset(
   queryClient: QueryClient,
@@ -20,12 +20,7 @@ export async function setConversationTitleIfUnset(
     return
   }
 
-  const chatMessages: ChatMessage[] = (
-    await getMessagesForChat(conversationId)
-  ).map((m) => ({
-    role: m.role as 'system' | 'user' | 'assistant',
-    content: m.content,
-  }))
+  const chatMessages: ModelMessage[] = await getMessagesForChat(conversationId)
 
   console.log('Generating title for conversation', conversationId)
 
