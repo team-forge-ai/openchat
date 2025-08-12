@@ -2,9 +2,12 @@ use serde::{Deserialize, Serialize};
 use std::net::TcpListener;
 use std::process::Stdio;
 use tauri::{AppHandle, Emitter};
-use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt};
+use tokio::io::AsyncBufReadExt;
 use tokio::process::{Child, Command};
 use tokio::sync::{Mutex, RwLock};
+
+/// Default MLC model to use when MLC_MODEL environment variable is not set
+const DEFAULT_MLC_MODEL: &str = "HF://mlc-ai/Qwen3-14B-q4f16_1-MLC";
 
 /// Status structure sent to the frontend. Keep snake_case to match TS converter.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -32,7 +35,7 @@ impl Default for MLCServerConfig {
             port: 8000,
             model: std::env::var("MLC_MODEL")
                 .ok()
-                .or_else(|| Some("mlc-ai/Llama-3-8B-Instruct-q4f16_1-MLC".to_string())),
+                .or_else(|| Some(DEFAULT_MLC_MODEL.to_string())),
         }
     }
 }
@@ -188,38 +191,6 @@ impl MLCServerManager {
         status.is_http_ready = false;
         status.pid = None;
         self.update_status_and_emit(status).await;
-    }
-
-    /// Crude HTTP GET /v1/models check using TcpStream to avoid extra deps
-    async fn http_get_models(port: u16) -> bool {
-        use tokio::net::TcpStream;
-        use tokio::time::{timeout, Duration};
-
-        let addr = format!("127.0.0.1:{}", port);
-        let Ok(Ok(mut stream)) =
-            timeout(Duration::from_millis(800), TcpStream::connect(&addr)).await
-        else {
-            return false;
-        };
-
-        let request = format!(
-            "GET /v1/models HTTP/1.1\r\nHost: 127.0.0.1:{}\r\nConnection: close\r\n\r\n",
-            port
-        );
-        if stream.write_all(request.as_bytes()).await.is_err() {
-            return false;
-        }
-
-        let mut response = vec![0u8; 1024];
-        let Ok(Ok(n)) = timeout(Duration::from_millis(800), stream.read(&mut response)).await
-        else {
-            return false;
-        };
-        if n == 0 {
-            return false;
-        }
-        let s = String::from_utf8_lossy(&response[..n]);
-        s.contains("200 OK")
     }
 
     /// Robust HTTP GET using reqwest with timeouts and JSON validation

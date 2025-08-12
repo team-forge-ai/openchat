@@ -6,7 +6,7 @@ import { SettingsSidebar } from '@/components/settings-sidebar'
 import { SettingsWindow } from '@/components/settings-window'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { AppContextProvider, useAppContext } from '@/contexts/app-context'
-import { MLXServerProvider } from '@/contexts/mlx-server-context'
+import { MLCServerProvider } from '@/contexts/mlc-server-context'
 
 import './App.css'
 
@@ -35,12 +35,12 @@ function AppContent() {
 
 function App() {
   return (
-    <MLXServerProvider>
+    <MLCServerProvider>
       <AppContextProvider>
         <AppShortcuts />
         <AppContent />
       </AppContextProvider>
-    </MLXServerProvider>
+    </MLCServerProvider>
   )
 }
 

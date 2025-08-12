@@ -55,6 +55,10 @@ pub fn run() {
             let manager_for_start = Arc::clone(&manager);
             app.manage(manager);
 
+            // Set up MCP manager state
+            let mcp_manager = crate::mcp::McpManager::new();
+            app.manage(mcp_manager);
+
             // Auto-start the server in the background
             tauri::async_runtime::spawn(async move {
                 let _ = manager_for_start.restart().await;

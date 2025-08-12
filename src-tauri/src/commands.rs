@@ -8,13 +8,15 @@ use tauri::State;
 
 #[tauri::command]
 pub async fn mlc_get_status(
-    manager: State<'_, MLCServerManager>,
+    manager: State<'_, std::sync::Arc<MLCServerManager>>,
 ) -> Result<MLCServerStatus, String> {
     Ok(manager.get_status().await)
 }
 
 #[tauri::command]
-pub async fn mlc_restart(manager: State<'_, MLCServerManager>) -> Result<MLCServerStatus, String> {
+pub async fn mlc_restart(
+    manager: State<'_, std::sync::Arc<MLCServerManager>>,
+) -> Result<MLCServerStatus, String> {
     manager.restart().await
 }
 

@@ -7,10 +7,10 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { useMLXServer } from '@/contexts/mlx-server-context'
+import { useMLCServer } from '@/contexts/mlc-server-context'
 
-export function MLXServerStatus() {
-  const { status, error, restartServer, isReady } = useMLXServer()
+export function MLCServerStatus() {
+  const { status, error, restartServer, isReady } = useMLCServer()
 
   const getStatusIcon = () => {
     if (error) {
@@ -48,7 +48,22 @@ export function MLXServerStatus() {
       )
     }
     if (isReady) {
-      return <div className="space-y-1">Status: Ready</div>
+      return (
+        <div className="flex flex-col gap-1">
+          <div className="flex gap-1">
+            <span className="font-semibold text-muted-foreground/80">
+              Status:
+            </span>
+            <span className="text-xs">Ready</span>
+          </div>
+          <div className="flex gap-1">
+            <span className="font-semibold text-muted-foreground/80">
+              Model:
+            </span>
+            <span className="text-xs">{status.modelPath}</span>
+          </div>
+        </div>
+      )
     }
     if (!isReady && status.isReady) {
       return <div className="space-y-1">Status: Starting up...</div>

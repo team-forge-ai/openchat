@@ -3,22 +3,22 @@ import React, { createContext, useContext, useEffect, useState } from 'react'
 import { mlxServer } from '@/lib/mlc-server'
 import type { MLCStatus } from '@/types/mlc-server'
 
-interface MLXServerContextValue {
+interface MLCServerContextValue {
   status: MLCStatus
   error: string | null
   restartServer: () => Promise<void>
   isReady: boolean
 }
 
-const MLXServerContext = createContext<MLXServerContextValue | undefined>(
+const MLCServerContext = createContext<MLCServerContextValue | undefined>(
   undefined,
 )
 
-interface MLXServerProviderProps {
+interface MLCServerProviderProps {
   children: React.ReactNode
 }
 
-export function MLXServerProvider({ children }: MLXServerProviderProps) {
+export function MLCServerProvider({ children }: MLCServerProviderProps) {
   const [status, setStatus] = useState<MLCStatus>({
     isReady: false,
     port: undefined,
@@ -47,7 +47,7 @@ export function MLXServerProvider({ children }: MLXServerProviderProps) {
           setError(null) // Clear error when status updates successfully
         })
       } catch (err) {
-        console.error('Failed to setup MLX server context:', err)
+        console.error('Failed to setup MLC server context:', err)
         setError(err instanceof Error ? err.message : String(err))
       }
     }
@@ -70,16 +70,16 @@ export function MLXServerProvider({ children }: MLXServerProviderProps) {
       const newStatus = await mlxServer.fetchStatus()
 
       setStatus(newStatus)
-      console.log('MLX server restarted successfully:', newStatus)
+      console.log('MLC server restarted successfully:', newStatus)
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err)
-      console.error('Failed to restart MLX server:', errorMessage)
+      console.error('Failed to restart MLC server:', errorMessage)
       setError(errorMessage)
     }
   }
 
   return (
-    <MLXServerContext.Provider
+    <MLCServerContext.Provider
       value={{
         status,
         error,
@@ -88,14 +88,14 @@ export function MLXServerProvider({ children }: MLXServerProviderProps) {
       }}
     >
       {children}
-    </MLXServerContext.Provider>
+    </MLCServerContext.Provider>
   )
 }
 
-export function useMLXServer() {
-  const context = useContext(MLXServerContext)
+export function useMLCServer() {
+  const context = useContext(MLCServerContext)
   if (!context) {
-    throw new Error('useMLXServer must be used within MLXServerProvider')
+    throw new Error('useMLCServer must be used within MLCServerProvider')
   }
   return context
 }
