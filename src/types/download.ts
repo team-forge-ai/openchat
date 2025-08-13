@@ -99,38 +99,45 @@ export type DownloadProgressEvent =
 export function parseDownloadProgressEvent(
   value: unknown,
 ): DownloadProgressEvent | null {
-  const result = RawDownloadProgressEventSchema.safeParse(value)
-  if (!result.success) {
-    return null
-  }
-  const e = result.data
-  switch (e.type) {
+  const event = RawDownloadProgressEventSchema.parse(value)
+
+  switch (event.type) {
     case 'repo_discovered':
       return {
-        type: e.type,
-        repoId: e.repo_id,
-        numFiles: e.num_files,
-        totalBytes: e.total_bytes,
+        type: event.type,
+        repoId: event.repo_id,
+        numFiles: event.num_files,
+        totalBytes: event.total_bytes,
       }
     case 'file_started':
       return {
-        type: e.type,
-        repoId: e.repo_id,
-        path: e.path,
-        totalBytes: e.total_bytes ?? null,
+        type: event.type,
+        repoId: event.repo_id,
+        path: event.path,
+        totalBytes: event.total_bytes ?? null,
       }
     case 'bytes_transferred':
-      return { type: e.type, repoId: e.repo_id, path: e.path, bytes: e.bytes }
+      return {
+        type: event.type,
+        repoId: event.repo_id,
+        path: event.path,
+        bytes: event.bytes,
+      }
     case 'file_completed':
-      return { type: e.type, repoId: e.repo_id, path: e.path }
+      return { type: event.type, repoId: event.repo_id, path: event.path }
     case 'file_failed':
-      return { type: e.type, repoId: e.repo_id, path: e.path, error: e.error }
+      return {
+        type: event.type,
+        repoId: event.repo_id,
+        path: event.path,
+        error: event.error,
+      }
     case 'completed':
       return {
-        type: e.type,
-        repoId: e.repo_id,
-        filesDownloaded: e.files_downloaded,
-        bytesDownloaded: e.bytes_downloaded,
+        type: event.type,
+        repoId: event.repo_id,
+        filesDownloaded: event.files_downloaded,
+        bytesDownloaded: event.bytes_downloaded,
       }
     default:
       return null

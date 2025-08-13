@@ -1,0 +1,38 @@
+---
+alwaysApply: true
+---
+
+Context:
+
+- Conventions: small files, single-responsibility, testable interfaces, providers+hooks for state, one component per file, '@/' imports, zod for parsing/validation, no any.
+- Events: define event name constants; payloads are discriminated unions; normalize snake_case (Rust) → camelCase (TS).
+- Rust: offload blocking work with spawn_blocking; emit structured serde-tagged payloads; keep interfaces minimal.
+- Quality gates: Propose a plan first; after edits run cargo check, pnpm typecheck, pnpm lint; fix issues; ensure hooks rules respected.
+
+Do this:
+
+1. Propose a concise plan (files to add/edit, public APIs, event names, schemas).
+2. After approval, implement:
+   - Keep modules small and composable.
+   - Add zod schemas for all incoming data; normalize to camelCase once in a bridge layer.
+   - Use discriminated unions and type guards; export helper predicates (e.g., isTerminalEvent).
+   - Centralize constants (event names, keys) in a types or constants file.
+   - In React, create a provider and a small hook for state; avoid conditional hooks.
+   - In Rust, use spawn_blocking for blocking ops; include identifiers like repo_id in every event.
+3. After coding, run:
+   - cargo check
+   - pnpm typecheck
+   - pnpm lint
+     Fix issues immediately.
+4. Summarize the changes succinctly and note any follow-up suggestions.
+
+Non-negotiables:
+
+- No any. Use zod for runtime validation.
+- Normalize casing at boundaries; TS types are camelCase.
+- Small, testable modules; clear public APIs.
+- Don’t call hooks conditionally.
+- Prefer to split out logic into smaller files.
+- Never use `any` or `as any` in Typescript.
+- Never use single character variable names.
+- Always run build/typecheck/lint before declaring done.

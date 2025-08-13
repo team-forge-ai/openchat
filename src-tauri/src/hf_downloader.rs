@@ -54,6 +54,9 @@ pub async fn ensure_hf_model_cached(app: &AppHandle, repo_id: &str) -> Result<()
         std::fs::create_dir_all(parent)
             .map_err(|e| format!("failed to create cache parent dir: {e}"))?;
     }
+    // Ensure destination directory exists
+    std::fs::create_dir_all(&dest_dir)
+        .map_err(|e| format!("failed to create cache dest dir: {e}"))?;
 
     // hf_download currently provides blocking and async; use blocking in a blocking task to avoid holding the async runtime.
     let app_clone = app.clone();

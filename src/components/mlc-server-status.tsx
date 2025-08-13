@@ -7,15 +7,12 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { useDownloadProgress } from '@/contexts/download-progress-context'
+import { useActiveDownloads } from '@/contexts/download-progress-context'
 import { useMLCServer } from '@/contexts/mlc-server-context'
 
 export function MLCServerStatus() {
   const { status, error, restartServer, isReady } = useMLCServer()
-  const repoId = status.modelPath?.toLowerCase().startsWith('hf://')
-    ? status.modelPath.replace(/^hf:\/\//i, '')
-    : ''
-  const progress = useDownloadProgress(repoId)
+  const activeDownloads = useActiveDownloads()
 
   const getStatusIcon = () => {
     if (error) {
@@ -73,13 +70,12 @@ export function MLCServerStatus() {
     if (!isReady && status.isReady) {
       return <div className="space-y-1">Status: Starting up...</div>
     }
-    if (!isReady && progress && progress.status === 'downloading') {
-      const percent = progress.totalBytes
+    if (!isReady && activeDownloads.length > 0) {
+      const { repoId, state } = activeDownloads[0]
+      const percent = state.totalBytes
         ? Math.min(
             100,
-            Math.floor(
-              (progress.receivedBytes / (progress.totalBytes || 1)) * 100,
-            ),
+            Math.floor((state.receivedBytes / (state.totalBytes || 1)) * 100),
           )
         : undefined
       return (

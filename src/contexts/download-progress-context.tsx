@@ -40,8 +40,16 @@ function reducer(
             status: 'downloading',
             totalBytes: event.totalBytes,
           }
-        case 'file_started':
-          return { ...state, status: 'downloading', lastFile: event.path }
+        case 'file_started': {
+          const increment = event.totalBytes ?? 0
+          const nextTotal = (state.totalBytes ?? 0) + increment
+          return {
+            ...state,
+            status: 'downloading',
+            lastFile: event.path,
+            totalBytes: nextTotal === 0 ? null : nextTotal,
+          }
+        }
         case 'bytes_transferred':
           return {
             ...state,
@@ -109,7 +117,7 @@ export function DownloadProgressProvider({
               dispatchFor(repoId, {
                 ...evt,
                 bytes: pendingBytes,
-              } as DownloadProgressEvent)
+              })
               pendingBytes = 0
               raf = 0
             })
@@ -137,7 +145,16 @@ export function DownloadProgressProvider({
   )
 }
 
-export function useDownloadProgress(repoId: string) {
+export function useDownloadProgress() {
+  return React.useContext(DownloadProgressContext)
+}
+
+export function useActiveDownloads(): Array<{
+  repoId: string
+  state: DownloadProgressState
+}> {
   const map = React.useContext(DownloadProgressContext)
-  return map[repoId]
+  return Object.entries(map)
+    .filter(([, state]) => state.status === 'downloading')
+    .map(([repoId, state]) => ({ repoId, state }))
 }
