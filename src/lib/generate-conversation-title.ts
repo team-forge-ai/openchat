@@ -1,5 +1,6 @@
 import type { ModelMessage } from 'ai'
-import { generateText } from 'ai'
+import { generateObject } from 'ai'
+import { z } from 'zod'
 
 import { mlxServer } from '@/lib/mlc-server'
 import { toTitleCase } from '@/lib/utils'
@@ -23,10 +24,10 @@ export async function generateConversationTitle(
     {
       role: 'user',
       content:
-        'Given the following conversation messages, output a short, descriptive title of 2-3 words. Title case. No quotes, emojis, or trailing punctuation. If no good title is possible, respond exactly with: None\n\n' +
+        'Given the following conversation messages, output a short, descriptive title of 2-3 words. Title case. No quotes, emojis, or trailing punctuation. Respond as a JSON object matching the schema { "title": string }. If no good title is possible, set title to "None".\n\n' +
         JSON.stringify(messages) +
         '\n\n' +
-        'Output only the title, no other text.',
+        'Only return the JSON object.',
     },
   ]
 
@@ -34,8 +35,14 @@ export async function generateConversationTitle(
 
   try {
     console.log('Generating conversation title with messages:', chatMessages)
-    const result = await generateText({ model, messages: chatMessages })
-    const content = result.text
+    const { object } = await generateObject({
+      model,
+      messages: chatMessages,
+      schema: z.object({
+        title: z.string(),
+      }),
+    })
+    const content = object.title
     console.log('Conversation title content:', content)
 
     const cleaned = sanitizeTitle(content)
@@ -43,11 +50,8 @@ export async function generateConversationTitle(
       return null
     }
 
-    if (/^none$/i.test(cleaned)) {
-      return null
-    }
-
     const wordCount = cleaned.trim().split(/\s+/).length
+
     if (wordCount < 2 || wordCount > 10) {
       return null
     }
