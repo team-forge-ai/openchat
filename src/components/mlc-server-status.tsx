@@ -7,10 +7,15 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { useDownloadProgress } from '@/contexts/download-progress-context'
 import { useMLCServer } from '@/contexts/mlc-server-context'
 
 export function MLCServerStatus() {
   const { status, error, restartServer, isReady } = useMLCServer()
+  const repoId = status.modelPath?.toLowerCase().startsWith('hf://')
+    ? status.modelPath.replace(/^hf:\/\//i, '')
+    : ''
+  const progress = useDownloadProgress(repoId)
 
   const getStatusIcon = () => {
     if (error) {
@@ -67,6 +72,35 @@ export function MLCServerStatus() {
     }
     if (!isReady && status.isReady) {
       return <div className="space-y-1">Status: Starting up...</div>
+    }
+    if (!isReady && progress && progress.status === 'downloading') {
+      const percent = progress.totalBytes
+        ? Math.min(
+            100,
+            Math.floor(
+              (progress.receivedBytes / (progress.totalBytes || 1)) * 100,
+            ),
+          )
+        : undefined
+      return (
+        <div className="flex flex-col gap-1 text-xs">
+          <div className="flex gap-1">
+            <span className="font-semibold text-muted-foreground/80">
+              Downloading:
+            </span>
+            <span className="truncate max-w-[220px]">{repoId}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="h-1.5 w-36 bg-muted rounded overflow-hidden">
+              <div
+                className="h-full bg-orange-500"
+                style={{ width: percent !== undefined ? `${percent}%` : '50%' }}
+              />
+            </div>
+            {percent !== undefined ? <span>{percent}%</span> : <span>...</span>}
+          </div>
+        </div>
+      )
     }
     return 'AI is not running'
   }

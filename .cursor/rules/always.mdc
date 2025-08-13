@@ -16,5 +16,9 @@ alwaysApply: true
 - To check Rust changes run: `cd src-tauri && cargo check`
 - If there are any Typescript linting errors, run `pnpm fix` before attempting to fix the errors yourself.
 - Never try to start a dev server or run `tauri dev` - prompt the user to do this.
+- Strongly prefer a modular functional style. Prefer to split out logic into smaller files. Create simple interfaces that can be easily tested.
+- Never use `any` or `as any` in Typescript.
+- Never use single character variable names.
+- Always use zod for parsing and validating data.
 
 REMEMBER you must always come up with a plan, and get sign off from the user, BEFORE writing any code.

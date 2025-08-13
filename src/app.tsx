@@ -6,6 +6,7 @@ import { SettingsSidebar } from '@/components/settings-sidebar'
 import { SettingsWindow } from '@/components/settings-window'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { AppContextProvider, useAppContext } from '@/contexts/app-context'
+import { DownloadProgressProvider } from '@/contexts/download-progress-context'
 import { MLCServerProvider } from '@/contexts/mlc-server-context'
 
 import './App.css'
@@ -36,10 +37,12 @@ function AppContent() {
 function App() {
   return (
     <MLCServerProvider>
-      <AppContextProvider>
-        <AppShortcuts />
-        <AppContent />
-      </AppContextProvider>
+      <DownloadProgressProvider>
+        <AppContextProvider>
+          <AppShortcuts />
+          <AppContent />
+        </AppContextProvider>
+      </DownloadProgressProvider>
     </MLCServerProvider>
   )
 }

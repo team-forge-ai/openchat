@@ -1,3 +1,5 @@
+use crate::hf_downloader::ensure_hf_model_cached;
+use crate::model_store::{is_model_cached, parse_hf_uri};
 use serde::{Deserialize, Serialize};
 use std::net::TcpListener;
 use std::process::Stdio;
@@ -111,6 +113,13 @@ impl MLCServerManager {
             .model
             .clone()
             .ok_or_else(|| "MLC_MODEL not set. Please set env var to model folder".to_string())?;
+
+        // If model URI points to Hugging Face, ensure it's present in local cache before spawning mlc_llm
+        if let Some(repo_id) = parse_hf_uri(&model) {
+            if !is_model_cached(&repo_id) {
+                ensure_hf_model_cached(&self.app_handle, &repo_id).await?;
+            }
+        }
 
         // If already running, stop first (defensive)
         self.stop().await;
