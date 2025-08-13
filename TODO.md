@@ -1,6 +1,6 @@
-- [ ] mcp integration
+- [x] mcp integration
 - [x] only scroll the chat when a new message is received
-- [ ] chat message skeleton loading isn't working
+- [x] chat message skeleton loading isn't working
 - [x] log all server info logs to stdout
 - [x] add status to message (pending|complete|error)
 - [x] hide msg timestamp when pending
@@ -11,11 +11,12 @@
 - [x] add full-text search
 - [x] title-case response from generated name
 - [x] add system prompt to settings
+- [x] plan mcp integration
+- [x] request timeoued out after a while
+- [x] seems to use an insane amount of resources. maybe lower context?
 - [ ] need to decide if I'm going to allow multiple or arb models
-- [ ] plan pdf extraction? mcp
-- [ ] plan mcp integration
-- [ ] add reasoning duration
-- [ ] request timeoued out after a while
-- [ ] seems to use an insane amount of resources. maybe lower context?
 - [ ] PDF export / print as pdf
-- [] Figure out if model is loaded (can we preload?)
+- [ ] plan pdf extraction? mcp
+- [] add sonner progress bar for model downloads
+- [] create mcp server store
+- [] create model store

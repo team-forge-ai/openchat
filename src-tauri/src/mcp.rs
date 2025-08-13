@@ -1,9 +1,11 @@
 pub mod constants;
-pub mod rpc;
 pub mod serde_utils;
 pub mod session;
 pub mod store;
 
+use crate::mcp::constants::{
+    MCP_JSONRPC_VERSION, MCP_METHOD_INITIALIZE, MCP_METHOD_TOOLS_CALL, MCP_METHOD_TOOLS_LIST,
+};
 use serde::Serialize;
 use std::io;
 use std::process::Stdio;
@@ -12,11 +14,6 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::Command;
 use tokio::sync::Mutex;
 use tokio::time::{timeout, Duration};
-
-const JSONRPC_VERSION: &str = "2.0";
-const METHOD_INITIALIZE: &str = "initialize";
-const METHOD_TOOLS_LIST: &str = "tools/list";
-const METHOD_TOOLS_CALL: &str = "tools/call";
 
 #[derive(Serialize)]
 pub struct McpToolInfo {
@@ -148,7 +145,7 @@ pub async fn check_server(config: TransportConfig<'_>) -> McpCheckResult {
 
             if session
                 .send(
-                    METHOD_INITIALIZE,
+                    MCP_METHOD_INITIALIZE,
                     serde_json::json!({
                         "client": { "name": "OpenChat", "version": "0.1.0" }
                     }),
@@ -171,7 +168,7 @@ pub async fn check_server(config: TransportConfig<'_>) -> McpCheckResult {
 
             let tools_res = session
                 .send(
-                    METHOD_TOOLS_LIST,
+                    MCP_METHOD_TOOLS_LIST,
                     serde_json::json!({}),
                     list_tools_timeout_ms,
                 )
@@ -246,7 +243,7 @@ pub async fn check_server(config: TransportConfig<'_>) -> McpCheckResult {
 
             if session
                 .send(
-                    METHOD_INITIALIZE,
+                    MCP_METHOD_INITIALIZE,
                     serde_json::json!({
                         "client": { "name": "OpenChat", "version": "0.1.0" }
                     }),
@@ -266,7 +263,7 @@ pub async fn check_server(config: TransportConfig<'_>) -> McpCheckResult {
 
             let tools_res = session
                 .send(
-                    METHOD_TOOLS_LIST,
+                    MCP_METHOD_TOOLS_LIST,
                     serde_json::json!({}),
                     list_tools_timeout_ms,
                 )
@@ -338,7 +335,7 @@ impl McpSession {
             } => {
                 *next_id = next_id.saturating_add(1);
                 let req = serde_json::json!({
-                    "jsonrpc": JSONRPC_VERSION,
+                    "jsonrpc": MCP_JSONRPC_VERSION,
                     "id": *next_id,
                     "method": method,
                     "params": params,
@@ -380,7 +377,7 @@ impl McpSession {
             } => {
                 *next_id = next_id.saturating_add(1);
                 let req = serde_json::json!({
-                    "jsonrpc": JSONRPC_VERSION,
+                    "jsonrpc": MCP_JSONRPC_VERSION,
                     "id": *next_id,
                     "method": method,
                     "params": params,
@@ -471,7 +468,7 @@ impl McpManager {
         };
         let _ = session
             .send(
-                METHOD_INITIALIZE,
+                MCP_METHOD_INITIALIZE,
                 serde_json::json!({
                     "client": { "name": "OpenChat", "version": "0.1.0" }
                 }),
@@ -507,7 +504,7 @@ impl McpManager {
         };
         let _ = session
             .send(
-                METHOD_INITIALIZE,
+                MCP_METHOD_INITIALIZE,
                 serde_json::json!({
                     "client": { "name": "OpenChat", "version": "0.1.0" }
                 }),
@@ -522,7 +519,7 @@ impl McpManager {
         let mut sessions = self.sessions.lock().await;
         let s = sessions.get_mut(&id).ok_or("not connected")?;
         let result = s
-            .send(METHOD_TOOLS_LIST, serde_json::json!({}), timeout_ms)
+            .send(MCP_METHOD_TOOLS_LIST, serde_json::json!({}), timeout_ms)
             .await?;
         let tools = result
             .get("tools")
@@ -551,7 +548,7 @@ impl McpManager {
         let s = sessions.get_mut(&id).ok_or("not connected")?;
         let result = s
             .send(
-                METHOD_TOOLS_CALL,
+                MCP_METHOD_TOOLS_CALL,
                 serde_json::json!({ "name": tool, "arguments": args }),
                 timeout_ms,
             )
