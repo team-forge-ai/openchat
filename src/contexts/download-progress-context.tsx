@@ -40,16 +40,12 @@ function reducer(
             status: 'downloading',
             totalBytes: event.totalBytes,
           }
-        case 'file_started': {
-          const increment = event.totalBytes ?? 0
-          const nextTotal = (state.totalBytes ?? 0) + increment
+        case 'file_started':
           return {
             ...state,
             status: 'downloading',
             lastFile: event.path,
-            totalBytes: nextTotal === 0 ? null : nextTotal,
           }
-        }
         case 'bytes_transferred':
           return {
             ...state,

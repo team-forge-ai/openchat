@@ -31,6 +31,24 @@ pub fn model_cache_dir(repo_id: &str) -> PathBuf {
     path
 }
 
+/// Returns a temporary ".downloading" directory for atomic model downloads.
+/// We download into this directory first and atomically rename to the final
+/// cache directory upon successful completion.
+pub fn model_downloading_dir(repo_id: &str) -> PathBuf {
+    let mut path = model_cache_dir(repo_id);
+    match path.file_name() {
+        Some(name_os) => {
+            let name = name_os.to_string_lossy();
+            path.set_file_name(format!("{name}.downloading"));
+            path
+        }
+        None => {
+            // Fallback: append a generic suffix if the file name is missing
+            path.join(".downloading")
+        }
+    }
+}
+
 /// Best-effort check whether the model directory exists and contains at least one non-temp file.
 pub fn is_model_cached(repo_id: &str) -> bool {
     let dir = model_cache_dir(repo_id);
