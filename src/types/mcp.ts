@@ -30,7 +30,7 @@ export type McpServerConfig = McpServerStdio | McpServerHttp
 export interface McpToolInfo {
   name: string
   description?: string
-  inputSchema?: unknown
+  inputSchema?: Record<string, unknown>
 }
 
 export interface McpCheckResult {

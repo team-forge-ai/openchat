@@ -1,27 +1,36 @@
 use crate::mcp;
+use crate::mcp::constants::{
+    MCP_DEFAULT_CONNECT_TIMEOUT_MS, MCP_DEFAULT_LIST_TOOLS_TIMEOUT_MS,
+    MCP_DEFAULT_TOOL_CALL_TIMEOUT_MS,
+};
+use crate::mcp::session::ensure_mcp_session;
 use crate::mcp::McpManager;
 use crate::mlc_server::{MLCServerManager, MLCServerStatus};
 use serde::Deserialize;
+use sqlx::SqlitePool;
 use tauri::State;
+
+type CmdResult<T> = Result<T, String>;
 
 // MLC Server Management Commands
 
 #[tauri::command]
 pub async fn mlc_get_status(
     manager: State<'_, std::sync::Arc<MLCServerManager>>,
-) -> Result<MLCServerStatus, String> {
+) -> CmdResult<MLCServerStatus> {
     Ok(manager.get_status().await)
 }
 
 #[tauri::command]
 pub async fn mlc_restart(
     manager: State<'_, std::sync::Arc<MLCServerManager>>,
-) -> Result<MLCServerStatus, String> {
+) -> CmdResult<MLCServerStatus> {
     manager.restart().await
 }
 
 // ------------------ MCP check command ------------------
 
+#[allow(dead_code)]
 #[derive(Deserialize)]
 #[serde(tag = "transport")] // discriminated union by transport
 pub enum McpServerConfig {
@@ -54,7 +63,7 @@ pub enum McpServerConfig {
 pub use crate::mcp::McpCheckResult;
 
 #[tauri::command]
-pub async fn mcp_check_server(config: McpServerConfig) -> Result<McpCheckResult, String> {
+pub async fn mcp_check_server(config: McpServerConfig) -> CmdResult<McpCheckResult> {
     let result = match config {
         McpServerConfig::Stdio {
             command,
@@ -71,8 +80,9 @@ pub async fn mcp_check_server(config: McpServerConfig) -> Result<McpCheckResult,
                 args: &args_vec,
                 env: env.as_ref(),
                 cwd: cwd.as_deref(),
-                connect_timeout_ms: connect_timeout_ms.unwrap_or(5_000),
-                list_tools_timeout_ms: list_tools_timeout_ms.unwrap_or(5_000),
+                connect_timeout_ms: connect_timeout_ms.unwrap_or(MCP_DEFAULT_CONNECT_TIMEOUT_MS),
+                list_tools_timeout_ms: list_tools_timeout_ms
+                    .unwrap_or(MCP_DEFAULT_LIST_TOOLS_TIMEOUT_MS),
             })
             .await
         }
@@ -84,8 +94,9 @@ pub async fn mcp_check_server(config: McpServerConfig) -> Result<McpCheckResult,
         } => {
             mcp::check_server(mcp::TransportConfig::Http {
                 url: &url,
-                connect_timeout_ms: connect_timeout_ms.unwrap_or(5_000),
-                list_tools_timeout_ms: list_tools_timeout_ms.unwrap_or(5_000),
+                connect_timeout_ms: connect_timeout_ms.unwrap_or(MCP_DEFAULT_CONNECT_TIMEOUT_MS),
+                list_tools_timeout_ms: list_tools_timeout_ms
+                    .unwrap_or(MCP_DEFAULT_LIST_TOOLS_TIMEOUT_MS),
             })
             .await
         }
@@ -99,9 +110,13 @@ pub async fn mcp_check_server(config: McpServerConfig) -> Result<McpCheckResult,
 pub async fn mcp_list_tools(
     id: i64,
     manager: tauri::State<'_, std::sync::Arc<McpManager>>,
-) -> Result<Vec<mcp::McpToolInfo>, String> {
+    pool: tauri::State<'_, SqlitePool>,
+) -> CmdResult<Vec<mcp::McpToolInfo>> {
+    ensure_session_for_id(id, &manager, &pool).await?;
     // Default timeout for listing
-    manager.list_tools(id, 5_000).await
+    manager
+        .list_tools(id, MCP_DEFAULT_LIST_TOOLS_TIMEOUT_MS)
+        .await
 }
 
 #[tauri::command]
@@ -110,7 +125,19 @@ pub async fn mcp_call_tool(
     tool: String,
     args: serde_json::Value,
     manager: tauri::State<'_, std::sync::Arc<McpManager>>,
-) -> Result<String, String> {
+    pool: tauri::State<'_, SqlitePool>,
+) -> CmdResult<String> {
+    ensure_session_for_id(id, &manager, &pool).await?;
     // Default timeout for calling a tool
-    manager.call_tool(id, &tool, args, 20_000).await
+    manager
+        .call_tool(id, &tool, args, MCP_DEFAULT_TOOL_CALL_TIMEOUT_MS)
+        .await
+}
+
+async fn ensure_session_for_id(
+    id: i64,
+    manager: &std::sync::Arc<McpManager>,
+    pool: &SqlitePool,
+) -> CmdResult<()> {
+    ensure_mcp_session(id, manager, pool).await
 }

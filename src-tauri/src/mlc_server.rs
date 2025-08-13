@@ -1,4 +1,4 @@
-use crate::hf_downloader::ensure_hf_model_cached;
+use crate::model_download::ensure_hf_model_cached;
 use crate::model_store::{is_model_cached, parse_hf_uri};
 use serde::{Deserialize, Serialize};
 use std::net::TcpListener;

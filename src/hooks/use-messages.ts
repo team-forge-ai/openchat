@@ -3,6 +3,7 @@ import type { ModelMessage } from 'ai'
 import { streamText } from 'ai'
 import { useRef } from 'react'
 
+import { useMcp } from '@/hooks/use-mcp'
 import { getSystemPrompt } from '@/lib/db/app-settings'
 import { touchConversation } from '@/lib/db/conversations'
 import {
@@ -11,6 +12,7 @@ import {
   insertMessage,
   updateMessage,
 } from '@/lib/db/messages'
+import { createMcpToolsMap } from '@/lib/mcp-tools'
 import { mlxServer } from '@/lib/mlc-server'
 import { DEFAULT_SETTINGS_PROMPT, SYSTEM_PROMPT } from '@/lib/prompt'
 import { setConversationTitleIfUnset } from '@/lib/set-conversation-title'
@@ -36,6 +38,7 @@ interface UseMessagesResult {
 export function useMessages(conversationId: number | null): UseMessagesResult {
   const queryClient = useQueryClient()
   const abortControllerRef = useRef<AbortController | null>(null)
+  const { toolsByServer, call } = useMcp()
 
   const abortStreaming = (): void => {
     if (abortControllerRef.current) {
@@ -103,10 +106,18 @@ export function useMessages(conversationId: number | null): UseMessagesResult {
         })
       }
 
+      const mcpTools = createMcpToolsMap(
+        toolsByServer,
+        async (serverId, toolName, args) =>
+          await call.mutateAsync({ serverId, tool: toolName, args }),
+      )
+
       const result = streamText({
         model: mlxServer.model,
         messages: chatMessages,
         abortSignal: abortController.signal,
+        tools: mcpTools,
+        toolChoice: 'auto',
       })
 
       const addReasoning = async (reasoning: string) => {

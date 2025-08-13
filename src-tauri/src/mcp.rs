@@ -1,4 +1,10 @@
-use serde::{Deserialize, Serialize};
+pub mod constants;
+pub mod rpc;
+pub mod serde_utils;
+pub mod session;
+pub mod store;
+
+use serde::Serialize;
 use std::io;
 use std::process::Stdio;
 use std::sync::Arc;
@@ -6,6 +12,11 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::Command;
 use tokio::sync::Mutex;
 use tokio::time::{timeout, Duration};
+
+const JSONRPC_VERSION: &str = "2.0";
+const METHOD_INITIALIZE: &str = "initialize";
+const METHOD_TOOLS_LIST: &str = "tools/list";
+const METHOD_TOOLS_CALL: &str = "tools/call";
 
 #[derive(Serialize)]
 pub struct McpToolInfo {
@@ -74,7 +85,6 @@ pub async fn check_server(config: TransportConfig<'_>) -> McpCheckResult {
                 }
             }
 
-            // Spawn with timeout for connect phase
             let child_res = timeout(Duration::from_millis(connect_timeout_ms), async {
                 cmd.spawn()
             })
@@ -101,8 +111,7 @@ pub async fn check_server(config: TransportConfig<'_>) -> McpCheckResult {
                 }
             };
 
-            // Minimal MCP JSON-RPC over stdio: send initialize, then tools/list
-            let Some(mut stdin) = child.stdin.take() else {
+            let Some(stdin) = child.stdin.take() else {
                 let _ = child.kill().await;
                 return McpCheckResult {
                     ok: false,
@@ -112,12 +121,11 @@ pub async fn check_server(config: TransportConfig<'_>) -> McpCheckResult {
                     error: Some("Failed to open stdin".into()),
                 };
             };
-
             let stdout = child
                 .stdout
                 .take()
                 .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "no stdout"));
-            let mut reader = match stdout {
+            let reader = match stdout {
                 Ok(s) => BufReader::new(s),
                 Err(e) => {
                     let _ = child.kill().await;
@@ -131,71 +139,27 @@ pub async fn check_server(config: TransportConfig<'_>) -> McpCheckResult {
                 }
             };
 
-            #[derive(Serialize)]
-            struct JsonRpcReq<'a, T> {
-                jsonrpc: &'a str,
-                id: u64,
-                method: &'a str,
-                params: T,
-            }
-
-            #[derive(Serialize)]
-            struct InitializeParams<'a> {
-                client: ClientInfo<'a>,
-            }
-
-            #[derive(Serialize)]
-            struct ClientInfo<'a> {
-                name: &'a str,
-                version: &'a str,
-            }
-
-            #[derive(Deserialize)]
-            struct JsonRpcResp<T> {
-                jsonrpc: String,
-                id: Option<u64>,
-                result: Option<T>,
-                error: Option<JsonRpcError>,
-            }
-
-            #[derive(Deserialize)]
-            struct JsonRpcError {
-                code: i64,
-                message: String,
-            }
-
-            #[derive(Deserialize)]
-            struct ListToolsResult {
-                tools: Vec<ToolDesc>,
-            }
-
-            #[derive(Deserialize)]
-            struct ToolDesc {
-                name: String,
-                #[allow(dead_code)]
-                description: Option<String>,
-            }
-
-            // Send initialize
-            let init = JsonRpcReq {
-                jsonrpc: "2.0",
-                id: 1,
-                method: "initialize",
-                params: InitializeParams {
-                    client: ClientInfo {
-                        name: "OpenChat",
-                        version: "0.1.0",
-                    },
-                },
+            let mut session = McpSession::Stdio {
+                child,
+                stdin,
+                reader,
+                next_id: 0,
             };
-            let mut line = serde_json::to_string(&init).unwrap_or_else(|_| String::new());
-            line.push('\n');
-            let init_res = timeout(Duration::from_millis(connect_timeout_ms), async {
-                stdin.write_all(line.as_bytes()).await
-            })
-            .await;
-            if init_res.is_err() || init_res.unwrap().is_err() {
-                let _ = child.kill().await;
+
+            if session
+                .send(
+                    METHOD_INITIALIZE,
+                    serde_json::json!({
+                        "client": { "name": "OpenChat", "version": "0.1.0" }
+                    }),
+                    connect_timeout_ms,
+                )
+                .await
+                .is_err()
+            {
+                if let McpSession::Stdio { child, .. } = &mut session {
+                    let _ = child.kill().await;
+                }
                 return McpCheckResult {
                     ok: false,
                     tools_count: None,
@@ -205,120 +169,157 @@ pub async fn check_server(config: TransportConfig<'_>) -> McpCheckResult {
                 };
             }
 
-            // Read until we get an initialize response (best-effort)
-            let mut buf = String::new();
-            let _ = timeout(
-                Duration::from_millis(connect_timeout_ms),
-                reader.read_line(&mut buf),
-            )
-            .await;
-
-            // Send tools/list
-            let list_req = JsonRpcReq {
-                jsonrpc: "2.0",
-                id: 2,
-                method: "tools/list",
-                params: serde_json::json!({}),
-            };
-            let mut list_line = serde_json::to_string(&list_req).unwrap_or_else(|_| String::new());
-            list_line.push('\n');
-            let list_send = timeout(Duration::from_millis(list_tools_timeout_ms), async {
-                stdin.write_all(list_line.as_bytes()).await
-            })
-            .await;
-            if list_send.is_err() || list_send.unwrap().is_err() {
-                let _ = child.kill().await;
-                return McpCheckResult {
-                    ok: false,
-                    tools_count: None,
-                    tools: None,
-                    warning: None,
-                    error: Some("Failed to request tools/list".into()),
-                };
-            }
-
-            // Read response line for tools/list
-            let mut resp_line = String::new();
-            let read_res = timeout(
-                Duration::from_millis(list_tools_timeout_ms),
-                reader.read_line(&mut resp_line),
-            )
-            .await;
-            let tools = match read_res {
-                Ok(Ok(_n)) => {
-                    let parsed: Result<JsonRpcResp<ListToolsResult>, _> =
-                        serde_json::from_str(&resp_line);
-                    match parsed {
-                        Ok(resp) => {
-                            if let Some(err) = resp.error {
-                                let _ = child.kill().await;
-                                return McpCheckResult {
-                                    ok: false,
-                                    tools_count: None,
-                                    tools: None,
-                                    warning: None,
-                                    error: Some(format!("Server error: {}", err.message)),
-                                };
-                            }
-                            let list = resp.result.map(|r| r.tools).unwrap_or_default();
-                            list.into_iter()
-                                .map(|t| McpToolInfo {
-                                    name: t.name,
-                                    description: None,
-                                })
-                                .collect::<Vec<_>>()
-                        }
-                        Err(e) => {
-                            let _ = child.kill().await;
-                            return McpCheckResult {
-                                ok: false,
-                                tools_count: None,
-                                tools: None,
-                                warning: None,
-                                error: Some(format!("Invalid response: {}", e)),
-                            };
-                        }
+            let tools_res = session
+                .send(
+                    METHOD_TOOLS_LIST,
+                    serde_json::json!({}),
+                    list_tools_timeout_ms,
+                )
+                .await;
+            let tools = match tools_res {
+                Ok(v) => v
+                    .get("tools")
+                    .and_then(|t| t.as_array())
+                    .map(|arr| {
+                        arr.iter()
+                            .filter_map(|t| t.get("name").and_then(|n| n.as_str()))
+                            .map(|name| McpToolInfo {
+                                name: name.to_string(),
+                                description: None,
+                            })
+                            .collect::<Vec<_>>()
+                    })
+                    .unwrap_or_default(),
+                Err(_) => {
+                    if let McpSession::Stdio { child, .. } = &mut session {
+                        let _ = child.kill().await;
                     }
-                }
-                _ => {
-                    let _ = child.kill().await;
                     return McpCheckResult {
                         ok: false,
                         tools_count: None,
                         tools: None,
                         warning: None,
-                        error: Some("Timed out waiting for tools/list".into()),
+                        error: Some("Failed to request tools/list".into()),
                     };
                 }
             };
 
-            let count = tools.len() as u32;
-            let _ = child.kill().await;
+            if let McpSession::Stdio { child, .. } = &mut session {
+                let _ = child.kill().await;
+            }
+
             McpCheckResult {
                 ok: true,
-                tools_count: Some(count),
+                tools_count: Some(tools.len() as u32),
                 tools: Some(tools),
                 warning: None,
                 error: None,
             }
         }
-        TransportConfig::Http { .. } => McpCheckResult {
-            ok: false,
-            tools_count: None,
-            tools: None,
-            warning: None,
-            error: Some("HTTP transport validation not implemented yet".into()),
-        },
+        TransportConfig::Http {
+            url,
+            connect_timeout_ms,
+            list_tools_timeout_ms,
+        } => {
+            let client = match reqwest::Client::builder()
+                .timeout(Duration::from_millis(connect_timeout_ms))
+                .build()
+            {
+                Ok(c) => c,
+                Err(e) => {
+                    return McpCheckResult {
+                        ok: false,
+                        tools_count: None,
+                        tools: None,
+                        warning: None,
+                        error: Some(format!("Failed to build HTTP client: {}", e)),
+                    }
+                }
+            };
+
+            let mut session = McpSession::Http {
+                client,
+                url: url.to_string(),
+                headers: None,
+                next_id: 0,
+            };
+
+            if session
+                .send(
+                    METHOD_INITIALIZE,
+                    serde_json::json!({
+                        "client": { "name": "OpenChat", "version": "0.1.0" }
+                    }),
+                    connect_timeout_ms,
+                )
+                .await
+                .is_err()
+            {
+                return McpCheckResult {
+                    ok: false,
+                    tools_count: None,
+                    tools: None,
+                    warning: None,
+                    error: Some("Failed HTTP initialize".into()),
+                };
+            }
+
+            let tools_res = session
+                .send(
+                    METHOD_TOOLS_LIST,
+                    serde_json::json!({}),
+                    list_tools_timeout_ms,
+                )
+                .await;
+            let tools = match tools_res {
+                Ok(v) => v
+                    .get("tools")
+                    .and_then(|t| t.as_array())
+                    .map(|arr| {
+                        arr.iter()
+                            .filter_map(|t| t.get("name").and_then(|n| n.as_str()))
+                            .map(|name| McpToolInfo {
+                                name: name.to_string(),
+                                description: None,
+                            })
+                            .collect::<Vec<_>>()
+                    })
+                    .unwrap_or_default(),
+                Err(e) => {
+                    return McpCheckResult {
+                        ok: false,
+                        tools_count: None,
+                        tools: None,
+                        warning: None,
+                        error: Some(format!("Failed HTTP tools/list: {}", e)),
+                    };
+                }
+            };
+
+            McpCheckResult {
+                ok: true,
+                tools_count: Some(tools.len() as u32),
+                tools: Some(tools),
+                warning: None,
+                error: None,
+            }
+        }
     }
 }
 
-// ---------------- Persistent stdio session manager ----------------
-
-pub struct McpSession {
-    child: tokio::process::Child,
-    stdin: tokio::process::ChildStdin,
-    reader: BufReader<tokio::process::ChildStdout>,
-    next_id: u64,
+pub enum McpSession {
+    Stdio {
+        child: tokio::process::Child,
+        stdin: tokio::process::ChildStdin,
+        reader: BufReader<tokio::process::ChildStdout>,
+        next_id: u64,
+    },
+    Http {
+        client: reqwest::Client,
+        url: String,
+        headers: Option<serde_json::Value>,
+        next_id: u64,
+    },
 }
 
 impl McpSession {
@@ -328,41 +329,88 @@ impl McpSession {
         params: serde_json::Value,
         timeout_ms: u64,
     ) -> Result<serde_json::Value, String> {
-        self.next_id = self.next_id.saturating_add(1);
-        let req = serde_json::json!({
-            "jsonrpc": "2.0",
-            "id": self.next_id,
-            "method": method,
-            "params": params,
-        });
-        let mut line = serde_json::to_string(&req).map_err(|e| e.to_string())?;
-        line.push('\n');
-        timeout(
-            Duration::from_millis(timeout_ms),
-            self.stdin.write_all(line.as_bytes()),
-        )
-        .await
-        .map_err(|_| "write timeout".to_string())
-        .and_then(|r| r.map_err(|e| e.to_string()))?;
+        match self {
+            McpSession::Stdio {
+                stdin,
+                reader,
+                next_id,
+                ..
+            } => {
+                *next_id = next_id.saturating_add(1);
+                let req = serde_json::json!({
+                    "jsonrpc": JSONRPC_VERSION,
+                    "id": *next_id,
+                    "method": method,
+                    "params": params,
+                });
+                let mut line = serde_json::to_string(&req).map_err(|e| e.to_string())?;
+                line.push('\n');
+                timeout(
+                    Duration::from_millis(timeout_ms),
+                    stdin.write_all(line.as_bytes()),
+                )
+                .await
+                .map_err(|_| "write timeout".to_string())
+                .and_then(|r| r.map_err(|e| e.to_string()))?;
 
-        let mut buf = String::new();
-        timeout(
-            Duration::from_millis(timeout_ms),
-            self.reader.read_line(&mut buf),
-        )
-        .await
-        .map_err(|_| "read timeout".to_string())
-        .and_then(|r| r.map_err(|e| e.to_string()))?;
-        let v: serde_json::Value = serde_json::from_str(&buf).map_err(|e| e.to_string())?;
-        if let Some(err) = v.get("error") {
-            let msg = err
-                .get("message")
-                .and_then(|m| m.as_str())
-                .unwrap_or("rpc error")
-                .to_string();
-            return Err(msg);
+                let mut buf = String::new();
+                timeout(
+                    Duration::from_millis(timeout_ms),
+                    reader.read_line(&mut buf),
+                )
+                .await
+                .map_err(|_| "read timeout".to_string())
+                .and_then(|r| r.map_err(|e| e.to_string()))?;
+                let v: serde_json::Value = serde_json::from_str(&buf).map_err(|e| e.to_string())?;
+                if let Some(err) = v.get("error") {
+                    let msg = err
+                        .get("message")
+                        .and_then(|m| m.as_str())
+                        .unwrap_or("rpc error")
+                        .to_string();
+                    return Err(msg);
+                }
+                Ok(v.get("result").cloned().unwrap_or(serde_json::Value::Null))
+            }
+            McpSession::Http {
+                client,
+                url,
+                headers,
+                next_id,
+            } => {
+                *next_id = next_id.saturating_add(1);
+                let req = serde_json::json!({
+                    "jsonrpc": JSONRPC_VERSION,
+                    "id": *next_id,
+                    "method": method,
+                    "params": params,
+                });
+                let mut request = client
+                    .post(url.as_str())
+                    .json(&req)
+                    .timeout(Duration::from_millis(timeout_ms));
+                if let Some(hs) = headers.as_ref().and_then(|v| v.as_object()) {
+                    let mut rb = request;
+                    for (k, val) in hs.iter() {
+                        if let Some(s) = val.as_str() {
+                            rb = rb.header(k, s);
+                        }
+                    }
+                    request = rb;
+                }
+                let resp = request.send().await.map_err(|e| e.to_string())?;
+                let v: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
+                if let Some(err) = v.get("error") {
+                    let msg = err
+                        .get("message")
+                        .and_then(|m| m.as_str())
+                        .unwrap_or("rpc error")
+                        .to_string();
+                    return Err(msg);
+                }
+                Ok(v.get("result").cloned().unwrap_or(serde_json::Value::Null))
+            }
         }
-        Ok(v.get("result").cloned().unwrap_or(serde_json::Value::Null))
     }
 }
 
@@ -415,7 +463,7 @@ impl McpManager {
         .and_then(|r| r.map_err(|e| e.to_string()))?;
         let stdin = child.stdin.take().ok_or("no stdin")?;
         let stdout = child.stdout.take().ok_or("no stdout")?;
-        let mut session = McpSession {
+        let mut session = McpSession::Stdio {
             child,
             stdin,
             reader: BufReader::new(stdout),
@@ -423,7 +471,43 @@ impl McpManager {
         };
         let _ = session
             .send(
-                "initialize",
+                METHOD_INITIALIZE,
+                serde_json::json!({
+                    "client": { "name": "OpenChat", "version": "0.1.0" }
+                }),
+                connect_timeout_ms,
+            )
+            .await?;
+        sessions.insert(id, session);
+        Ok(())
+    }
+
+    pub async fn ensure_http(
+        &self,
+        id: i64,
+        url: &str,
+        headers: Option<&serde_json::Value>,
+        connect_timeout_ms: u64,
+    ) -> Result<(), String> {
+        let mut sessions = self.sessions.lock().await;
+        if sessions.contains_key(&id) {
+            return Ok(());
+        }
+
+        let client = reqwest::Client::builder()
+            .timeout(Duration::from_millis(connect_timeout_ms))
+            .build()
+            .map_err(|e| e.to_string())?;
+
+        let mut session = McpSession::Http {
+            client,
+            url: url.to_string(),
+            headers: headers.cloned(),
+            next_id: 0,
+        };
+        let _ = session
+            .send(
+                METHOD_INITIALIZE,
                 serde_json::json!({
                     "client": { "name": "OpenChat", "version": "0.1.0" }
                 }),
@@ -438,7 +522,7 @@ impl McpManager {
         let mut sessions = self.sessions.lock().await;
         let s = sessions.get_mut(&id).ok_or("not connected")?;
         let result = s
-            .send("tools/list", serde_json::json!({}), timeout_ms)
+            .send(METHOD_TOOLS_LIST, serde_json::json!({}), timeout_ms)
             .await?;
         let tools = result
             .get("tools")
@@ -467,7 +551,7 @@ impl McpManager {
         let s = sessions.get_mut(&id).ok_or("not connected")?;
         let result = s
             .send(
-                "tools/call",
+                METHOD_TOOLS_CALL,
                 serde_json::json!({ "name": tool, "arguments": args }),
                 timeout_ms,
             )

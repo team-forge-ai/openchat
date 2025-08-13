@@ -10,10 +10,10 @@ use tauri::{Manager, RunEvent, WindowEvent};
 // --- Internal module imports ---
 mod commands;
 mod db;
-mod hf_downloader;
 mod mcp;
 mod migrations;
 mod mlc_server;
+mod model_download;
 mod model_store;
 
 /// Name of the SQLite database file used by the app.
