@@ -5,6 +5,7 @@ use std::fs;
 
 // --- External crate imports ---
 use std::sync::Arc;
+use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
 use tauri::{Manager, RunEvent, WindowEvent};
 
 // --- Internal module imports ---
@@ -15,6 +16,8 @@ mod migrations;
 mod mlc_server;
 mod model_download;
 mod model_store;
+
+const MENU_RELOAD_ID: &str = "reload";
 
 /// Name of the SQLite database file used by the app.
 const DB_FILE_NAME: &str = "chatchat3.db";
@@ -61,6 +64,23 @@ pub fn run() {
             let mcp_manager = crate::mcp::McpManager::new();
             app.manage(mcp_manager);
 
+            // --- Application menu ---
+            let reload_item = MenuItemBuilder::new("Reload")
+                .id(MENU_RELOAD_ID)
+                .accelerator("CmdOrCtrl+R")
+                .build(app)
+                .map_err(|e| format!("Failed to build Reload menu item: {e}"))?;
+            let view_menu = SubmenuBuilder::new(app, "View")
+                .items(&[&reload_item])
+                .build()
+                .map_err(|e| format!("Failed to build View submenu: {e}"))?;
+            let app_menu = MenuBuilder::new(app)
+                .items(&[&view_menu])
+                .build()
+                .map_err(|e| format!("Failed to build app menu: {e}"))?;
+            app.set_menu(app_menu)
+                .map_err(|e| format!("Failed to set app menu: {e}"))?;
+
             // Auto-start the server in the background
             tauri::async_runtime::spawn(async move {
                 let _ = manager_for_start.restart().await;
@@ -77,6 +97,13 @@ pub fn run() {
             commands::mcp_list_tools,
             commands::mcp_call_tool,
         ])
+        .on_menu_event(|app, event| {
+            if event.id() == MENU_RELOAD_ID {
+                if let Some(win) = app.get_webview_window("main") {
+                    let _ = win.eval("window.location.reload()");
+                }
+            }
+        })
         .on_window_event(move |window, event| {
             if let WindowEvent::Destroyed = event {
                 handle_window_destroyed(window);
