@@ -1,3 +1,19 @@
+//! Minimal MCP (Model Context Protocol) client utilities for OpenChat.
+//!
+//! This module provides:
+//! - A transport-agnostic session (`McpSession`) over either STDIO (spawning a
+//!   child process) or HTTP (JSON-RPC over POST).
+//! - A lightweight manager (`McpManager`) that caches sessions by identifier and
+//!   exposes high-level operations such as listing tools and calling a tool.
+//! - A convenience `check_server` helper to quickly verify connectivity and
+//!   discover available tools, with timeouts for connection and listing.
+//!
+//! Design notes:
+//! - Transport is abstracted behind a common `send` method.
+//! - Timeouts are enforced at every boundary to avoid hanging the UI.
+//! - No sensitive values (like env var contents or request bodies) are logged.
+//!   Only small, metadata-level information is emitted via the `log` facade so
+//!   logs remain useful and safe.
 pub mod constants;
 pub mod serde_utils;
 pub mod session;
@@ -6,6 +22,7 @@ pub mod store;
 use crate::mcp::constants::{
     MCP_JSONRPC_VERSION, MCP_METHOD_INITIALIZE, MCP_METHOD_TOOLS_CALL, MCP_METHOD_TOOLS_LIST,
 };
+use log::{debug, error, info, warn};
 use serde::Serialize;
 use std::io;
 use std::process::Stdio;
@@ -15,12 +32,14 @@ use tokio::process::Command;
 use tokio::sync::Mutex;
 use tokio::time::{timeout, Duration};
 
+/// Basic metadata describing an MCP tool.
 #[derive(Serialize)]
 pub struct McpToolInfo {
     pub name: String,
     pub description: Option<String>,
 }
 
+/// Result of performing a best-effort server check.
 #[derive(Serialize)]
 pub struct McpCheckResult {
     pub ok: bool,
@@ -30,6 +49,7 @@ pub struct McpCheckResult {
     pub error: Option<String>,
 }
 
+/// Configuration for connecting to an MCP server.
 pub enum TransportConfig<'a> {
     Stdio {
         command: &'a str,
@@ -46,6 +66,11 @@ pub enum TransportConfig<'a> {
     },
 }
 
+/// Best-effort helper that attempts to connect and list tools for a given
+/// transport configuration.
+///
+/// Returns `McpCheckResult` with tool metadata on success or an error/warning
+/// message for diagnostics on failure.
 pub async fn check_server(config: TransportConfig<'_>) -> McpCheckResult {
     match config {
         TransportConfig::Stdio {
@@ -66,6 +91,14 @@ pub async fn check_server(config: TransportConfig<'_>) -> McpCheckResult {
                 };
             }
 
+            info!(
+                "mcp.check: stdio connect (cmd='{}', args_count={}, cwd={:?}, connect_timeout_ms={}, list_tools_timeout_ms={})",
+                command,
+                args.len(),
+                cwd,
+                connect_timeout_ms,
+                list_tools_timeout_ms
+            );
             let mut cmd = Command::new(command);
             cmd.args(args);
             cmd.stdin(Stdio::piped())
@@ -87,28 +120,37 @@ pub async fn check_server(config: TransportConfig<'_>) -> McpCheckResult {
             })
             .await;
             let mut child = match child_res {
-                Ok(Ok(c)) => c,
+                Ok(Ok(c)) => {
+                    debug!("mcp.check: stdio spawned child process");
+                    c
+                }
                 Ok(Err(e)) => {
+                    error!("mcp.check: failed to spawn process: {}", e);
                     return McpCheckResult {
                         ok: false,
                         tools_count: None,
                         tools: None,
                         warning: None,
                         error: Some(format!("Failed to spawn: {}", e)),
-                    }
+                    };
                 }
                 Err(_) => {
+                    warn!(
+                        "mcp.check: timed out spawning process (timeout_ms={})",
+                        connect_timeout_ms
+                    );
                     return McpCheckResult {
                         ok: false,
                         tools_count: None,
                         tools: None,
                         warning: None,
                         error: Some("Timed out spawning process".into()),
-                    }
+                    };
                 }
             };
 
             let Some(stdin) = child.stdin.take() else {
+                error!("mcp.check: failed to open stdin to child");
                 let _ = child.kill().await;
                 return McpCheckResult {
                     ok: false,
@@ -125,6 +167,7 @@ pub async fn check_server(config: TransportConfig<'_>) -> McpCheckResult {
             let reader = match stdout {
                 Ok(s) => BufReader::new(s),
                 Err(e) => {
+                    error!("mcp.check: failed to open stdout: {}", e);
                     let _ = child.kill().await;
                     return McpCheckResult {
                         ok: false,
@@ -143,6 +186,7 @@ pub async fn check_server(config: TransportConfig<'_>) -> McpCheckResult {
                 next_id: 0,
             };
 
+            debug!("mcp.check: sending initialize over stdio");
             if session
                 .send(
                     MCP_METHOD_INITIALIZE,
@@ -154,6 +198,7 @@ pub async fn check_server(config: TransportConfig<'_>) -> McpCheckResult {
                 .await
                 .is_err()
             {
+                warn!("mcp.check: initialize failed over stdio");
                 if let McpSession::Stdio { child, .. } = &mut session {
                     let _ = child.kill().await;
                 }
@@ -188,6 +233,7 @@ pub async fn check_server(config: TransportConfig<'_>) -> McpCheckResult {
                     })
                     .unwrap_or_default(),
                 Err(_) => {
+                    warn!("mcp.check: tools/list failed over stdio");
                     if let McpSession::Stdio { child, .. } = &mut session {
                         let _ = child.kill().await;
                     }
@@ -205,6 +251,7 @@ pub async fn check_server(config: TransportConfig<'_>) -> McpCheckResult {
                 let _ = child.kill().await;
             }
 
+            info!("mcp.check: stdio ok - tools_count={}", tools.len());
             McpCheckResult {
                 ok: true,
                 tools_count: Some(tools.len() as u32),
@@ -218,19 +265,26 @@ pub async fn check_server(config: TransportConfig<'_>) -> McpCheckResult {
             connect_timeout_ms,
             list_tools_timeout_ms,
         } => {
+            info!(
+                "mcp.check: http connect (url='{}', connect_timeout_ms={}, list_tools_timeout_ms={})",
+                url,
+                connect_timeout_ms,
+                list_tools_timeout_ms
+            );
             let client = match reqwest::Client::builder()
                 .timeout(Duration::from_millis(connect_timeout_ms))
                 .build()
             {
                 Ok(c) => c,
                 Err(e) => {
+                    error!("mcp.check: failed to build HTTP client: {}", e);
                     return McpCheckResult {
                         ok: false,
                         tools_count: None,
                         tools: None,
                         warning: None,
                         error: Some(format!("Failed to build HTTP client: {}", e)),
-                    }
+                    };
                 }
             };
 
@@ -241,6 +295,7 @@ pub async fn check_server(config: TransportConfig<'_>) -> McpCheckResult {
                 next_id: 0,
             };
 
+            debug!("mcp.check: sending initialize over http");
             if session
                 .send(
                     MCP_METHOD_INITIALIZE,
@@ -252,6 +307,7 @@ pub async fn check_server(config: TransportConfig<'_>) -> McpCheckResult {
                 .await
                 .is_err()
             {
+                warn!("mcp.check: http initialize failed");
                 return McpCheckResult {
                     ok: false,
                     tools_count: None,
@@ -283,6 +339,7 @@ pub async fn check_server(config: TransportConfig<'_>) -> McpCheckResult {
                     })
                     .unwrap_or_default(),
                 Err(e) => {
+                    warn!("mcp.check: http tools/list failed: {}", e);
                     return McpCheckResult {
                         ok: false,
                         tools_count: None,
@@ -293,6 +350,7 @@ pub async fn check_server(config: TransportConfig<'_>) -> McpCheckResult {
                 }
             };
 
+            info!("mcp.check: http ok - tools_count={}", tools.len());
             McpCheckResult {
                 ok: true,
                 tools_count: Some(tools.len() as u32),
@@ -304,6 +362,7 @@ pub async fn check_server(config: TransportConfig<'_>) -> McpCheckResult {
     }
 }
 
+/// A transport-agnostic MCP session.
 pub enum McpSession {
     Stdio {
         child: tokio::process::Child,
@@ -320,6 +379,8 @@ pub enum McpSession {
 }
 
 impl McpSession {
+    /// Sends a JSON-RPC request over the underlying transport and returns the
+    /// `result` value on success. RPC errors are converted into `Err(String)`.
     async fn send(
         &mut self,
         method: &str,
@@ -334,6 +395,10 @@ impl McpSession {
                 ..
             } => {
                 *next_id = next_id.saturating_add(1);
+                debug!(
+                    "mcp.send(stdio): id={} method={} timeout_ms={}",
+                    *next_id, method, timeout_ms
+                );
                 let req = serde_json::json!({
                     "jsonrpc": MCP_JSONRPC_VERSION,
                     "id": *next_id,
@@ -342,22 +407,40 @@ impl McpSession {
                 });
                 let mut line = serde_json::to_string(&req).map_err(|e| e.to_string())?;
                 line.push('\n');
-                timeout(
+                let write_res = timeout(
                     Duration::from_millis(timeout_ms),
                     stdin.write_all(line.as_bytes()),
                 )
-                .await
-                .map_err(|_| "write timeout".to_string())
-                .and_then(|r| r.map_err(|e| e.to_string()))?;
+                .await;
+                match write_res {
+                    Ok(Ok(())) => {}
+                    Ok(Err(e)) => {
+                        error!("mcp.send(stdio): write error - {}", e);
+                        return Err(e.to_string());
+                    }
+                    Err(_) => {
+                        warn!("mcp.send(stdio): write timeout (timeout_ms={})", timeout_ms);
+                        return Err("write timeout".to_string());
+                    }
+                }
 
                 let mut buf = String::new();
-                timeout(
+                let read_res = timeout(
                     Duration::from_millis(timeout_ms),
                     reader.read_line(&mut buf),
                 )
-                .await
-                .map_err(|_| "read timeout".to_string())
-                .and_then(|r| r.map_err(|e| e.to_string()))?;
+                .await;
+                match read_res {
+                    Ok(Ok(_)) => {}
+                    Ok(Err(e)) => {
+                        error!("mcp.send(stdio): read error - {}", e);
+                        return Err(e.to_string());
+                    }
+                    Err(_) => {
+                        warn!("mcp.send(stdio): read timeout (timeout_ms={})", timeout_ms);
+                        return Err("read timeout".to_string());
+                    }
+                }
                 let v: serde_json::Value = serde_json::from_str(&buf).map_err(|e| e.to_string())?;
                 if let Some(err) = v.get("error") {
                     let msg = err
@@ -365,6 +448,7 @@ impl McpSession {
                         .and_then(|m| m.as_str())
                         .unwrap_or("rpc error")
                         .to_string();
+                    warn!("mcp.send(stdio): rpc error - {}", msg);
                     return Err(msg);
                 }
                 Ok(v.get("result").cloned().unwrap_or(serde_json::Value::Null))
@@ -376,6 +460,10 @@ impl McpSession {
                 next_id,
             } => {
                 *next_id = next_id.saturating_add(1);
+                debug!(
+                    "mcp.send(http): id={} method={} timeout_ms={} url={}",
+                    *next_id, method, timeout_ms, url
+                );
                 let req = serde_json::json!({
                     "jsonrpc": MCP_JSONRPC_VERSION,
                     "id": *next_id,
@@ -396,13 +484,34 @@ impl McpSession {
                     request = rb;
                 }
                 let resp = request.send().await.map_err(|e| e.to_string())?;
-                let v: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
+                let status = resp.status();
+                let body_text = resp.text().await.map_err(|e| e.to_string())?;
+                if !status.is_success() {
+                    warn!(
+                        "mcp.send(http): http error status={} body_len={}",
+                        status.as_u16(),
+                        body_text.len()
+                    );
+                    return Err(format!("HTTP {}: {}", status.as_u16(), body_text));
+                }
+                let v: serde_json::Value = match serde_json::from_str(&body_text) {
+                    Ok(val) => val,
+                    Err(e) => {
+                        warn!(
+                            "mcp.send(http): response parse error - {} (body_len={})",
+                            e,
+                            body_text.len()
+                        );
+                        return Err(body_text.clone());
+                    }
+                };
                 if let Some(err) = v.get("error") {
                     let msg = err
                         .get("message")
                         .and_then(|m| m.as_str())
                         .unwrap_or("rpc error")
                         .to_string();
+                    warn!("mcp.send(http): rpc error - {}", msg);
                     return Err(msg);
                 }
                 Ok(v.get("result").cloned().unwrap_or(serde_json::Value::Null))
@@ -411,17 +520,21 @@ impl McpSession {
     }
 }
 
+/// Holds and reuses MCP sessions keyed by an application-level identifier.
 pub struct McpManager {
     sessions: Mutex<std::collections::HashMap<i64, McpSession>>,
 }
 
 impl McpManager {
+    /// Creates a new, empty `McpManager`.
     pub fn new() -> Arc<Self> {
         Arc::new(Self {
             sessions: Mutex::new(std::collections::HashMap::new()),
         })
     }
 
+    /// Ensure a STDIO session exists for `id`, creating and initializing one if
+    /// missing. Safe to call repeatedly.
     pub async fn ensure_stdio(
         &self,
         id: i64,
@@ -433,9 +546,17 @@ impl McpManager {
     ) -> Result<(), String> {
         let mut sessions = self.sessions.lock().await;
         if sessions.contains_key(&id) {
+            debug!("mcp.manager: stdio session already exists (id={})", id);
             return Ok(());
         }
 
+        info!(
+            "mcp.manager: creating stdio session (id={}, cmd='{}', args_count={}, cwd={:?})",
+            id,
+            command,
+            args.len(),
+            cwd
+        );
         let mut cmd = Command::new(command);
         cmd.args(args);
         cmd.stdin(Stdio::piped())
@@ -476,9 +597,12 @@ impl McpManager {
             )
             .await?;
         sessions.insert(id, session);
+        info!("mcp.manager: stdio session ready (id={})", id);
         Ok(())
     }
 
+    /// Ensure an HTTP session exists for `id`, creating and initializing one if
+    /// missing. Safe to call repeatedly.
     pub async fn ensure_http(
         &self,
         id: i64,
@@ -488,9 +612,14 @@ impl McpManager {
     ) -> Result<(), String> {
         let mut sessions = self.sessions.lock().await;
         if sessions.contains_key(&id) {
+            debug!("mcp.manager: http session already exists (id={})", id);
             return Ok(());
         }
 
+        info!(
+            "mcp.manager: creating http session (id={}, url={})",
+            id, url
+        );
         let client = reqwest::Client::builder()
             .timeout(Duration::from_millis(connect_timeout_ms))
             .build()
@@ -512,9 +641,11 @@ impl McpManager {
             )
             .await?;
         sessions.insert(id, session);
+        info!("mcp.manager: http session ready (id={})", id);
         Ok(())
     }
 
+    /// Returns the list of available tools for the given session id.
     pub async fn list_tools(&self, id: i64, timeout_ms: u64) -> Result<Vec<McpToolInfo>, String> {
         let mut sessions = self.sessions.lock().await;
         let s = sessions.get_mut(&id).ok_or("not connected")?;
@@ -534,9 +665,16 @@ impl McpManager {
                 });
             }
         }
+        info!(
+            "mcp.manager: list_tools ok (id={}, tools_count={})",
+            id,
+            out.len()
+        );
         Ok(out)
     }
 
+    /// Calls a named tool with the provided JSON arguments and returns its
+    /// string content. The call is subject to `timeout_ms`.
     pub async fn call_tool(
         &self,
         id: i64,
@@ -558,6 +696,12 @@ impl McpManager {
             .and_then(|c| c.as_str())
             .unwrap_or("")
             .to_string();
+        info!(
+            "mcp.manager: call_tool ok (id={}, tool='{}', content_len={})",
+            id,
+            tool,
+            content.len()
+        );
         Ok(content)
     }
 }

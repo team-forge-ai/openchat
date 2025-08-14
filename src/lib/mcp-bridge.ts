@@ -41,10 +41,22 @@ function transformConfigToRust(
   }
 }
 
+/**
+ * Lists all available tools for the MCP server with the given ID.
+ * @param id - The MCP server ID to list tools for
+ * @returns A promise that resolves to an array of tool information
+ */
 export async function mcpListTools(id: number): Promise<McpToolInfo[]> {
   return await invoke<McpToolInfo[]>('mcp_list_tools', { id })
 }
 
+/**
+ * Calls an MCP tool on the server with the given ID.
+ * @param id - The MCP server ID to call the tool on
+ * @param tool - The name of the tool to call
+ * @param args - The arguments to pass to the tool
+ * @returns A promise that resolves to the tool's response as a string
+ */
 export async function mcpCallTool(
   id: number,
   tool: string,
