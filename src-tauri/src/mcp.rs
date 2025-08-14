@@ -32,6 +32,39 @@ use tokio::process::Command;
 use tokio::sync::Mutex;
 use tokio::time::{timeout, Duration};
 
+/// Returns true if the provided command string looks like a bare program name
+/// without any path separators. In that case, we should prefer invoking it via
+/// the user's login shell so that their configured PATH (nvm, rbenv, etc.) is
+/// honored by the spawned process.
+fn is_bare_command(command: &str) -> bool {
+    #[cfg(target_family = "unix")]
+    {
+        !command.contains('/')
+    }
+    #[cfg(target_family = "windows")]
+    {
+        // On Windows, treat commands without a path separator or drive as bare
+        !command.contains('\\') && !command.contains('/') && !command.contains(':')
+    }
+}
+
+/// Very small shell-escape for use with single-quoted arguments.
+/// This wraps the string in single quotes and escapes any internal single quotes
+/// using the POSIX-safe pattern: ' -> '\''
+fn sh_escape(arg: &str) -> String {
+    let mut out = String::with_capacity(arg.len() + 2);
+    out.push('\'');
+    for ch in arg.chars() {
+        if ch == '\'' {
+            out.push_str("'\\''");
+        } else {
+            out.push(ch);
+        }
+    }
+    out.push('\'');
+    out
+}
+
 /// Basic metadata describing an MCP tool.
 #[derive(Serialize)]
 pub struct McpToolInfo {
@@ -99,13 +132,42 @@ pub async fn check_server(config: TransportConfig<'_>) -> McpCheckResult {
                 connect_timeout_ms,
                 list_tools_timeout_ms
             );
-            let mut cmd = Command::new(command);
-            cmd.args(args);
+            // If the command is a bare program name (e.g., "npx"), prefer executing
+            // via the user's login shell so that their PATH (nvm, rbenv, etc.) is applied.
+            let use_shell = is_bare_command(command);
+            let mut cmd = if use_shell {
+                let shell_path = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
+                let mut composed = String::new();
+                composed.push_str(&sh_escape(command));
+                for a in args {
+                    composed.push(' ');
+                    composed.push_str(&sh_escape(a));
+                }
+                info!(
+                    "mcp.check: using shell wrapper - shell='{}', composed_cmd='{}'",
+                    shell_path, composed
+                );
+                let mut c = Command::new(shell_path);
+                c.arg("-lc").arg(composed);
+                c
+            } else {
+                info!(
+                    "mcp.check: using direct command - cmd='{}', args={:?}",
+                    command, args
+                );
+                let mut c = Command::new(command);
+                c.args(args);
+                c
+            };
             cmd.stdin(Stdio::piped())
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped());
-            if let Some(cwd) = cwd {
-                cmd.current_dir(cwd);
+            if let Some(cwd_val) = cwd {
+                if cwd_val.trim().is_empty() {
+                    info!("mcp.check: cwd is empty string; ignoring current_dir");
+                } else {
+                    cmd.current_dir(cwd_val);
+                }
             }
             if let Some(env_obj) = env.and_then(|v| v.as_object()) {
                 for (k, val) in env_obj.iter() {
@@ -121,17 +183,25 @@ pub async fn check_server(config: TransportConfig<'_>) -> McpCheckResult {
             .await;
             let mut child = match child_res {
                 Ok(Ok(c)) => {
-                    debug!("mcp.check: stdio spawned child process");
+                    debug!("mcp.check: stdio spawned child process (pid={:?})", c.id());
                     c
                 }
                 Ok(Err(e)) => {
-                    error!("mcp.check: failed to spawn process: {}", e);
+                    error!(
+                        "mcp.check: failed to spawn process - error={}, kind={:?}, raw_os_error={:?}",
+                        e, e.kind(), e.raw_os_error()
+                    );
                     return McpCheckResult {
                         ok: false,
                         tools_count: None,
                         tools: None,
                         warning: None,
-                        error: Some(format!("Failed to spawn: {}", e)),
+                        error: Some(format!(
+                            "Failed to spawn: {} (kind: {:?}, os_error: {:?})",
+                            e,
+                            e.kind(),
+                            e.raw_os_error()
+                        )),
                     };
                 }
                 Err(_) => {
@@ -551,19 +621,45 @@ impl McpManager {
         }
 
         info!(
-            "mcp.manager: creating stdio session (id={}, cmd='{}', args_count={}, cwd={:?})",
-            id,
-            command,
-            args.len(),
-            cwd
+            "mcp.manager: creating stdio session (id={}, cmd='{}', args={:?}, cwd={:?})",
+            id, command, args, cwd
         );
-        let mut cmd = Command::new(command);
-        cmd.args(args);
+        // If the command is a bare program name (e.g., "npx"), prefer executing
+        // via the user's login shell so that their PATH (nvm, rbenv, etc.) is applied.
+        let use_shell = is_bare_command(command);
+        let mut cmd = if use_shell {
+            let shell_path = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
+            let mut composed = String::new();
+            composed.push_str(&sh_escape(command));
+            for a in args {
+                composed.push(' ');
+                composed.push_str(&sh_escape(a));
+            }
+            info!(
+                "mcp.manager: using shell wrapper - shell='{}', composed_cmd='{}'",
+                shell_path, composed
+            );
+            let mut c = Command::new(shell_path);
+            c.arg("-lc").arg(composed);
+            c
+        } else {
+            info!(
+                "mcp.manager: using direct command - cmd='{}', args={:?}",
+                command, args
+            );
+            let mut c = Command::new(command);
+            c.args(args);
+            c
+        };
         cmd.stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
-        if let Some(cwd) = cwd {
-            cmd.current_dir(cwd);
+        if let Some(cwd_val) = cwd {
+            if cwd_val.trim().is_empty() {
+                info!("mcp.manager: cwd is empty string; ignoring current_dir");
+            } else {
+                cmd.current_dir(cwd_val);
+            }
         }
         if let Some(env_obj) = env.as_object() {
             for (k, val) in env_obj.iter() {
@@ -573,12 +669,30 @@ impl McpManager {
             }
         }
 
-        let mut child = timeout(Duration::from_millis(connect_timeout_ms), async {
-            cmd.spawn()
-        })
-        .await
-        .map_err(|_| "spawn timeout".to_string())
-        .and_then(|r| r.map_err(|e| e.to_string()))?;
+        let mut child =
+            timeout(Duration::from_millis(connect_timeout_ms), async {
+                cmd.spawn()
+            })
+            .await
+            .map_err(|_| "spawn timeout".to_string())
+            .and_then(|r| {
+                r.map_err(|e| {
+                    error!(
+                "mcp.manager: failed to spawn process - error={}, kind={:?}, raw_os_error={:?}",
+                e, e.kind(), e.raw_os_error()
+            );
+                    format!(
+                        "spawn error: {} (kind: {:?}, os_error: {:?})",
+                        e,
+                        e.kind(),
+                        e.raw_os_error()
+                    )
+                })
+            })?;
+        debug!(
+            "mcp.manager: stdio spawned child process (pid={:?})",
+            child.id()
+        );
         let stdin = child.stdin.take().ok_or("no stdin")?;
         let stdout = child.stdout.take().ok_or("no stdout")?;
         let mut session = McpSession::Stdio {
