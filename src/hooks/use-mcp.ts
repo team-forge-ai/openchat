@@ -98,7 +98,13 @@ export function useMcp(): UseMcpResult {
       await mcpCallTool(variables.serverId, variables.tool, variables.args),
   })
 
-  console.log('useMcp', { serversQ, toolsQ })
+  if (toolsQ.error) {
+    console.error('toolsQ error', toolsQ.error)
+  }
+
+  if (serversQ.error) {
+    console.error('serversQ error', serversQ.error)
+  }
 
   return {
     servers: serversQ.data ?? [],
