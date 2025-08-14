@@ -257,14 +257,13 @@ pub async fn check_server(config: TransportConfig<'_>) -> McpCheckResult {
             };
 
             debug!("mcp.check: sending initialize over stdio");
+            let init_params = serde_json::json!({
+                "protocolVersion": crate::mcp::constants::MCP_PROTOCOL_VERSION,
+                "capabilities": {},
+                "clientInfo": { "name": "OpenChat", "version": "0.1.0" }
+            });
             if session
-                .send(
-                    MCP_METHOD_INITIALIZE,
-                    serde_json::json!({
-                        "client": { "name": "OpenChat", "version": "0.1.0" }
-                    }),
-                    connect_timeout_ms,
-                )
+                .send(MCP_METHOD_INITIALIZE, init_params, connect_timeout_ms)
                 .await
                 .is_err()
             {
@@ -366,14 +365,13 @@ pub async fn check_server(config: TransportConfig<'_>) -> McpCheckResult {
             };
 
             debug!("mcp.check: sending initialize over http");
+            let init_params = serde_json::json!({
+                "protocolVersion": crate::mcp::constants::MCP_PROTOCOL_VERSION,
+                "capabilities": {},
+                "clientInfo": { "name": "OpenChat", "version": "0.1.0" }
+            });
             if session
-                .send(
-                    MCP_METHOD_INITIALIZE,
-                    serde_json::json!({
-                        "client": { "name": "OpenChat", "version": "0.1.0" }
-                    }),
-                    connect_timeout_ms,
-                )
+                .send(MCP_METHOD_INITIALIZE, init_params, connect_timeout_ms)
                 .await
                 .is_err()
             {
@@ -701,14 +699,13 @@ impl McpManager {
             reader: BufReader::new(stdout),
             next_id: 0,
         };
+        let init_params = serde_json::json!({
+            "protocolVersion": crate::mcp::constants::MCP_PROTOCOL_VERSION,
+            "capabilities": {},
+            "clientInfo": { "name": "OpenChat", "version": "0.1.0" }
+        });
         let _ = session
-            .send(
-                MCP_METHOD_INITIALIZE,
-                serde_json::json!({
-                    "client": { "name": "OpenChat", "version": "0.1.0" }
-                }),
-                connect_timeout_ms,
-            )
+            .send(MCP_METHOD_INITIALIZE, init_params, connect_timeout_ms)
             .await?;
         sessions.insert(id, session);
         info!("mcp.manager: stdio session ready (id={})", id);
@@ -745,14 +742,13 @@ impl McpManager {
             headers: headers.cloned(),
             next_id: 0,
         };
+        let init_params = serde_json::json!({
+            "protocolVersion": crate::mcp::constants::MCP_PROTOCOL_VERSION,
+            "capabilities": {},
+            "clientInfo": { "name": "OpenChat", "version": "0.1.0" }
+        });
         let _ = session
-            .send(
-                MCP_METHOD_INITIALIZE,
-                serde_json::json!({
-                    "client": { "name": "OpenChat", "version": "0.1.0" }
-                }),
-                connect_timeout_ms,
-            )
+            .send(MCP_METHOD_INITIALIZE, init_params, connect_timeout_ms)
             .await?;
         sessions.insert(id, session);
         info!("mcp.manager: http session ready (id={})", id);

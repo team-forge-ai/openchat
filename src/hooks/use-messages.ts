@@ -112,6 +112,14 @@ export function useMessages(conversationId: number | null): UseMessagesResult {
           await call.mutateAsync({ serverId, tool: toolName, args }),
       )
 
+      console.log('[useMessages] Streaming text with options', {
+        model: mlxServer.model,
+        messages: chatMessages,
+        abortSignal: abortController.signal,
+        tools: mcpTools,
+        toolChoice: 'auto',
+      })
+
       const result = streamText({
         model: mlxServer.model,
         messages: chatMessages,
