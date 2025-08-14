@@ -134,6 +134,13 @@ pub async fn mcp_call_tool(
         .await
 }
 
+// ------------------ Environment Variable Commands ------------------
+
+#[tauri::command]
+pub async fn get_env_var(name: String) -> CmdResult<Option<String>> {
+    Ok(std::env::var(&name).ok())
+}
+
 async fn ensure_session_for_id(
     id: i64,
     manager: &std::sync::Arc<McpManager>,

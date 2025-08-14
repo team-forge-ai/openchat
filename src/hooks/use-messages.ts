@@ -13,7 +13,7 @@ import {
   updateMessage,
 } from '@/lib/db/messages'
 import { createMcpToolsMap } from '@/lib/mcp-tools'
-import { mlxServer } from '@/lib/mlc-server'
+import { createOpenAiModel } from '@/lib/openai'
 import { DEFAULT_SETTINGS_PROMPT, SYSTEM_PROMPT } from '@/lib/prompt'
 import { setConversationTitleIfUnset } from '@/lib/set-conversation-title'
 import type { Message } from '@/types'
@@ -113,7 +113,6 @@ export function useMessages(conversationId: number | null): UseMessagesResult {
       )
 
       console.log('[useMessages] Streaming text with options', {
-        model: mlxServer.model,
         messages: chatMessages,
         abortSignal: abortController.signal,
         tools: mcpTools,
@@ -121,7 +120,7 @@ export function useMessages(conversationId: number | null): UseMessagesResult {
       })
 
       const result = streamText({
-        model: mlxServer.model,
+        model: await createOpenAiModel(),
         messages: chatMessages,
         abortSignal: abortController.signal,
         tools: mcpTools,

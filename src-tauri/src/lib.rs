@@ -85,6 +85,8 @@ pub fn run() {
             commands::mcp_check_server,
             commands::mcp_list_tools,
             commands::mcp_call_tool,
+            // Environment variables
+            commands::get_env_var,
         ])
         .on_menu_event(|app, event| {
             menu::MenuManager::handle_menu_event(app, event.id().as_ref());

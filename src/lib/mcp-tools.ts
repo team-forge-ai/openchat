@@ -18,7 +18,7 @@ export function createMcpToolsMap(
 
   for (const { server, tools } of items) {
     for (const t of tools) {
-      const key = `mcp:${server.id}:${t.name}`
+      const key = `mcp_${server.id}_${t.name}`
       const description =
         t.description ?? `MCP tool ${t.name} on ${server.name}`
 
