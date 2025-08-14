@@ -112,6 +112,8 @@ export function useMessages(conversationId: number | null): UseMessagesResult {
           await call.mutateAsync({ serverId, tool: toolName, args }),
       )
 
+      console.log('mcpTools', mcpTools, toolsByServer)
+
       const result = streamText({
         model: mlxServer.model,
         messages: chatMessages,

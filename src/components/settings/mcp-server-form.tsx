@@ -1,6 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useEffect, useMemo, useState } from 'react'
-import { useForm } from 'react-hook-form'
+import type { FieldErrors } from 'react-hook-form'
+import { useFieldArray, useForm } from 'react-hook-form'
 import type { z } from 'zod'
 
 import { Button } from '@/components/ui/button'
@@ -12,7 +13,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { formToConfig } from '@/lib/mcp-mappers'
+import { configToForm, formToConfig } from '@/lib/mcp-mappers'
 import type { McpServerConfig } from '@/types/mcp'
 import { McpServerFormSchema, type McpServerFormValues } from '@/types/mcp-form'
 
@@ -25,6 +26,8 @@ type Props = {
 }
 
 type Transport = 'stdio' | 'http'
+type StdioValues = Extract<McpServerFormValues, { transport: 'stdio' }>
+type HttpValues = Extract<McpServerFormValues, { transport: 'http' }>
 
 export function McpServerFormDialog({
   open,
@@ -34,23 +37,10 @@ export function McpServerFormDialog({
   onTest,
 }: Props) {
   const defaultValues: McpServerFormValues = useMemo(() => {
-    if (initial?.transport === 'stdio') {
-      return {
-        transport: 'stdio',
-        name: initial.name ?? '',
-        description: initial.description ?? undefined,
-        enabled: initial.enabled ?? false,
-        command: initial.command ?? '',
-        args: Array.isArray(initial.args) ? initial.args : [],
-        cwd: initial.cwd ?? undefined,
-        env: Object.entries(initial.env ?? {}).map(([key, value]) => ({
-          key,
-          value: String(value ?? ''),
-        })),
-      }
+    if (initial && 'transport' in initial) {
+      return configToForm(initial as McpServerConfig)
     }
-    // websocket transport removed
-    // Default to stdio when not editing or not websocket
+    // Default to stdio when not editing
     return {
       transport: 'stdio',
       name: initial?.name ?? '',
@@ -69,33 +59,29 @@ export function McpServerFormDialog({
     mode: 'onChange',
   })
 
+  const envFieldArray = useFieldArray({
+    control: form.control,
+    name: 'env',
+  })
+
+  const headerFieldArray = useFieldArray({
+    control: form.control,
+    name: 'headers',
+  })
+
+  useEffect(() => {
+    if (open) {
+      form.reset(defaultValues)
+    }
+  }, [open, defaultValues, form])
+
   const transport = form.watch('transport')
-  const [argsText, setArgsText] = useState<string>(
-    defaultValues.transport === 'stdio' && Array.isArray(defaultValues.args)
-      ? defaultValues.args.join(' ')
-      : '',
-  )
+  const args = form.watch('args')
+  const argsText = Array.isArray(args) ? args.join(' ') : ''
 
   const [testing, setTesting] = useState(false)
-  const [testResult, setTestResult] = useState<string>('')
+  const [testResult, setTestResult] = useState('')
   const [saving, setSaving] = useState(false)
-  const [envRows, setEnvRows] = useState<{ key: string; value: string }[]>(
-    defaultValues.transport === 'stdio' && 'env' in defaultValues
-      ? defaultValues.env
-      : [],
-  )
-  const [headerRows, setHeaderRows] = useState<
-    { key: string; value: string }[]
-  >(
-    defaultValues.transport !== 'stdio' && 'headers' in defaultValues
-      ? (
-          defaultValues as Extract<
-            McpServerFormValues,
-            { transport: 'websocket' | 'http' }
-          >
-        ).headers
-      : [],
-  )
 
   const formWatch = form.watch()
 
@@ -103,25 +89,37 @@ export function McpServerFormDialog({
     setTestResult('')
   }, [formWatch])
 
+  const errors = form.formState.errors
+  const stdioErrors = errors as FieldErrors<StdioValues>
+  const httpErrors = errors as FieldErrors<HttpValues>
+
   const buildConfig = (): McpServerConfig => {
-    const v = form.getValues()
-    if (v.transport === 'stdio') {
-      const nextArgs = argsText.trim() ? argsText.trim().split(/\s+/) : []
-      const cfg = formToConfig({
-        ...(v as Extract<McpServerFormValues, { transport: 'stdio' }>),
-        args: nextArgs,
-        env: envRows,
-      })
-      return cfg
+    const values = form.getValues()
+    if (values.transport === 'stdio') {
+      const config: Extract<McpServerFormValues, { transport: 'stdio' }> = {
+        transport: 'stdio',
+        name: values.name,
+        description: values.description,
+        enabled: !!values.enabled,
+        command: values.command || '',
+        args: values.args || [],
+        cwd: values.cwd,
+        env: values.env || [],
+      }
+      return formToConfig(config)
+    } else {
+      const config: Extract<McpServerFormValues, { transport: 'http' }> = {
+        transport: 'http',
+        name: values.name,
+        description: values.description,
+        enabled: !!values.enabled,
+        url: values.url || '',
+        headers: values.headers || [],
+        auth: values.auth,
+        heartbeatSec: values.heartbeatSec,
+      }
+      return formToConfig(config)
     }
-    const cfg = formToConfig({
-      ...(v as Extract<
-        McpServerFormValues,
-        { transport: 'websocket' | 'http' }
-      >),
-      headers: headerRows,
-    })
-    return cfg
   }
 
   const handleTest = async () => {
@@ -166,9 +164,9 @@ export function McpServerFormDialog({
             <label className="text-sm">
               <div className="mb-1">Name</div>
               <Input {...form.register('name')} />
-              {form.formState.errors.name?.message && (
+              {errors.name?.message && (
                 <div className="text-xs text-destructive mt-1">
-                  {form.formState.errors.name?.message}
+                  {errors.name?.message}
                 </div>
               )}
             </label>
@@ -205,26 +203,11 @@ export function McpServerFormDialog({
                   {...form.register('command')}
                   placeholder="/usr/bin/node my-mcp-server.js"
                 />
-                {(function () {
-                  const draft = {
-                    ...form.getValues(),
-                    transport: 'stdio' as const,
-                    args: argsText.trim() ? argsText.trim().split(/\s+/) : [],
-                    env: envRows,
-                  }
-                  const parsed = McpServerFormSchema.safeParse(draft)
-                  if (parsed.success) {
-                    return null
-                  }
-                  const err = parsed.error.issues.find(
-                    (i) => i.path.length === 1 && i.path[0] === 'command',
-                  )
-                  return err ? (
-                    <div className="text-xs text-destructive mt-1">
-                      {err.message}
-                    </div>
-                  ) : null
-                })()}
+                {transport === 'stdio' && stdioErrors.command?.message && (
+                  <div className="text-xs text-destructive mt-1">
+                    {stdioErrors.command?.message}
+                  </div>
+                )}
               </label>
               <label className="text-sm block">
                 <div className="mb-1">Args (space separated)</div>
@@ -232,15 +215,19 @@ export function McpServerFormDialog({
                   value={argsText}
                   onChange={(e) => {
                     const v = e.target.value
-                    setArgsText(v)
                     const arr = v.trim() ? v.trim().split(/\s+/) : []
                     form.setValue('args', arr, {
                       shouldDirty: true,
-                      shouldValidate: false,
+                      shouldValidate: true,
                     })
                   }}
                   placeholder="--flag value"
                 />
+                {transport === 'stdio' && stdioErrors.args?.message && (
+                  <div className="text-xs text-destructive mt-1">
+                    {stdioErrors.args?.message}
+                  </div>
+                )}
               </label>
               <label className="text-sm block">
                 <div className="mb-1">Working directory</div>
@@ -251,87 +238,44 @@ export function McpServerFormDialog({
               <div className="space-y-2">
                 <div className="text-sm font-medium">Environment variables</div>
                 <div className="space-y-2">
-                  {envRows.map((row, idx) => (
+                  {envFieldArray.fields.map((field, idx) => (
                     <div
-                      key={idx}
+                      key={field.id}
                       className="grid grid-cols-7 gap-2 items-center"
                     >
                       <Input
                         className="col-span-3"
-                        value={row.key}
-                        onChange={(e) => {
-                          const next = [...envRows]
-                          next[idx] = { ...next[idx], key: e.target.value }
-                          setEnvRows(next)
-                        }}
+                        {...form.register(`env.${idx}.key`)}
                         placeholder="KEY"
                       />
                       <Input
                         className="col-span-3"
-                        value={row.value}
-                        onChange={(e) => {
-                          const next = [...envRows]
-                          next[idx] = { ...next[idx], value: e.target.value }
-                          setEnvRows(next)
-                        }}
+                        {...form.register(`env.${idx}.value`)}
                         placeholder="value"
                       />
                       <Button
                         type="button"
                         variant="outline"
-                        onClick={() => {
-                          const next = [...envRows]
-                          next.splice(idx, 1)
-                          setEnvRows(next)
-                        }}
+                        onClick={() => envFieldArray.remove(idx)}
                       >
                         Remove
                       </Button>
-                      {/* Inline zod errors for this row */}
-                      {(function () {
-                        const draft = {
-                          ...form.getValues(),
-                          transport: 'stdio' as const,
-                          args: argsText.trim()
-                            ? argsText.trim().split(/\s+/)
-                            : [],
-                          env: envRows,
-                        }
-                        const parsed = McpServerFormSchema.safeParse(draft)
-                        const issues = parsed.success ? [] : parsed.error.issues
-                        const keyErr = issues.find(
-                          (i) =>
-                            i.path.length === 3 &&
-                            i.path[0] === 'env' &&
-                            i.path[1] === idx &&
-                            i.path[2] === 'key',
-                        )
-                        const valErr = issues.find(
-                          (i) =>
-                            i.path.length === 3 &&
-                            i.path[0] === 'env' &&
-                            i.path[1] === idx &&
-                            i.path[2] === 'value',
-                        )
-                        return (
-                          <div className="col-span-7 grid grid-cols-6 gap-2 -mt-1">
-                            <div className="col-span-3 text-xs text-destructive">
-                              {keyErr?.message}
-                            </div>
-                            <div className="col-span-3 text-xs text-destructive">
-                              {valErr?.message}
-                            </div>
-                          </div>
-                        )
-                      })()}
+                      <div className="col-span-7 grid grid-cols-6 gap-2 -mt-1">
+                        <div className="col-span-3 text-xs text-destructive">
+                          {transport === 'stdio' &&
+                            stdioErrors.env?.[idx]?.key?.message}
+                        </div>
+                        <div className="col-span-3 text-xs text-destructive">
+                          {transport === 'stdio' &&
+                            stdioErrors.env?.[idx]?.value?.message}
+                        </div>
+                      </div>
                     </div>
                   ))}
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() =>
-                      setEnvRows([...envRows, { key: '', value: '' }])
-                    }
+                    onClick={() => envFieldArray.append({ key: '', value: '' })}
                   >
                     Add variable
                   </Button>
@@ -346,109 +290,80 @@ export function McpServerFormDialog({
                   {...form.register('url')}
                   placeholder="wss://... or https://..."
                 />
-                {(function () {
-                  const draft = {
-                    ...form.getValues(),
-                    headers: headerRows,
-                  }
-                  const parsed = McpServerFormSchema.safeParse(draft)
-                  if (parsed.success) {
-                    return null
-                  }
-                  const err = parsed.error.issues.find(
-                    (i) => i.path.length === 1 && i.path[0] === 'url',
-                  )
-                  return err ? (
-                    <div className="text-xs text-destructive mt-1">
-                      {err.message}
-                    </div>
-                  ) : null
-                })()}
+                {transport === 'http' && httpErrors.url?.message && (
+                  <div className="text-xs text-destructive mt-1">
+                    {httpErrors.url?.message}
+                  </div>
+                )}
+              </label>
+
+              <label className="text-sm block">
+                <div className="mb-1">Auth</div>
+                <Input {...form.register('auth')} placeholder="Bearer token" />
+                {transport === 'http' && httpErrors.auth?.message && (
+                  <div className="text-xs text-destructive mt-1">
+                    {httpErrors.auth?.message}
+                  </div>
+                )}
+              </label>
+
+              <label className="text-sm block">
+                <div className="mb-1">Heartbeat Interval (seconds)</div>
+                <Input
+                  type="number"
+                  {...form.register('heartbeatSec', { valueAsNumber: true })}
+                  placeholder="30"
+                />
+                {transport === 'http' && httpErrors.heartbeatSec?.message && (
+                  <div className="text-xs text-destructive mt-1">
+                    {httpErrors.heartbeatSec?.message}
+                  </div>
+                )}
               </label>
 
               {/* Headers key/values */}
               <div className="space-y-2">
                 <div className="text-sm font-medium">HTTP headers</div>
                 <div className="space-y-2">
-                  {headerRows.map(
-                    (row: { key: string; value: string }, idx: number) => (
-                      <div
-                        key={idx}
-                        className="grid grid-cols-7 gap-2 items-center"
+                  {headerFieldArray.fields.map((field, idx) => (
+                    <div
+                      key={field.id}
+                      className="grid grid-cols-7 gap-2 items-center"
+                    >
+                      <Input
+                        className="col-span-3"
+                        {...form.register(`headers.${idx}.key`)}
+                        placeholder="Header-Name"
+                      />
+                      <Input
+                        className="col-span-3"
+                        {...form.register(`headers.${idx}.value`)}
+                        placeholder="value"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => headerFieldArray.remove(idx)}
                       >
-                        <Input
-                          className="col-span-3"
-                          value={row.key}
-                          onChange={(e) => {
-                            const next = [...headerRows]
-                            next[idx] = { ...next[idx], key: e.target.value }
-                            setHeaderRows(next)
-                          }}
-                          placeholder="Header-Name"
-                        />
-                        <Input
-                          className="col-span-3"
-                          value={row.value}
-                          onChange={(e) => {
-                            const next = [...headerRows]
-                            next[idx] = { ...next[idx], value: e.target.value }
-                            setHeaderRows(next)
-                          }}
-                          placeholder="value"
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => {
-                            const next = [...headerRows]
-                            next.splice(idx, 1)
-                            setHeaderRows(next)
-                          }}
-                        >
-                          Remove
-                        </Button>
-                        {(function () {
-                          const draft = {
-                            ...form.getValues(),
-                            headers: headerRows,
-                          }
-                          const parsed = McpServerFormSchema.safeParse(draft)
-                          const issues = parsed.success
-                            ? []
-                            : parsed.error.issues
-                          const keyErr = issues.find(
-                            (i) =>
-                              i.path.length === 3 &&
-                              i.path[0] === 'headers' &&
-                              i.path[1] === idx &&
-                              i.path[2] === 'key',
-                          )
-                          const valErr = issues.find(
-                            (i) =>
-                              i.path.length === 3 &&
-                              i.path[0] === 'headers' &&
-                              i.path[1] === idx &&
-                              i.path[2] === 'value',
-                          )
-                          return (
-                            <div className="col-span-7 grid grid-cols-6 gap-2 -mt-1">
-                              <div className="col-span-3 text-xs text-destructive">
-                                {keyErr?.message}
-                              </div>
-                              <div className="col-span-3 text-xs text-destructive">
-                                {valErr?.message}
-                              </div>
-                            </div>
-                          )
-                        })()}
+                        Remove
+                      </Button>
+                      <div className="col-span-7 grid grid-cols-6 gap-2 -mt-1">
+                        <div className="col-span-3 text-xs text-destructive">
+                          {transport === 'http' &&
+                            httpErrors.headers?.[idx]?.key?.message}
+                        </div>
+                        <div className="col-span-3 text-xs text-destructive">
+                          {transport === 'http' &&
+                            httpErrors.headers?.[idx]?.value?.message}
+                        </div>
                       </div>
-                    ),
-                  )}
+                    </div>
+                  ))}
                   <Button
                     type="button"
                     variant="outline"
                     onClick={() =>
-                      setHeaderRows([...headerRows, { key: '', value: '' }])
+                      headerFieldArray.append({ key: '', value: '' })
                     }
                   >
                     Add header

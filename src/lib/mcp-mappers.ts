@@ -28,6 +28,37 @@ export function rowToForm(row: McpServerRow): McpServerFormValues {
   return { transport: 'http', ...base }
 }
 
+export function configToForm(config: McpServerConfig): McpServerFormValues {
+  if (config.transport === 'stdio') {
+    return {
+      transport: 'stdio',
+      name: config.name,
+      description: config.description ?? undefined,
+      enabled: config.enabled,
+      command: config.command,
+      args: config.args ?? [],
+      cwd: config.cwd ?? undefined,
+      env: Object.entries(config.env ?? {}).map(([key, value]) => ({
+        key,
+        value: String(value ?? ''),
+      })),
+    }
+  }
+  return {
+    transport: 'http',
+    name: config.name,
+    description: config.description ?? undefined,
+    enabled: config.enabled,
+    url: config.url,
+    headers: Object.entries(config.headers ?? {}).map(([key, value]) => ({
+      key,
+      value: String(value ?? ''),
+    })),
+    auth: config.auth ?? undefined,
+    heartbeatSec: config.heartbeatSec ?? undefined,
+  }
+}
+
 export function formToConfig(values: McpServerFormValues): McpServerConfig {
   if (values.transport === 'stdio') {
     return {

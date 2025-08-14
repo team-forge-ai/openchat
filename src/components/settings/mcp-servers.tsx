@@ -29,6 +29,10 @@ export function McpServersSettings() {
   const handleEdit = (row: McpServerRow) => {
     const formValues = rowToForm(row)
     setEditing({ ...formToConfig(formValues), id: row.id })
+    console.log('editing', editing)
+    console.log('formValues', formValues)
+    console.log('row', row)
+    console.log('formToConfig', formToConfig(formValues))
     setOpen(true)
   }
 
