@@ -44,7 +44,11 @@ pub fn run() {
                 )
                 .build(),
         )
-        .plugin(tauri_plugin_log::Builder::default().build())
+        .plugin(
+            tauri_plugin_log::Builder::default()
+                .level(log::LevelFilter::Info)
+                .build(),
+        )
         .setup(|app| {
             // --- Database setup ---
             let app_data_dir = app
