@@ -1,3 +1,19 @@
+# Priority
+
+- [] mcp response still not working (find a test mcp server (most of them suck))
+- [] add sonner progress bar for model downloads
+- [] create mcp server store
+- [] create model store
+
+# Nice to have
+
+- [] need to decide if I'm going to allow multiple or arb models
+- [] PDF export / print as pdf
+- [] plan pdf extraction? mcp
+- [] delete empty conversations
+
+# Done
+
 - [x] mcp integration
 - [x] only scroll the chat when a new message is received
 - [x] chat message skeleton loading isn't working
@@ -14,13 +30,5 @@
 - [x] plan mcp integration
 - [x] request timeoued out after a while
 - [x] seems to use an insane amount of resources. maybe lower context?
-- [] need to decide if I'm going to allow multiple or arb models
-- [] PDF export / print as pdf
-- [] plan pdf extraction? mcp
-- [] add sonner progress bar for model downloads
-- [] create mcp server store
-- [] create model store
-- [] mcp response still not working
-- [] delete empty conversations
-- [] move cmd+n to system menu
-- [] find a test mcp server (most of them suck)
+- [x] move cmd+n to system menu
+- [x] health checks not working on increment ports

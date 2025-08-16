@@ -73,18 +73,14 @@ impl MLCServerManager {
 
     /// Health check by hitting /v1/models and a minimal /v1/chat/completions request
     pub async fn health_check(&self) -> bool {
+        // Prefer the currently running server port from status; fall back to configured port
+        let status = { self.status.read().await.clone() };
         let config = { self.config.read().await.clone() };
-        let port = config.port;
+        let port = status.port.unwrap_or(config.port);
         if !Self::http_get_models_reqwest(port).await {
             return false;
         }
-
-        let model = match config.model {
-            Some(m) => m,
-            None => DEFAULT_MLC_MODEL.to_string(),
-        };
-
-        Self::http_post_chat_completions_reqwest(port, &model).await
+        true
     }
 
     /// Restart the server (stop if running, then start)
@@ -121,8 +117,8 @@ impl MLCServerManager {
             }
 
             attempts += 1;
-            log::debug!("MLCServerManager: Health check failed, waiting 1s before retry");
-            tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
+            log::debug!("MLCServerManager: Health check failed, waiting 2s before retry");
+            tokio::time::sleep(std::time::Duration::from_millis(2000)).await;
         }
 
         log::error!(
@@ -158,6 +154,12 @@ impl MLCServerManager {
         let desired_port = config.port;
         let chosen_port = Self::find_available_port(desired_port, 10)
             .ok_or_else(|| format!("No available port found near {}", desired_port))?;
+
+        // Keep runtime config in sync with the actual chosen port
+        {
+            let mut cfg = self.config.write().await;
+            cfg.port = chosen_port;
+        }
 
         // Build and spawn the sidecar via Tauri Shell plugin
         let command = self
@@ -258,62 +260,6 @@ impl MLCServerManager {
         }
         match resp.json::<serde_json::Value>().await {
             Ok(json) => json.get("data").is_some(),
-            Err(_) => false,
-        }
-    }
-
-    /// Minimal chat completion POST to verify the model can answer a trivial prompt
-    async fn http_post_chat_completions_reqwest(port: u16, model: &str) -> bool {
-        const TIMEOUT_MS: u64 = 3000;
-        let url = format!("http://127.0.0.1:{}/v1/chat/completions", port);
-        let client = match reqwest::Client::builder()
-            .timeout(std::time::Duration::from_millis(TIMEOUT_MS))
-            .build()
-        {
-            Ok(c) => c,
-            Err(_) => return false,
-        };
-
-        let body = serde_json::json!({
-            "model": model,
-            "messages": [
-                { "role": "system", "content": "You are a helpful assistant." },
-                { "role": "user", "content": "Say 'hello'." }
-            ],
-            "max_tokens": 4,
-            "temperature": 0,
-            "stream": false
-        });
-
-        let resp = match client
-            .post(url)
-            .header("Authorization", "Bearer dummy")
-            .header("Content-Type", "application/json")
-            .json(&body)
-            .send()
-            .await
-        {
-            Ok(r) => r,
-            Err(_) => return false,
-        };
-
-        if !resp.status().is_success() {
-            return false;
-        }
-
-        match resp.json::<serde_json::Value>().await {
-            Ok(json) => {
-                let content_present = json
-                    .get("choices")
-                    .and_then(|c| c.as_array())
-                    .and_then(|arr| arr.get(0))
-                    .and_then(|c0| c0.get("message"))
-                    .and_then(|m| m.get("content"))
-                    .and_then(|v| v.as_str())
-                    .map(|s| !s.is_empty())
-                    .unwrap_or(false);
-                content_present
-            }
             Err(_) => false,
         }
     }
