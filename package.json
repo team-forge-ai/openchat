@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@ai-sdk/openai": "^2.0.9",
+    "@ai-sdk/openai-compatible": "^1.0.7",
     "@hookform/resolvers": "^5.2.1",
     "@radix-ui/react-alert-dialog": "^1.1.14",
     "@radix-ui/react-collapsible": "^1.1.11",

@@ -1,15 +1,12 @@
-use crate::model_download::ensure_hf_model_cached;
-use crate::model_store::{is_model_cached, parse_hf_uri};
 use serde::{Deserialize, Serialize};
 use std::net::TcpListener;
-use std::process::Stdio;
 use tauri::{AppHandle, Emitter};
-use tokio::io::AsyncBufReadExt;
-use tokio::process::{Child, Command};
+use tauri_plugin_shell::process::{CommandChild, CommandEvent};
+use tauri_plugin_shell::ShellExt;
 use tokio::sync::{Mutex, RwLock};
 
 /// Default MLC model to use when MLC_MODEL environment variable is not set
-const DEFAULT_MLC_MODEL: &str = "HF://mlc-ai/Qwen3-14B-q4f16_1-MLC";
+const DEFAULT_MLC_MODEL: &str = "lmstudio-community/Qwen3-30B-A3B-Instruct-2507-MLX-4bit";
 
 /// Status structure sent to the frontend. Keep snake_case to match TS converter.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -46,7 +43,7 @@ impl Default for MLCServerConfig {
 pub struct MLCServerManager {
     app_handle: AppHandle,
     status: RwLock<MLCServerStatus>,
-    child: Mutex<Option<Child>>,
+    child: Mutex<Option<CommandChild>>,
     config: RwLock<MLCServerConfig>,
 }
 
@@ -74,10 +71,20 @@ impl MLCServerManager {
         let _ = self.app_handle.emit("mlc-status-changed", update);
     }
 
-    /// Health check by hitting /v1/models via HTTP and validating JSON
+    /// Health check by hitting /v1/models and a minimal /v1/chat/completions request
     pub async fn health_check(&self) -> bool {
-        let port = { self.config.read().await.port };
-        Self::http_get_models_reqwest(port).await
+        let config = { self.config.read().await.clone() };
+        let port = config.port;
+        if !Self::http_get_models_reqwest(port).await {
+            return false;
+        }
+
+        let model = match config.model {
+            Some(m) => m,
+            None => DEFAULT_MLC_MODEL.to_string(),
+        };
+
+        Self::http_post_chat_completions_reqwest(port, &model).await
     }
 
     /// Restart the server (stop if running, then start)
@@ -106,7 +113,7 @@ impl MLCServerManager {
         Ok(status)
     }
 
-    /// Start mlc_llm server process using current config
+    /// Start openchat-mlx-server sidecar using current config
     async fn start(&self) -> Result<(), String> {
         let config = self.config.read().await.clone();
         let model = config
@@ -115,11 +122,11 @@ impl MLCServerManager {
             .ok_or_else(|| "MLC_MODEL not set. Please set env var to model folder".to_string())?;
 
         // If model URI points to Hugging Face, ensure it's present in local cache before spawning mlc_llm
-        if let Some(repo_id) = parse_hf_uri(&model) {
-            if !is_model_cached(&repo_id) {
-                ensure_hf_model_cached(&self.app_handle, &repo_id).await?;
-            }
-        }
+        // if let Some(repo_id) = parse_hf_uri(&model) {
+        //     if !is_model_cached(&repo_id) {
+        //         ensure_hf_model_cached(&self.app_handle, &repo_id).await?;
+        //     }
+        // }
 
         // If already running, stop first (defensive)
         self.stop().await;
@@ -129,44 +136,50 @@ impl MLCServerManager {
         let chosen_port = Self::find_available_port(desired_port, 10)
             .ok_or_else(|| format!("No available port found near {}", desired_port))?;
 
-        let mut cmd = Command::new("mlc_llm");
-        cmd.arg("serve")
-            .arg(model.clone())
-            .arg("--host")
-            .arg(config.host.clone())
-            .arg("--port")
-            .arg(chosen_port.to_string())
-            .kill_on_drop(true)
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped());
+        // Build and spawn the sidecar via Tauri Shell plugin
+        let command = self
+            .app_handle
+            .shell()
+            .sidecar("openchat-mlx-server")
+            .map_err(|e| format!("Failed to create sidecar command: {e}"))?
+            .args([
+                // "--model",
+                // &model,
+                "--host",
+                &config.host,
+                "--port",
+                &chosen_port.to_string(),
+            ]);
 
-        let mut child = cmd
+        let (mut rx, child) = command
             .spawn()
-            .map_err(|e| format!("Failed to start mlc_llm: {e}"))?;
+            .map_err(|e| format!("Failed to spawn openchat-mlx-server: {e}"))?;
 
         // Track child pid
-        let pid = child.id();
+        let pid = child.pid();
 
-        // Spawn background tasks to pipe stdout/stderr to log
-        if let Some(out) = child.stdout.take() {
-            tokio::spawn(async move {
-                let reader = tokio::io::BufReader::new(out);
-                let mut lines = reader.lines();
-                while let Ok(Some(line)) = lines.next_line().await {
-                    log::info!(target: "mlc_llm", "STDOUT: {}", line);
+        // Pipe stdout/stderr events to log
+        tokio::spawn(async move {
+            while let Some(event) = rx.recv().await {
+                match event {
+                    CommandEvent::Stdout(line) => {
+                        log::info!(
+                            target: "openchat-mlx-server",
+                            "STDOUT: {}",
+                            String::from_utf8_lossy(&line)
+                        );
+                    }
+                    CommandEvent::Stderr(line) => {
+                        log::warn!(
+                            target: "openchat-mlx-server",
+                            "STDERR: {}",
+                            String::from_utf8_lossy(&line)
+                        );
+                    }
+                    _ => {}
                 }
-            });
-        }
-        if let Some(err) = child.stderr.take() {
-            tokio::spawn(async move {
-                let reader = tokio::io::BufReader::new(err);
-                let mut lines = reader.lines();
-                while let Ok(Some(line)) = lines.next_line().await {
-                    log::warn!(target: "mlc_llm", "STDERR: {}", line);
-                }
-            });
-        }
+            }
+        });
 
         // Save child handle
         {
@@ -180,7 +193,7 @@ impl MLCServerManager {
         status.is_http_ready = false;
         status.port = Some(chosen_port);
         status.model_path = Some(model);
-        status.pid = pid;
+        status.pid = Some(pid);
         status.error = None;
         self.update_status_and_emit(status).await;
 
@@ -189,9 +202,9 @@ impl MLCServerManager {
 
     /// Stop the server if running
     pub async fn stop(&self) {
-        if let Some(mut child) = self.child.lock().await.take() {
-            let _ = child.kill().await; // ensure termination
-            let _ = child.wait().await;
+        if let Some(child) = self.child.lock().await.take() {
+            // tauri_plugin_shell CommandChild currently exposes sync kill; no async wait is required
+            let _ = child.kill();
         }
 
         // Update status
@@ -222,6 +235,62 @@ impl MLCServerManager {
         }
         match resp.json::<serde_json::Value>().await {
             Ok(json) => json.get("data").is_some(),
+            Err(_) => false,
+        }
+    }
+
+    /// Minimal chat completion POST to verify the model can answer a trivial prompt
+    async fn http_post_chat_completions_reqwest(port: u16, model: &str) -> bool {
+        const TIMEOUT_MS: u64 = 3000;
+        let url = format!("http://127.0.0.1:{}/v1/chat/completions", port);
+        let client = match reqwest::Client::builder()
+            .timeout(std::time::Duration::from_millis(TIMEOUT_MS))
+            .build()
+        {
+            Ok(c) => c,
+            Err(_) => return false,
+        };
+
+        let body = serde_json::json!({
+            "model": model,
+            "messages": [
+                { "role": "system", "content": "You are a helpful assistant." },
+                { "role": "user", "content": "Say 'hello'." }
+            ],
+            "max_tokens": 4,
+            "temperature": 0,
+            "stream": false
+        });
+
+        let resp = match client
+            .post(url)
+            .header("Authorization", "Bearer dummy")
+            .header("Content-Type", "application/json")
+            .json(&body)
+            .send()
+            .await
+        {
+            Ok(r) => r,
+            Err(_) => return false,
+        };
+
+        if !resp.status().is_success() {
+            return false;
+        }
+
+        match resp.json::<serde_json::Value>().await {
+            Ok(json) => {
+                let content_present = json
+                    .get("choices")
+                    .and_then(|c| c.as_array())
+                    .and_then(|arr| arr.get(0))
+                    .and_then(|c0| c0.get("message"))
+                    .and_then(|m| m.get("content"))
+                    .and_then(|v| v.as_str())
+                    .map(|s| !s.is_empty())
+                    .unwrap_or(false);
+                content_present
+            }
             Err(_) => false,
         }
     }

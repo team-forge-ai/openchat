@@ -1,5 +1,4 @@
-import { createOpenAI } from '@ai-sdk/openai'
-import { extractReasoningMiddleware, wrapLanguageModel } from 'ai'
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 
 // Standalone MLC client factory; does not depend on the service to avoid cycles
 
@@ -12,13 +11,17 @@ export function createMlcClient(options: {
     throw new Error('MLC endpoint is not available')
   }
 
-  const openai = createOpenAI({ baseURL: endpoint + '/v1', apiKey: 'dummy' })
-
-  // Wrap the model with middleware that extracts <think> ... </think>
-  const model = wrapLanguageModel({
-    model: openai.chat(options.modelId),
-    middleware: extractReasoningMiddleware({ tagName: 'think' }),
+  const openai = createOpenAICompatible({
+    name: 'mlc',
+    baseURL: endpoint + '/v1',
+    apiKey: 'dummy',
   })
 
-  return model
+  // // Wrap the model with middleware that extracts <think> ... </think>
+  // const model = wrapLanguageModel({
+  //   model: openai.chat(options.modelId),
+  //   middleware: extractReasoningMiddleware({ tagName: 'think' }),
+  // })
+
+  return openai(options.modelId)
 }

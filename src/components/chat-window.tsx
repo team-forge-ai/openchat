@@ -51,6 +51,8 @@ export const ChatWindow: React.FC = () => {
         content: messageContent,
       })
     } catch (error) {
+      console.error('Error sending message', error)
+
       setError(
         error instanceof Error ? error.message : 'Failed to send message',
       )

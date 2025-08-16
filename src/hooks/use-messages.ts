@@ -13,7 +13,7 @@ import {
   updateMessage,
 } from '@/lib/db/messages'
 import { createMcpToolsMap } from '@/lib/mcp-tools'
-import { createOpenAiModel } from '@/lib/openai'
+import { mlxServer } from '@/lib/mlc-server'
 import { DEFAULT_SETTINGS_PROMPT, SYSTEM_PROMPT } from '@/lib/prompt'
 import { setConversationTitleIfUnset } from '@/lib/set-conversation-title'
 import type { Message } from '@/types'
@@ -120,11 +120,23 @@ export function useMessages(conversationId: number | null): UseMessagesResult {
       })
 
       const result = streamText({
-        model: await createOpenAiModel(),
+        model: mlxServer.model,
         messages: chatMessages,
         abortSignal: abortController.signal,
         tools: mcpTools,
         toolChoice: 'auto',
+        onChunk: (chunk) => {
+          console.log('[useMessages] Chunk received', chunk)
+        },
+        onError: (error) => {
+          console.error('[useMessages] Error streaming text', error)
+        },
+        onFinish: () => {
+          console.log('[useMessages] Streaming finished')
+        },
+        onStepFinish: (step) => {
+          console.log('[useMessages] Step finished', step)
+        },
       })
 
       const addReasoning = async (reasoning: string) => {
