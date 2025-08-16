@@ -1,4 +1,5 @@
 import { AppHeader } from '@/components/app-header'
+import { AppMenuEvents } from '@/components/app-menu-events'
 import { AppShortcuts } from '@/components/app-shortcuts'
 import { AppSidebar } from '@/components/app-sidebar'
 import { ChatWindow } from '@/components/chat-window'
@@ -39,6 +40,7 @@ function App() {
     <MLCServerProvider>
       <DownloadProgressProvider>
         <AppContextProvider>
+          <AppMenuEvents />
           <AppShortcuts />
           <AppContent />
         </AppContextProvider>

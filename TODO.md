@@ -14,9 +14,13 @@
 - [x] plan mcp integration
 - [x] request timeoued out after a while
 - [x] seems to use an insane amount of resources. maybe lower context?
-- [ ] need to decide if I'm going to allow multiple or arb models
-- [ ] PDF export / print as pdf
-- [ ] plan pdf extraction? mcp
+- [] need to decide if I'm going to allow multiple or arb models
+- [] PDF export / print as pdf
+- [] plan pdf extraction? mcp
 - [] add sonner progress bar for model downloads
 - [] create mcp server store
 - [] create model store
+- [] mcp response still not working
+- [] delete empty conversations
+- [] move cmd+n to system menu
+- [] find a test mcp server (most of them suck)

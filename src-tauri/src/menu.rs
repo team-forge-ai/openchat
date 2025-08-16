@@ -134,37 +134,30 @@ impl MenuManager {
     /// Handles the reload menu action
     fn handle_reload(app: &AppHandle) {
         if let Some(window) = app.get_webview_window("main") {
-            Self::send_frontend_event(&window, "reload");
+            Self::send_frontend_event(&window, "tauri://menu-reload");
         }
     }
 
     /// Handles the new chat menu action
     fn handle_new_chat(app: &AppHandle) {
         if let Some(window) = app.get_webview_window("main") {
-            Self::send_frontend_event(&window, "new-chat");
+            Self::send_frontend_event(&window, "tauri://menu-new-chat");
         }
     }
 
     /// Handles the open settings menu action
     fn handle_open_settings(app: &AppHandle) {
         if let Some(window) = app.get_webview_window("main") {
-            Self::send_frontend_event(&window, "open-settings");
+            Self::send_frontend_event(&window, "tauri://menu-open-settings");
         }
     }
 
     /// Sends a custom event to the frontend
-    fn send_frontend_event(window: &WebviewWindow, event_type: &str) {
-        let script = match event_type {
-            "reload" => "window.location.reload()",
-            "new-chat" => "window.dispatchEvent(new CustomEvent('tauri://menu-new-chat'))",
-            "open-settings" => {
-                "window.dispatchEvent(new CustomEvent('tauri://menu-open-settings'))"
-            }
-            _ => return,
-        };
+    fn send_frontend_event(window: &WebviewWindow, event_name: &str) {
+        let script = format!("window.dispatchEvent(new CustomEvent('{}'))", event_name);
 
-        if let Err(e) = window.eval(script) {
-            log::error!("Failed to send frontend event '{}': {}", event_type, e);
+        if let Err(e) = window.eval(&script) {
+            log::error!("Failed to send frontend event '{}': {}", event_name, e);
         }
     }
 }

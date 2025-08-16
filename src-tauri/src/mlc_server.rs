@@ -89,23 +89,46 @@ impl MLCServerManager {
 
     /// Restart the server (stop if running, then start)
     pub async fn restart(&self) -> Result<MLCServerStatus, String> {
+        log::info!("MLCServerManager: Starting restart process");
+
+        log::debug!("MLCServerManager: Stopping existing server");
         self.stop().await;
+
+        log::debug!("MLCServerManager: Starting new server instance");
         self.start().await?;
+        log::info!("MLCServerManager: Server process started, beginning health checks");
 
         // Poll readiness a few times
         let mut attempts = 0usize;
         let max_attempts = 30usize; // ~30s
         while attempts < max_attempts {
+            log::debug!(
+                "MLCServerManager: Health check attempt {} of {}",
+                attempts + 1,
+                max_attempts
+            );
+
             if self.health_check().await {
+                log::info!(
+                    "MLCServerManager: Health check passed on attempt {}",
+                    attempts + 1
+                );
                 let mut status = self.status.read().await.clone();
                 status.is_http_ready = true;
                 self.update_status_and_emit(status.clone()).await;
+                log::info!("MLCServerManager: Restart completed successfully");
                 return Ok(status);
             }
+
             attempts += 1;
+            log::debug!("MLCServerManager: Health check failed, waiting 1s before retry");
             tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
         }
 
+        log::error!(
+            "MLCServerManager: Health checks failed after {} attempts, restart timed out",
+            max_attempts
+        );
         let mut status = self.status.read().await.clone();
         status.is_http_ready = false;
         status.error = Some("Timeout waiting for MLC server readiness".into());

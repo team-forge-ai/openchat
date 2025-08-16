@@ -1,24 +1,8 @@
-import { useCallback } from 'react'
-
-import { useAppContext } from '@/contexts/app-context'
-import { useConversations } from '@/hooks/use-conversations'
+import { useAppActions } from '@/hooks/use-app-actions'
 import { useShortcut } from '@/hooks/use-shortcut'
 
 export function AppShortcuts(): null {
-  const { setSelectedConversationId, view, setView } = useAppContext()
-  const { createConversation, isLoading } = useConversations()
-
-  const createNewConversation = useCallback(async () => {
-    if (isLoading) {
-      return
-    }
-    try {
-      const id = await createConversation.mutateAsync()
-      setSelectedConversationId(id)
-    } catch (error) {
-      console.error('Failed to create new conversation', error)
-    }
-  }, [createConversation, isLoading, setSelectedConversationId])
+  const { createNewConversation, toggleSettings } = useAppActions()
 
   // Create new conversation
   useShortcut('mod+n', () => {
@@ -27,7 +11,7 @@ export function AppShortcuts(): null {
 
   // Toggle preferences
   useShortcut('mod+,', () => {
-    setView(view === 'settings' ? 'conversations' : 'settings')
+    toggleSettings()
   })
 
   return null
