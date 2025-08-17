@@ -227,10 +227,14 @@ impl MLCServerManager {
 
     /// Stop the server if running
     pub async fn stop(&self) {
+        log::info!("MLCServerManager: Stopping server");
         if let Some(child) = self.child.lock().await.take() {
+            log::info!("MLCServerManager: Killing child process");
             // tauri_plugin_shell CommandChild currently exposes sync kill; no async wait is required
             let _ = child.kill();
+            log::info!("MLCServerManager: Child process killed");
         }
+        log::info!("MLCServerManager: Server stopped");
 
         // Update status
         let mut status = self.status.read().await.clone();

@@ -140,5 +140,8 @@ export async function mcpCallTool(
   tool: string,
   args: unknown,
 ): Promise<string> {
-  return await invoke<string>('mcp_call_tool', { id, tool, args })
+  console.log('[mcpCallTool] Invoking', { id, tool, args })
+  const result = await invoke<string>('mcp_call_tool', { id, tool, args })
+  console.log('[mcpCallTool] Result', result)
+  return result
 }
