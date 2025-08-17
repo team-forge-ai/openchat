@@ -137,9 +137,6 @@ export function useMessages(conversationId: number | null): UseMessagesResult {
         tools: mcpTools,
         toolChoice: 'auto',
         stopWhen: stepCountIs(10),
-        onChunk: (chunk) => {
-          console.log('[useMessages] Chunk received', chunk)
-        },
         onError: (error) => {
           console.error('[useMessages] Error streaming text', error)
         },
