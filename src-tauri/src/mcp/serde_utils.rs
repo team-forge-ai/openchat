@@ -22,3 +22,37 @@ pub fn parse_mcp_json_object_opt(s: Option<&str>) -> Option<serde_json::Value> {
         _ => None,
     }
 }
+
+/// Merge an Authorization header into an optional JSON headers object.
+/// - If `headers` is Some and contains an object, insert Authorization if absent.
+/// - If `headers` is None and `auth` is Some, create a new headers object.
+/// - Never overwrites an existing Authorization header.
+pub fn merge_auth_header(
+    headers: Option<&serde_json::Value>,
+    auth: Option<&str>,
+) -> Option<serde_json::Value> {
+    let mut out: Option<serde_json::Value> = headers.cloned();
+    if let Some(token) = auth {
+        match out {
+            Some(ref mut v) => {
+                if let Some(obj) = v.as_object_mut() {
+                    if !obj.contains_key("Authorization") {
+                        obj.insert(
+                            "Authorization".to_string(),
+                            serde_json::Value::String(token.to_string()),
+                        );
+                    }
+                }
+            }
+            None => {
+                let mut map = serde_json::Map::new();
+                map.insert(
+                    "Authorization".to_string(),
+                    serde_json::Value::String(token.to_string()),
+                );
+                out = Some(serde_json::Value::Object(map));
+            }
+        }
+    }
+    out
+}

@@ -1,7 +1,7 @@
 use sqlx::SqlitePool;
 
 pub const SELECT_MCP_SERVER_BY_ID: &str =
-    "SELECT transport, command, args, env, cwd, url, headers, connect_timeout_ms, enabled FROM mcp_servers WHERE id = ?";
+    "SELECT transport, command, args, env, cwd, url, headers, auth, heartbeat_sec, connect_timeout_ms, enabled FROM mcp_servers WHERE id = ?";
 
 #[derive(sqlx::FromRow)]
 pub struct DbMcpServer {
@@ -12,6 +12,8 @@ pub struct DbMcpServer {
     pub cwd: Option<String>,
     pub url: Option<String>,
     pub headers: Option<String>,
+    pub auth: Option<String>,
+    pub heartbeat_sec: Option<i64>,
     pub connect_timeout_ms: Option<i64>,
     pub enabled: i64,
 }

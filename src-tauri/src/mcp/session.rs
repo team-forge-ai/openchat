@@ -4,7 +4,7 @@ use sqlx::SqlitePool;
 
 use crate::mcp::constants::MCP_DEFAULT_CONNECT_TIMEOUT_MS;
 use crate::mcp::serde_utils::{
-    parse_mcp_json_object, parse_mcp_json_object_opt, parse_mcp_string_array,
+    merge_auth_header, parse_mcp_json_object, parse_mcp_json_object_opt, parse_mcp_string_array,
 };
 use crate::mcp::store::{fetch_mcp_server, DbMcpServer};
 use crate::mcp::McpManager;
@@ -80,7 +80,11 @@ async fn ensure_http_from_row(
         .url
         .as_deref()
         .ok_or_else(|| "missing url".to_string())?;
-    let headers_val = parse_mcp_json_object_opt(row.headers.as_deref());
+    // Merge headers + auth if provided
+    let headers_val = merge_auth_header(
+        parse_mcp_json_object_opt(row.headers.as_deref()).as_ref(),
+        row.auth.as_deref(),
+    );
     manager
         .ensure_http(id, url, headers_val.as_ref(), connect_ms)
         .await

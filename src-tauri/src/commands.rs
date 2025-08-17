@@ -3,6 +3,7 @@ use crate::mcp::constants::{
     MCP_DEFAULT_CONNECT_TIMEOUT_MS, MCP_DEFAULT_LIST_TOOLS_TIMEOUT_MS,
     MCP_DEFAULT_TOOL_CALL_TIMEOUT_MS,
 };
+use crate::mcp::serde_utils::merge_auth_header;
 use crate::mcp::session::ensure_mcp_session;
 use crate::mcp::McpManager;
 use crate::mlc_server::{MLCServerManager, MLCServerStatus};
@@ -88,12 +89,18 @@ pub async fn mcp_check_server(config: McpServerConfig) -> CmdResult<McpCheckResu
         }
         McpServerConfig::Http {
             url,
+            headers,
+            auth,
             connect_timeout_ms,
             list_tools_timeout_ms,
             ..
         } => {
+            // Merge Authorization header consistently
+            let merged_headers = merge_auth_header(headers.as_ref(), auth.as_deref());
+
             mcp::check_server(mcp::TransportConfig::Http {
                 url: &url,
+                headers: merged_headers.as_ref(),
                 connect_timeout_ms: connect_timeout_ms.unwrap_or(MCP_DEFAULT_CONNECT_TIMEOUT_MS),
                 list_tools_timeout_ms: list_tools_timeout_ms
                     .unwrap_or(MCP_DEFAULT_LIST_TOOLS_TIMEOUT_MS),

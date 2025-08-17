@@ -37,11 +37,7 @@ export interface McpServersTable {
     string | null
   >
   enabled: ColumnType<number, number | undefined, number>
-  transport: ColumnType<
-    'stdio' | 'websocket' | 'http',
-    'stdio' | 'websocket' | 'http',
-    'stdio' | 'websocket' | 'http'
-  >
+  transport: ColumnType<'stdio' | 'http', 'stdio' | 'http', 'stdio' | 'http'>
   command: ColumnType<string | null, string | null | undefined, string | null>
   args: ColumnType<string | null, string | null | undefined, string | null>
   env: ColumnType<string | null, string | null | undefined, string | null>

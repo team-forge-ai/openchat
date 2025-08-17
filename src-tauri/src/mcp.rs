@@ -94,6 +94,7 @@ pub enum TransportConfig<'a> {
     },
     Http {
         url: &'a str,
+        headers: Option<&'a serde_json::Value>,
         connect_timeout_ms: u64,
         list_tools_timeout_ms: u64,
     },
@@ -331,6 +332,7 @@ pub async fn check_server(config: TransportConfig<'_>) -> McpCheckResult {
         }
         TransportConfig::Http {
             url,
+            headers,
             connect_timeout_ms,
             list_tools_timeout_ms,
         } => {
@@ -360,7 +362,7 @@ pub async fn check_server(config: TransportConfig<'_>) -> McpCheckResult {
             let mut session = McpSession::Http {
                 client,
                 url: url.to_string(),
-                headers: None,
+                headers: headers.cloned(),
                 next_id: 0,
             };
 
@@ -801,11 +803,29 @@ impl McpManager {
                 timeout_ms,
             )
             .await?;
-        let content = result
-            .get("content")
-            .and_then(|c| c.as_str())
-            .unwrap_or("")
-            .to_string();
+        // Support both string content and array-of-blocks content per MCP
+        let content = match result.get("content") {
+            Some(val) if val.is_string() => val.as_str().unwrap_or("").to_string(),
+            Some(val) if val.is_array() => {
+                let mut out = String::new();
+                if let Some(items) = val.as_array() {
+                    for item in items {
+                        if let Some(t) = item.get("type").and_then(|t| t.as_str()) {
+                            if t == "text" {
+                                if let Some(txt) = item.get("text").and_then(|t| t.as_str()) {
+                                    if !out.is_empty() {
+                                        out.push_str("\n");
+                                    }
+                                    out.push_str(txt);
+                                }
+                            }
+                        }
+                    }
+                }
+                out
+            }
+            _ => String::new(),
+        };
         info!(
             "mcp.manager: call_tool ok (id={}, tool='{}', content_len={})",
             id,
