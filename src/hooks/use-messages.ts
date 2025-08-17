@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ModelMessage } from 'ai'
-import { streamText } from 'ai'
+import { stepCountIs, streamText } from 'ai'
 import { useRef } from 'react'
 
 import { useMcp } from '@/hooks/use-mcp'
@@ -138,6 +138,7 @@ export function useMessages(conversationId: number | null): UseMessagesResult {
         abortSignal: abortController.signal,
         tools: mcpTools,
         toolChoice: 'auto',
+        stopWhen: stepCountIs(10),
         onChunk: (chunk) => {
           console.log('[useMessages] Chunk received', chunk)
         },
