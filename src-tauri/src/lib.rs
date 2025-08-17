@@ -11,7 +11,7 @@ use tauri::{Manager, RunEvent, WindowEvent};
 // --- Internal module imports ---
 mod commands;
 mod db;
-mod mcp;
+pub mod mcp;
 mod menu;
 mod migrations;
 mod mlc_server;
