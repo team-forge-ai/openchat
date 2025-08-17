@@ -15,6 +15,13 @@ export async function getSystemPrompt(): Promise<string> {
   return row?.system_prompt ?? ''
 }
 
+/**
+ * Updates the singleton application setting for the system prompt.
+ * Also refreshes the `updated_at` timestamp.
+ *
+ * @param prompt The full system prompt text to store.
+ * @returns A promise that resolves when the update has been persisted.
+ */
 export async function setSystemPrompt(prompt: string): Promise<void> {
   const db = await getKysely()
   await db

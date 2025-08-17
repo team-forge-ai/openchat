@@ -116,20 +116,22 @@ function normalizeCheckResult(raw: unknown): McpCheckResult {
 }
 
 /**
- * Lists all available tools for the MCP server with the given ID.
- * @param id - The MCP server ID to list tools for
- * @returns A promise that resolves to an array of tool information
+ * Lists all available tools for the MCP server with the given id.
+ *
+ * @param id The MCP server id.
+ * @returns The list of tool descriptors available on the server.
  */
 export async function mcpListTools(id: number): Promise<McpToolInfo[]> {
   return await invoke<McpToolInfo[]>('mcp_list_tools', { id })
 }
 
 /**
- * Calls an MCP tool on the server with the given ID.
- * @param id - The MCP server ID to call the tool on
- * @param tool - The name of the tool to call
- * @param args - The arguments to pass to the tool
- * @returns A promise that resolves to the tool's response as a string
+ * Calls an MCP tool on the server with the given id.
+ *
+ * @param id The MCP server id to call the tool on.
+ * @param tool The tool name to execute.
+ * @param args Arguments to pass to the tool.
+ * @returns The tool's string output; rejects on transport or server errors.
  */
 export async function mcpCallTool(
   id: number,

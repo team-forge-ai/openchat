@@ -13,12 +13,26 @@ export async function insertConversation(): Promise<number> {
   return Number(row.id)
 }
 
+/**
+ * Permanently deletes all conversations and their messages.
+ * Intended for development and testing only.
+ *
+ * @returns A promise that resolves when all rows are removed.
+ */
 export async function deleteAllConversations(): Promise<void> {
   const db = await getKysely()
   await db.deleteFrom('messages').execute()
   await db.deleteFrom('conversations').execute()
 }
 
+/**
+ * Sets the conversation title only if it is currently null or empty.
+ * Also updates the conversation's `updated_at` timestamp.
+ *
+ * @param conversationId The conversation identifier.
+ * @param title The title to set when it is currently unset.
+ * @returns True if a row was updated; false otherwise.
+ */
 export async function updateConversationTitleIfUnset(
   conversationId: number,
   title: string,
@@ -39,6 +53,12 @@ export async function updateConversationTitleIfUnset(
   return rowsAffected > 0
 }
 
+/**
+ * Updates the conversation's `updated_at` timestamp to the current time.
+ *
+ * @param conversationId The conversation identifier.
+ * @returns A promise that resolves when the timestamp is updated.
+ */
 export async function touchConversation(conversationId: number): Promise<void> {
   const db = await getKysely()
   const setValues: Updateable<any> = {
@@ -51,6 +71,14 @@ export async function touchConversation(conversationId: number): Promise<void> {
     .execute()
 }
 
+/**
+ * Lists conversations, optionally filtered by a search term.
+ * The search matches title LIKE, message content (FTS), and title (FTS).
+ * Results are ordered by `updated_at` descending.
+ *
+ * @param search Optional search term. When provided, applies LIKE and FTS filters.
+ * @returns A list of conversation summaries.
+ */
 export async function getConversations(
   search?: string,
 ): Promise<Conversation[]> {
@@ -91,6 +119,12 @@ export async function getConversations(
   return rows
 }
 
+/**
+ * Deletes a conversation and all of its messages.
+ *
+ * @param conversationId The conversation identifier to delete.
+ * @returns A promise that resolves when the rows are removed.
+ */
 export async function deleteConversation(
   conversationId: number,
 ): Promise<void> {
@@ -105,6 +139,12 @@ export async function deleteConversation(
     .execute()
 }
 
+/**
+ * Fetches a single conversation by id.
+ *
+ * @param conversationId The conversation identifier.
+ * @returns The conversation row or throws if not found.
+ */
 export async function getConversation(
   conversationId: number,
 ): Promise<Conversation> {

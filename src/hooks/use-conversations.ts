@@ -23,6 +23,15 @@ interface UseConversationsResult {
   }
 }
 
+/**
+ * useConversations
+ *
+ * Loads conversations and exposes mutations to create or delete a conversation.
+ * Query results are cached via TanStack Query and invalidated on mutations.
+ *
+ * @param search Optional search term to filter conversations.
+ * @returns The list, loading state, and mutations: `createConversation`, `deleteConversation`.
+ */
 export function useConversations(search?: string): UseConversationsResult {
   const queryClient = useQueryClient()
   const { selectedConversationId, setSelectedConversationId } = useAppContext()

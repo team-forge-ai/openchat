@@ -72,13 +72,18 @@ export function useMcp(): UseMcpResult {
     queryKey: ['mcp-servers-enabled'],
     queryFn: async () => {
       const all = await getMcpServers()
-      console.log('all', all)
       return all.filter((r) => !!r.enabled)
     },
   })
 
   const toolsQ = useQuery<ToolsByServer[]>({
-    queryKey: ['mcp-tools', serversQ.data?.map((s) => s.id).join(',')],
+    queryKey: [
+      'mcp-tools',
+      (serversQ.data ?? [])
+        .map((s) => s.id)
+        .sort((a, b) => a - b)
+        .join(','),
+    ],
     enabled: !!serversQ.data?.length,
     queryFn: async () => {
       const servers = serversQ.data ?? []

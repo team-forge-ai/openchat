@@ -2,6 +2,12 @@ import type { McpServerRow } from '@/types'
 import type { McpServerConfig } from '@/types/mcp'
 import type { McpServerFormValues } from '@/types/mcp-form'
 
+/**
+ * Maps an `mcp_servers` DB row to form values for the settings UI.
+ *
+ * @param row The database row.
+ * @returns Form values suitable for `McpServerForm`.
+ */
 export function rowToForm(row: McpServerRow): McpServerFormValues {
   if (row.transport === 'stdio') {
     return {
@@ -28,6 +34,12 @@ export function rowToForm(row: McpServerRow): McpServerFormValues {
   return { transport: 'http', ...base }
 }
 
+/**
+ * Maps a runtime `McpServerConfig` to form values for editing.
+ *
+ * @param config The in-memory server configuration.
+ * @returns Form values suitable for `McpServerForm`.
+ */
 export function configToForm(config: McpServerConfig): McpServerFormValues {
   if (config.transport === 'stdio') {
     return {
@@ -59,6 +71,12 @@ export function configToForm(config: McpServerConfig): McpServerFormValues {
   }
 }
 
+/**
+ * Converts validated form values into a runtime `McpServerConfig`.
+ *
+ * @param values The form values from the settings UI.
+ * @returns A normalized `McpServerConfig` object.
+ */
 export function formToConfig(values: McpServerFormValues): McpServerConfig {
   if (values.transport === 'stdio') {
     return {
@@ -84,6 +102,13 @@ export function formToConfig(values: McpServerFormValues): McpServerConfig {
   }
 }
 
+/**
+ * Converts form values into an insertable payload for `mcp_servers`.
+ * Serializes arrays/records to JSON for storage in text columns.
+ *
+ * @param values The form values.
+ * @returns Attributes suitable for inserting into `mcp_servers`.
+ */
 export function formToDbInsert(values: McpServerFormValues) {
   const base = {
     name: values.name,

@@ -35,6 +35,17 @@ interface UseMessagesResult {
   abortStreaming: () => void
 }
 
+/**
+ * useMessages
+ *
+ * Provides conversation messages, and a `sendMessage` mutation that inserts the
+ * user message, streams the assistant response (including reasoning, when
+ * available), writes updates to the DB incrementally, and finalizes the record
+ * upon completion. Also exposes `abortStreaming` to cancel an in-flight stream.
+ *
+ * @param conversationId The active conversation ID, or null to disable.
+ * @returns `{ messages, isLoading, sendMessage, isSendingMessage, abortStreaming }`.
+ */
 export function useMessages(conversationId: number | null): UseMessagesResult {
   const queryClient = useQueryClient()
   const abortControllerRef = useRef<AbortController | null>(null)

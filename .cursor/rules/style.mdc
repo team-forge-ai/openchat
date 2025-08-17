@@ -35,4 +35,5 @@ Non-negotiables:
 - Prefer to split out logic into smaller files.
 - Never use `any` or `as any` in Typescript.
 - Never use single character variable names.
+- Always write documentation for all public APIs.
 - Always run build/typecheck/lint before declaring done.

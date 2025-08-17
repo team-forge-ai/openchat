@@ -11,18 +11,27 @@ export async function getMcpServers(search?: string): Promise<McpServerRow[]> {
 
   if (search?.trim()) {
     const pattern = `%${search}%`
-    query = query.where((eb) =>
-      eb.or([
+    query = query.where((eb) => {
+      const clauses = [
         eb('name', 'like', pattern),
         eb('description', 'like', pattern),
-        eb('transport', '=', search as any),
-      ]),
-    )
+      ]
+      if (search === 'stdio' || search === 'http') {
+        clauses.push(eb('transport', '=', search))
+      }
+      return eb.or(clauses)
+    })
   }
 
   return await query.orderBy('updated_at', 'desc').execute()
 }
 
+/**
+ * Fetches an MCP server by id.
+ *
+ * @param id The server id.
+ * @returns The server row or null if not found.
+ */
 export async function getMcpServerById(
   id: number,
 ): Promise<McpServerRow | null> {
@@ -35,6 +44,12 @@ export async function getMcpServerById(
   return row ?? null
 }
 
+/**
+ * Inserts a new MCP server row.
+ *
+ * @param attrs Insertable attributes matching the `mcp_servers` table.
+ * @returns The newly created id.
+ */
 export async function insertMcpServer(
   attrs: Insertable<DB['mcp_servers']>,
 ): Promise<number> {
@@ -47,6 +62,13 @@ export async function insertMcpServer(
   return Number(row.id)
 }
 
+/**
+ * Updates an existing MCP server row and refreshes `updated_at`.
+ *
+ * @param id The server id.
+ * @param attrs Attributes to update.
+ * @returns A promise that resolves when the update is persisted.
+ */
 export async function updateMcpServer(
   id: number,
   attrs: Updateable<DB['mcp_servers']>,
@@ -62,11 +84,23 @@ export async function updateMcpServer(
     .execute()
 }
 
+/**
+ * Deletes an MCP server by id.
+ *
+ * @param id The server id to delete.
+ */
 export async function deleteMcpServer(id: number): Promise<void> {
   const db = await getKysely()
   await db.deleteFrom('mcp_servers').where('id', '=', id).execute()
 }
 
+/**
+ * Enables or disables an MCP server.
+ * Also refreshes `updated_at`.
+ *
+ * @param id The server id.
+ * @param enabled True to enable, false to disable.
+ */
 export async function setMcpServerEnabled(
   id: number,
   enabled: boolean,

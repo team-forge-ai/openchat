@@ -3,6 +3,16 @@ import { useCallback } from 'react'
 import { useAppContext } from '@/contexts/app-context'
 import { useConversations } from '@/hooks/use-conversations'
 
+/**
+ * useAppActions
+ *
+ * Returns imperative actions for common app-level behaviors:
+ * - create a new conversation and select it
+ * - toggle the settings view
+ * - open the settings view
+ *
+ * @returns An object with action callbacks: `createNewConversation()`, `toggleSettings()`, `openSettings()`.
+ */
 export function useAppActions() {
   const { setSelectedConversationId, view, setView } = useAppContext()
   const { createConversation, isLoading } = useConversations()

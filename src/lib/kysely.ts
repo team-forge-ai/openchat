@@ -8,6 +8,12 @@ import type { DB } from '@/types/db'
 
 let kyselySingleton: Kysely<DB> | undefined
 
+/**
+ * Lazily creates and returns a singleton `Kysely` instance backed by
+ * the Tauri SQLite plugin. Subsequent calls reuse the same instance.
+ *
+ * @returns A singleton `Kysely<DB>` instance for database access.
+ */
 export async function getKysely(): Promise<Kysely<DB>> {
   if (kyselySingleton) {
     return kyselySingleton

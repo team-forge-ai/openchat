@@ -11,6 +11,15 @@ interface UseSystemPromptResult {
   setSystemPrompt: (value: string) => void
 }
 
+/**
+ * useSystemPrompt
+ *
+ * Provides accessors for the global system prompt stored in the local DB,
+ * including the current value, loading state, and a setter that updates the
+ * DB and invalidates the related cache.
+ *
+ * @returns An object with `systemPrompt`, `isLoading`, and `setSystemPrompt(value)`.
+ */
 export function useSystemPrompt(): UseSystemPromptResult {
   const queryClient = useQueryClient()
 

@@ -6,8 +6,11 @@ import { mlxServer } from '@/lib/mlc-server'
 import { toTitleCase } from '@/lib/utils'
 
 /**
- * Attempts to generate a short, descriptive conversation name from the given chat messages.
- * Returns the name as a string, or null if a suitable name could not be generated.
+ * Attempts to generate a short, descriptive conversation title from chat messages.
+ * Uses the local MLC model to produce a JSON object and sanitizes the result.
+ *
+ * @param messages Chat messages to summarize.
+ * @returns A title string, or null if one could not be generated.
  */
 export async function generateConversationTitle(
   messages: ModelMessage[],

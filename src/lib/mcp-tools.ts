@@ -10,6 +10,14 @@ export type McpToolCaller = (
   args: unknown,
 ) => Promise<string>
 
+/**
+ * Builds a dynamic tools map for the AI SDK from discovered MCP tools.
+ * Tool keys are generated as `mcp_<serverId>_<toolName>`.
+ *
+ * @param items Pairings of server row and its tools list.
+ * @param callTool Callback used to execute a tool with arguments.
+ * @returns A map consumable by AI SDK tool registries.
+ */
 export function createMcpToolsMap(
   items: { server: McpServerRow; tools: McpToolInfo[] }[],
   callTool: McpToolCaller,

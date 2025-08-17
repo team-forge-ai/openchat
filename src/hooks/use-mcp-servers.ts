@@ -10,6 +10,16 @@ import {
 import { mcpCheckServer } from '@/lib/mcp-bridge'
 import type { McpCheckResult, McpServerConfig } from '@/types/mcp'
 
+/**
+ * useMcpServers
+ *
+ * Manages MCP server configurations from the local DB: list, create, update,
+ * delete, enable/disable, and a `check` helper to validate a server config
+ * via the MCP bridge.
+ *
+ * @param search Optional search term to filter servers.
+ * @returns `{ servers, isLoading, create, update, remove, setEnabled, check }`.
+ */
 export function useMcpServers(search?: string) {
   const queryClient = useQueryClient()
 

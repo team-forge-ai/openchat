@@ -286,10 +286,7 @@ export function McpServerFormDialog({
             <div className="space-y-3">
               <label className="text-sm block">
                 <div className="mb-1">URL</div>
-                <Input
-                  {...form.register('url')}
-                  placeholder="wss://... or https://..."
-                />
+                <Input {...form.register('url')} placeholder="https://..." />
                 {transport === 'http' && httpErrors.url?.message && (
                   <div className="text-xs text-destructive mt-1">
                     {httpErrors.url?.message}

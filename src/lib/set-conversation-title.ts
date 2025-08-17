@@ -8,6 +8,14 @@ import {
 import { getMessagesForChat } from '@/lib/db/messages'
 import { generateConversationTitle } from '@/lib/generate-conversation-title'
 
+/**
+ * Generates and sets a conversation title if none exists.
+ * Uses recent messages to produce a short title with the local model.
+ * Invalidates the `conversations` query on success.
+ *
+ * @param queryClient React Query client used to invalidate caches.
+ * @param conversationId The conversation identifier.
+ */
 export async function setConversationTitleIfUnset(
   queryClient: QueryClient,
   conversationId: number,
