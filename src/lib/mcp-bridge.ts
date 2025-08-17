@@ -93,6 +93,8 @@ function toRustConfigPayload(config: McpServerConfig): RustMcpServerConfig {
 const RustMcpToolInfoSchema = z.object({
   name: z.string(),
   description: z.string().optional(),
+  // Tools may include a JSON schema describing their input. Accept any object.
+  inputSchema: z.record(z.unknown()).optional(),
 })
 
 const RustMcpCheckResultSchema = z.object({

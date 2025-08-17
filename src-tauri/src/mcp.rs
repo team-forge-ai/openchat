@@ -70,6 +70,9 @@ fn sh_escape(arg: &str) -> String {
 pub struct McpToolInfo {
     pub name: String,
     pub description: Option<String>,
+    /// JSON schema describing the tool input. Serialized as `inputSchema` for the frontend.
+    #[serde(rename = "inputSchema", skip_serializing_if = "Option::is_none")]
+    pub input_schema: Option<serde_json::Value>,
 }
 
 /// Result of performing a best-effort server check.
@@ -294,10 +297,25 @@ pub async fn check_server(config: TransportConfig<'_>) -> McpCheckResult {
                     .and_then(|t| t.as_array())
                     .map(|arr| {
                         arr.iter()
-                            .filter_map(|t| t.get("name").and_then(|n| n.as_str()))
-                            .map(|name| McpToolInfo {
-                                name: name.to_string(),
-                                description: None,
+                            .filter_map(|tool| {
+                                let name = tool.get("name").and_then(|n| n.as_str())?;
+                                let description = tool
+                                    .get("description")
+                                    .and_then(|d| d.as_str())
+                                    .map(|s| s.to_string());
+                                // Support both inputSchema (camelCase) and input_schema (snake_case)
+                                let schema_val = tool
+                                    .get("inputSchema")
+                                    .cloned()
+                                    .or_else(|| tool.get("input_schema").cloned());
+                                let input_schema =
+                                    schema_val
+                                        .and_then(|v| if v.is_object() { Some(v) } else { None });
+                                Some(McpToolInfo {
+                                    name: name.to_string(),
+                                    description,
+                                    input_schema,
+                                })
                             })
                             .collect::<Vec<_>>()
                     })
@@ -400,10 +418,24 @@ pub async fn check_server(config: TransportConfig<'_>) -> McpCheckResult {
                     .and_then(|t| t.as_array())
                     .map(|arr| {
                         arr.iter()
-                            .filter_map(|t| t.get("name").and_then(|n| n.as_str()))
-                            .map(|name| McpToolInfo {
-                                name: name.to_string(),
-                                description: None,
+                            .filter_map(|tool| {
+                                let name = tool.get("name").and_then(|n| n.as_str())?;
+                                let description = tool
+                                    .get("description")
+                                    .and_then(|d| d.as_str())
+                                    .map(|s| s.to_string());
+                                let schema_val = tool
+                                    .get("inputSchema")
+                                    .cloned()
+                                    .or_else(|| tool.get("input_schema").cloned());
+                                let input_schema =
+                                    schema_val
+                                        .and_then(|v| if v.is_object() { Some(v) } else { None });
+                                Some(McpToolInfo {
+                                    name: name.to_string(),
+                                    description,
+                                    input_schema,
+                                })
                             })
                             .collect::<Vec<_>>()
                     })
@@ -769,11 +801,22 @@ impl McpManager {
             .and_then(|t| t.as_array())
             .ok_or("invalid tools")?;
         let mut out = Vec::with_capacity(tools.len());
-        for t in tools {
-            if let Some(name) = t.get("name").and_then(|n| n.as_str()) {
+        for tool in tools {
+            if let Some(name) = tool.get("name").and_then(|n| n.as_str()) {
+                let description = tool
+                    .get("description")
+                    .and_then(|d| d.as_str())
+                    .map(|s| s.to_string());
+                let schema_val = tool
+                    .get("inputSchema")
+                    .cloned()
+                    .or_else(|| tool.get("input_schema").cloned());
+                let input_schema =
+                    schema_val.and_then(|v| if v.is_object() { Some(v) } else { None });
                 out.push(McpToolInfo {
                     name: name.to_string(),
-                    description: None,
+                    description,
+                    input_schema,
                 });
             }
         }
