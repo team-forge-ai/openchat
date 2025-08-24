@@ -1,3 +1,5 @@
+#[cfg(unix)]
+use libc;
 use serde::{Deserialize, Serialize};
 use std::net::TcpListener;
 use tauri::{AppHandle, Emitter};
@@ -44,6 +46,7 @@ pub struct MLCServerManager {
     app_handle: AppHandle,
     status: RwLock<MLCServerStatus>,
     child: Mutex<Option<CommandChild>>,
+    #[cfg(unix)]
     config: RwLock<MLCServerConfig>,
 }
 
@@ -96,7 +99,7 @@ impl MLCServerManager {
 
         // Poll readiness a few times
         let mut attempts = 0usize;
-        let max_attempts = 30usize; // ~30s
+        let max_attempts = 50usize;
         while attempts < max_attempts {
             log::debug!(
                 "MLCServerManager: Health check attempt {} of {}",
@@ -162,7 +165,7 @@ impl MLCServerManager {
         }
 
         // Build and spawn the sidecar via Tauri Shell plugin
-        let command = self
+        let mut command = self
             .app_handle
             .shell()
             .sidecar("openchat-mlx-server")
@@ -176,35 +179,71 @@ impl MLCServerManager {
                 &chosen_port.to_string(),
             ]);
 
+        // Prefer a co-located python3 interpreter if present next to the app/sidecar
+        if let Ok(exe_path) = std::env::current_exe() {
+            if let Some(exe_dir) = exe_path.parent() {
+                let python_candidates = [
+                    exe_dir.join("python3"),
+                    exe_dir.join("python3-aarch64-apple-darwin"),
+                ];
+                for candidate in python_candidates.iter() {
+                    if candidate.exists() {
+                        command = command.env(
+                            "OPENCHAT_MLX_SERVER_PYTHON",
+                            candidate.to_string_lossy().to_string(),
+                        );
+                        break;
+                    }
+                }
+            }
+        }
+
         let (mut rx, child) = command
             .spawn()
             .map_err(|e| format!("Failed to spawn openchat-mlx-server: {e}"))?;
 
-        // Track child pid
+        // // Track child pid
         let pid = child.pid();
 
-        // Pipe stdout/stderr events to log
-        tokio::spawn(async move {
-            while let Some(event) = rx.recv().await {
-                match event {
-                    CommandEvent::Stdout(line) => {
-                        log::info!(
-                            target: "openchat-mlx-server",
-                            "STDOUT: {}",
-                            String::from_utf8_lossy(&line)
-                        );
-                    }
-                    CommandEvent::Stderr(line) => {
-                        log::warn!(
-                            target: "openchat-mlx-server",
-                            "STDERR: {}",
-                            String::from_utf8_lossy(&line)
-                        );
-                    }
-                    _ => {}
-                }
-            }
-        });
+        // // Capture child's process group id for later termination even if wrapper exits
+        // #[cfg(unix)]
+        // {
+        //     let pgid = unsafe { libc::getpgid(pid as i32) };
+        //     let mut pg_guard = self.child_pgid.lock().await;
+        //     if pgid != -1 {
+        //         *pg_guard = Some(pgid);
+        //         log::info!(
+        //             "MLCServerManager: Captured child PGID {} for PID {}",
+        //             pgid,
+        //             pid
+        //         );
+        //     } else {
+        //         *pg_guard = None;
+        //     }
+        // }
+
+        // // Pipe stdout/stderr events to log
+        // tokio::spawn(async move {
+        //     while let Some(event) = rx.recv().await {
+        //         match event {
+        //             CommandEvent::Stdout(line) => {
+        //                 log::info!(
+        //                     target: "openchat-mlx-server",
+        //                     "STDOUT: {}",
+        //                     String::from_utf8_lossy(&line)
+        //                 );
+        //             }
+        //             CommandEvent::Stderr(line) => {
+        //                 log::warn!(
+        //                     target: "openchat-mlx-server",
+        //                     "STDERR: {}",
+        //                     String::from_utf8_lossy(&line)
+        //                 );
+        //             }
+        //             _ => {}
+        //         }
+        //     }
+        // });
 
         // Save child handle
         {
@@ -225,8 +264,17 @@ impl MLCServerManager {
         Ok(())
     }
 
-    /// Stop the server if running
+    /// Stop the server if running. Does not kill our own process group.
     pub async fn stop(&self) {
+        // Return early if the server is not running
+        {
+            let status = self.status.read().await;
+            if !status.is_running {
+                log::info!("MLCServerManager: Server is not running, skipping stop");
+                return;
+            }
+        }
+
         log::info!("MLCServerManager: Stopping server");
         if let Some(child) = self.child.lock().await.take() {
             log::info!("MLCServerManager: Killing child process");

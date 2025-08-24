@@ -1,9 +1,16 @@
+# Debug process issue
+
+- [] See what happens when you don't kill the process + kill it manually
+- [] See what happens when you use process handler instead of sidecar
+- [] See what happens when you make sure it's not using a subthread
+- [] Why is it creating two processes?
+
 # Priority
 
-- [] mcp response still not working (find a test mcp server (most of them suck))
 - [] add sonner progress bar for model downloads
 - [] create mcp server store
 - [] create model store
+- [] conversation timeout
 
 # Nice to have
 
@@ -14,6 +21,7 @@
 
 # Done
 
+- [x] mcp response still not working (find a test mcp server (most of them suck))
 - [x] mcp integration
 - [x] only scroll the chat when a new message is received
 - [x] chat message skeleton loading isn't working

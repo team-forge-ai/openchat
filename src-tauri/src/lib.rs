@@ -17,6 +17,7 @@ mod migrations;
 mod mlc_server;
 mod model_download;
 mod model_store;
+mod process;
 
 /// Name of the SQLite database file used by the app.
 const DB_FILE_NAME: &str = "chatchat3.db";
@@ -34,7 +35,6 @@ pub fn run() {
     dotenvy::dotenv().ok();
 
     let app = tauri::Builder::default()
-        .plugin(tauri_plugin_shell::init())
         .plugin(
             tauri_plugin_sql::Builder::default()
                 .add_migrations(
@@ -126,11 +126,11 @@ fn handle_window_destroyed(_window: &tauri::Window) {
 /// Handles cleanup when the application is exiting (shuts down server).
 fn handle_app_exit(app: &tauri::AppHandle) {
     log::info!("App exiting; stopping MLC server...");
-    if let Some(state) = app.try_state::<Arc<crate::mlc_server::MLCServerManager>>() {
-        // Block until stop completes to ensure process is terminated
-        let manager: Arc<crate::mlc_server::MLCServerManager> = state.inner().clone();
-        let _ = tauri::async_runtime::block_on(async move {
-            manager.stop().await;
-        });
-    }
+    // if let Some(state) = app.try_state::<Arc<crate::mlc_server::MLCServerManager>>() {
+    //     // Block until stop completes to ensure process is terminated
+    //     let manager: Arc<crate::mlc_server::MLCServerManager> = state.inner().clone();
+    //     let _ = tauri::async_runtime::block_on(async move {
+    //         manager.stop_on_exit().await;
+    //     });
+    // }
 }
