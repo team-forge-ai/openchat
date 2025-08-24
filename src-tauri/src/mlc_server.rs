@@ -175,40 +175,7 @@ impl MLCServerManager {
             .map_err(|e| format!("Failed to start openchat-mlx-server: {e}"))?;
 
         // Drain and log stdout/stderr
-        tauri::async_runtime::spawn(async move {
-            let mut rx = rx;
-            while let Some(event) = rx.recv().await {
-                match event {
-                    CommandEvent::Stdout(bytes) => {
-                        if let Ok(line) = String::from_utf8(bytes) {
-                            let line = line.trim_end_matches('\n');
-                            if !line.is_empty() {
-                                log::info!("[mlx-server] {line}");
-                            }
-                        }
-                    }
-                    CommandEvent::Stderr(bytes) => {
-                        if let Ok(line) = String::from_utf8(bytes) {
-                            let line = line.trim_end_matches('\n');
-                            if !line.is_empty() {
-                                log::error!("[mlx-server] {line}");
-                            }
-                        }
-                    }
-                    CommandEvent::Error(err) => {
-                        log::error!("[mlx-server] error: {err}");
-                    }
-                    CommandEvent::Terminated(payload) => {
-                        log::info!(
-                            "[mlx-server] terminated: code={:?} signal={:?}",
-                            payload.code,
-                            payload.signal
-                        );
-                    }
-                    _ => {}
-                }
-            }
-        });
+        spawn_command_log_relay("[mlx-server]", rx);
 
         let pid = child.pid();
 
@@ -279,6 +246,49 @@ impl MLCServerManager {
     }
 
     // Removed manual resource resolver; sidecar paths are resolved via Shell plugin.
+}
+
+/// Spawns a task that relays and logs CommandEvent output with a consistent prefix.
+fn spawn_command_log_relay(
+    prefix: impl Into<String>,
+    rx: tauri::async_runtime::Receiver<CommandEvent>,
+) {
+    let prefix = prefix.into();
+    tauri::async_runtime::spawn(async move {
+        let mut rx = rx;
+        while let Some(event) = rx.recv().await {
+            match event {
+                CommandEvent::Stdout(bytes) => {
+                    if let Ok(line) = String::from_utf8(bytes) {
+                        let line = line.trim_end_matches('\n');
+                        if !line.is_empty() {
+                            log::info!("{} {}", prefix, line);
+                        }
+                    }
+                }
+                CommandEvent::Stderr(bytes) => {
+                    if let Ok(line) = String::from_utf8(bytes) {
+                        let line = line.trim_end_matches('\n');
+                        if !line.is_empty() {
+                            log::error!("{} {}", prefix, line);
+                        }
+                    }
+                }
+                CommandEvent::Error(err) => {
+                    log::error!("{} error: {}", prefix, err);
+                }
+                CommandEvent::Terminated(payload) => {
+                    log::info!(
+                        "{} terminated: code={:?} signal={:?}",
+                        prefix,
+                        payload.code,
+                        payload.signal
+                    );
+                }
+                _ => {}
+            }
+        }
+    });
 }
 
 /// GET /v1/models with a short timeout; ensures a JSON response containing a `data` array.
