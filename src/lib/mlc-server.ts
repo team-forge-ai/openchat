@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/core'
 import type { UnlistenFn } from '@tauri-apps/api/event'
 import { listen } from '@tauri-apps/api/event'
 
+import { EVENT_MLC_STATUS_CHANGED } from '@/lib/events'
 import { createMlcClient } from '@/lib/mlc-client'
 import type { MLCServerStatusWire, MLCStatus } from '@/types/mlc-server'
 
@@ -29,7 +30,7 @@ class MLCServerService {
       return
     }
     this.tauriUnlisten = await listen<MLCServerStatusWire>(
-      'mlc-status-changed',
+      EVENT_MLC_STATUS_CHANGED,
       (event) => {
         const status = fromWire(event.payload)
         this.currentStatus = status
