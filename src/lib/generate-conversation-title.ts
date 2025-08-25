@@ -27,7 +27,7 @@ export async function generateConversationTitle(
     {
       role: 'user',
       content:
-        'Given the following conversation messages, output a short, descriptive title of 2-3 words. Title case. No quotes, emojis, or trailing punctuation. Respond as a JSON object matching the schema { "title": string }. If no good title is possible, set title to "None".\n\n' +
+        'Given the following conversation messages, output a short, descriptive title of 2-3 words. Title case. No quotes, emojis, or trailing punctuation. Respond as a JSON object matching the schema { "title": string }. Ignore messages that are purely conversational (e.g. "Hello", "Hi", "How are you?"). If no good title is possible, set title to "None".\n\n' +
         JSON.stringify(messages) +
         '\n\n' +
         'Only return the JSON object.',
@@ -90,6 +90,8 @@ function isGenericTitle(title: string): boolean {
     'chat',
     'general',
     'misc',
+    'hello',
+    'greeting',
   ])
   return generics.has(t)
 }
