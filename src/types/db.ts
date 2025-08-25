@@ -24,6 +24,7 @@ export interface MessagesTable {
 export interface AppSettingsTable {
   id: ColumnType<number, number, number>
   system_prompt: ColumnType<string, string | undefined, string>
+  model: ColumnType<string | null, string | null | undefined, string | null>
   created_at: ColumnType<string, string | undefined, never>
   updated_at: ColumnType<string, string | undefined, string>
 }

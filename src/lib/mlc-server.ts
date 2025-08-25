@@ -4,7 +4,8 @@ import { listen } from '@tauri-apps/api/event'
 
 import { EVENT_MLC_STATUS_CHANGED } from '@/lib/events'
 import { createMlcClient } from '@/lib/mlc-client'
-import type { MLCServerStatusWire, MLCStatus } from '@/types/mlc-server'
+import type { MLCServerStatusWire, MLCStatus, Model } from '@/types/mlc-server'
+import { ModelsResponseSchema } from '@/types/mlc-server'
 
 function fromWire(status: MLCServerStatusWire): MLCStatus {
   return {
@@ -97,7 +98,7 @@ class MLCServerService {
   }
 
   /** Returns an OpenAI-compatible model instance bound to the current server. */
-  get model() {
+  get client() {
     const endpoint = this.endpoint
 
     if (!endpoint) {
@@ -106,6 +107,22 @@ class MLCServerService {
 
     // Use a default model identifier since we're not specifying a specific model
     return createMlcClient({ modelId: 'default', endpoint })
+  }
+
+  async fetchModels(): Promise<Model[]> {
+    if (!this.endpoint) {
+      return []
+    }
+
+    const response = await fetch(new URL('/v1/models', this.endpoint))
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch models')
+    }
+
+    const data: unknown = await response.json()
+    const parsedResponse = ModelsResponseSchema.parse(data)
+    return parsedResponse.data
   }
 }
 

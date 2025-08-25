@@ -4,6 +4,7 @@ import { Separator } from '@/components/ui/separator'
 import { SidebarInset } from '@/components/ui/sidebar'
 
 import { McpServersSettings } from './settings/mcp-servers'
+import { ModelSelection } from './settings/model-selection'
 import { SystemPromptSettings } from './settings/system-prompt'
 
 export const SettingsWindow: React.FC = () => {
@@ -19,6 +20,17 @@ export const SettingsWindow: React.FC = () => {
           </div>
           <Separator className="my-6" />
           <SystemPromptSettings />
+        </section>
+
+        <section id="model-selection" className="space-y-6">
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight">Model</h2>
+            <p className="text-muted-foreground">
+              Choose which model to use for new conversations.
+            </p>
+          </div>
+          <Separator className="my-6" />
+          <ModelSelection />
         </section>
 
         <section id="mcp-servers" className="space-y-6">

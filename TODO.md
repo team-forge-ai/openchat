@@ -7,6 +7,7 @@
 - [] create model store
 - [] conversation timeout
 - [] where has reasoning gone?
+- [] internet connectino required
 
 # Nice to have
 

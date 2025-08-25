@@ -2,6 +2,9 @@ import type { ModelMessage } from 'ai'
 import { generateObject } from 'ai'
 import { z } from 'zod'
 
+import { DEFAULT_MODEL } from '@/hooks/use-model'
+import { getModel } from '@/lib/db/app-settings'
+import { createMlcClient } from '@/lib/mlc-client'
 import { mlxServer } from '@/lib/mlc-server'
 import { toTitleCase } from '@/lib/utils'
 
@@ -10,10 +13,12 @@ import { toTitleCase } from '@/lib/utils'
  * Uses the local MLC model to produce a JSON object and sanitizes the result.
  *
  * @param messages Chat messages to summarize.
+ * @param modelId Optional model ID to use. If not provided, uses the app setting or 'default'.
  * @returns A title string, or null if one could not be generated.
  */
 export async function generateConversationTitle(
   messages: ModelMessage[],
+  modelId?: string,
 ): Promise<string | null> {
   if (!Array.isArray(messages) || messages.length === 0) {
     return null
@@ -34,7 +39,15 @@ export async function generateConversationTitle(
     },
   ]
 
-  const model = mlxServer.model
+  // Get the configured model or use the provided override
+  const configuredModelId = modelId || (await getModel()) || DEFAULT_MODEL
+
+  const endpoint = mlxServer.endpoint
+  if (!endpoint) {
+    throw new Error('MLC server is not ready')
+  }
+
+  const model = createMlcClient({ modelId: configuredModelId, endpoint })
 
   try {
     console.log('Generating conversation title with messages:', chatMessages)

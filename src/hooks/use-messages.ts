@@ -4,6 +4,7 @@ import { stepCountIs, streamText } from 'ai'
 import { useRef } from 'react'
 
 import { useMcp } from '@/hooks/use-mcp'
+import { useModel } from '@/hooks/use-model'
 import { getSystemPrompt } from '@/lib/db/app-settings'
 import { touchConversation } from '@/lib/db/conversations'
 import {
@@ -13,6 +14,7 @@ import {
   updateMessage,
 } from '@/lib/db/messages'
 import { createMcpToolsMap } from '@/lib/mcp-tools'
+import { createMlcClient } from '@/lib/mlc-client'
 import { mlxServer } from '@/lib/mlc-server'
 import { DEFAULT_SETTINGS_PROMPT, SYSTEM_PROMPT } from '@/lib/prompt'
 import { setConversationTitleIfUnset } from '@/lib/set-conversation-title'
@@ -21,6 +23,11 @@ import type { Message } from '@/types'
 interface SendMessageVariables {
   conversationId: number
   content: string
+}
+
+interface UseMessagesOptions {
+  /** Optional model ID to use. If not provided, uses the app setting or 'default' */
+  modelId?: string
 }
 
 interface UseMessagesResult {
@@ -44,12 +51,20 @@ interface UseMessagesResult {
  * upon completion. Also exposes `abortStreaming` to cancel an in-flight stream.
  *
  * @param conversationId The active conversation ID, or null to disable.
+ * @param options Optional configuration including model override.
  * @returns `{ messages, isLoading, sendMessage, isSendingMessage, abortStreaming }`.
  */
-export function useMessages(conversationId: number | null): UseMessagesResult {
+export function useMessages(
+  conversationId: number | null,
+  options: UseMessagesOptions = {},
+): UseMessagesResult {
   const queryClient = useQueryClient()
   const abortControllerRef = useRef<AbortController | null>(null)
   const { toolsByServer, call } = useMcp()
+  const { modelId: defaultModelId } = useModel()
+
+  // Use provided model or fall back to app setting
+  const modelId = options.modelId || defaultModelId
 
   const abortStreaming = (): void => {
     if (abortControllerRef.current) {
@@ -142,8 +157,15 @@ export function useMessages(conversationId: number | null): UseMessagesResult {
       })
       await invalidateConverationQuery()
 
+      // Create model instance with the configured model ID
+      const endpoint = mlxServer.endpoint
+      if (!endpoint) {
+        throw new Error('MLC server is not ready')
+      }
+      const model = createMlcClient({ modelId, endpoint })
+
       const result = streamText({
-        model: mlxServer.model,
+        model,
         messages: chatMessages,
         abortSignal: abortController.signal,
         tools: mcpTools,
