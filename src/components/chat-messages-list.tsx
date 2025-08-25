@@ -14,19 +14,15 @@ export const ChatMessagesList: React.FC<ChatMessagesListProps> = ({
   messages,
   isLoading,
 }) => {
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-  const previousMessageCountRef = useRef<number>(messages.length)
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }
+  const latestMessageAnchorRef = useRef<HTMLDivElement>(null)
+  const messageStatuses = messages.flatMap((m) => [m.id, m.status])
 
   useEffect(() => {
-    if (messages.length > previousMessageCountRef.current) {
-      scrollToBottom()
-    }
-    previousMessageCountRef.current = messages.length
-  }, [messages.length])
+    latestMessageAnchorRef.current?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start',
+    })
+  }, [messageStatuses])
 
   return (
     <div className="flex-1 overflow-y-auto">
@@ -34,10 +30,21 @@ export const ChatMessagesList: React.FC<ChatMessagesListProps> = ({
         <ChatEmptyState />
       ) : (
         <div>
-          {messages.map((message) => (
-            <ChatMessage key={message.id} message={message} />
+          {messages.map((message, index) => (
+            <React.Fragment key={message.id}>
+              {index === messages.length - 1 ? (
+                <div ref={latestMessageAnchorRef} />
+              ) : null}
+              <ChatMessage
+                message={message}
+                shouldExpand={
+                  message.status === 'pending' ||
+                  (index === messages.length - 1 &&
+                    message.role === 'assistant')
+                }
+              />
+            </React.Fragment>
           ))}
-          <div ref={messagesEndRef} />
         </div>
       )}
     </div>

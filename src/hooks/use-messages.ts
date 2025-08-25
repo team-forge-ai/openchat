@@ -130,6 +130,18 @@ export function useMessages(conversationId: number | null): UseMessagesResult {
         toolChoice: 'auto',
       })
 
+      // Insert a placeholder assistant message immediately so the UI can render
+      // a skeleton while waiting for the first stream tokens.
+      assistantMessageId = await insertMessage({
+        conversation_id: conversationId,
+        role: 'assistant',
+        content: '',
+        reasoning: null,
+        status: 'pending',
+        created_at: new Date().toISOString(),
+      })
+      await invalidateConverationQuery()
+
       const result = streamText({
         model: mlxServer.model,
         messages: chatMessages,

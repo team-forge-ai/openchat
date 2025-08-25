@@ -1,6 +1,7 @@
 import React from 'react'
 
 import { Skeleton } from '@/components/ui/skeleton'
+import { cn } from '@/lib/utils'
 import type { Message } from '@/types'
 
 import { Markdown } from './markdown/markdown'
@@ -9,10 +10,14 @@ import { CopyButton } from './ui/copy-button'
 
 interface ChatMessageProps {
   message: Message
+  shouldExpand?: boolean
   onSendMessage?: (text: string) => void
 }
 
-export const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
+export const ChatMessage: React.FC<ChatMessageProps> = ({
+  message,
+  shouldExpand,
+}) => {
   const isUser = message.role === 'user'
 
   if (message.role === 'assistant' && !message.content && !message.reasoning) {
@@ -20,7 +25,13 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
   }
 
   return (
-    <div className={`flex p-3 ${isUser ? 'justify-end' : 'justify-start'}`}>
+    <div
+      className={cn(
+        'flex p-3',
+        shouldExpand && 'min-h-[calc(100vh-130px)]',
+        isUser ? 'justify-end' : 'justify-start',
+      )}
+    >
       <div
         className={`relative group max-w-[75%] ${
           isUser
@@ -72,7 +83,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
 
 function AssistantMessageSkeleton() {
   return (
-    <div className="flex gap-3 p-4 bg-muted/30">
+    <div className="flex gap-3 p-4">
       <div className="flex-1 min-w-0 flex flex-col gap-2">
         <Skeleton className="h-4 w-3/4" />
         <Skeleton className="h-4 w-1/2" />
