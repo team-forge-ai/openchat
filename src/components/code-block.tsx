@@ -25,7 +25,7 @@ async function codeToReactNode(
       dark: 'vitesse-dark',
     },
     defaultColor: false,
-    cssVariablePrefix: '--s-',
+    cssVariablePrefix: '--shiki-',
   })
   return toJsxRuntime(hast, { Fragment, jsxs, jsx }) as JSX.Element
 }
