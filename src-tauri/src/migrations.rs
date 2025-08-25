@@ -57,5 +57,11 @@ pub fn migrations() -> Vec<Migration> {
             sql: include_str!("../migrations/009_create_mcp_servers.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 10,
+            description: "add_model_to_app_settings",
+            sql: include_str!("../migrations/010_add_model_to_app_settings.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
