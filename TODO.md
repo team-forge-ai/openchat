@@ -1,6 +1,6 @@
 # Priority
 
-- [] wire in model downloading again
+- [x] wire in model downloading again
 - [] skeleton loading for new messages
 - [] add sonner progress bar for model downloads
 - [] create mcp server store
