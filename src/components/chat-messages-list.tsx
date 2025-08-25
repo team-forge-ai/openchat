@@ -15,14 +15,18 @@ export const ChatMessagesList: React.FC<ChatMessagesListProps> = ({
   isLoading,
 }) => {
   const latestMessageAnchorRef = useRef<HTMLDivElement>(null)
-  const messageStatuses = messages.flatMap((m) => [m.id, m.status])
+  const lastMessage = messages[messages.length - 1]
+  const shouldScrollToPendingMessage = lastMessage?.status === 'pending'
+  const shouldScrollToLatestMessage = lastMessage?.content.length > 0
 
   useEffect(() => {
-    latestMessageAnchorRef.current?.scrollIntoView({
-      behavior: 'smooth',
-      block: 'start',
-    })
-  }, [messageStatuses])
+    if (shouldScrollToPendingMessage || shouldScrollToLatestMessage) {
+      latestMessageAnchorRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      })
+    }
+  }, [shouldScrollToPendingMessage, shouldScrollToLatestMessage])
 
   return (
     <div className="flex-1 overflow-y-auto">

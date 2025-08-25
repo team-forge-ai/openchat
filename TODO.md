@@ -8,6 +8,7 @@
 - [] conversation timeout
 - [x] where has reasoning gone?
 - [] internet connectino required
+- [] code color not working
 
 # Nice to have
 
