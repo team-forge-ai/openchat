@@ -2,29 +2,48 @@ use home::home_dir;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-/// Parse an HF URI like `HF://org/repo` or `hf://org/repo` into `org/repo`.
-pub fn parse_hf_uri(model_uri: &str) -> Option<String> {
-    let (scheme, rest) = model_uri.split_once("://")?;
-    if scheme.eq_ignore_ascii_case("hf") {
-        if rest.is_empty() {
-            None
-        } else {
-            Some(rest.to_string())
+/// Resolve the OS-specific default Hugging Face hub base directory.
+///
+/// - macOS: ~/Library/Caches/huggingface/hub
+/// - Linux: ~/.cache/huggingface/hub
+/// - Windows: %LOCALAPPDATA%\huggingface\hub (fallback: ~/AppData/Local/huggingface/hub)
+fn huggingface_hub_base_dir() -> PathBuf {
+    #[cfg(target_os = "macos")]
+    {
+        let base = home_dir().unwrap_or_else(|| PathBuf::from("/"));
+        return base
+            .join("Library")
+            .join("Caches")
+            .join("huggingface")
+            .join("hub");
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        let base = home_dir().unwrap_or_else(|| PathBuf::from("/"));
+        return base.join(".cache").join("huggingface").join("hub");
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        if let Ok(local_app_data) = std::env::var("LOCALAPPDATA") {
+            return PathBuf::from(local_app_data)
+                .join("huggingface")
+                .join("hub");
         }
-    } else {
-        None
+        let base = home_dir().unwrap_or_else(|| PathBuf::from("/"));
+        return base
+            .join("AppData")
+            .join("Local")
+            .join("huggingface")
+            .join("hub");
     }
 }
 
-/// Returns the target directory under the MLC cache where the model should live.
-/// Example: ~/.cache/mlc_llm/model_weights/hf/mlc-ai/Qwen3-14B-q4f16_1-MLC
+/// Returns the target directory under the Hugging Face hub where the model should live.
+/// Example (Linux): ~/.cache/huggingface/hub/mlc-ai/Qwen3-14B-q4f16_1-MLC
 pub fn model_cache_dir(repo_id: &str) -> PathBuf {
-    let base = home_dir().unwrap_or_else(|| PathBuf::from("/"));
-    let mut path = base
-        .join(".cache")
-        .join("mlc_llm")
-        .join("model_weights")
-        .join("hf");
+    let mut path = huggingface_hub_base_dir();
     for segment in repo_id.split('/') {
         path.push(segment);
     }
@@ -76,26 +95,32 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parse_variants() {
-        assert_eq!(
-            parse_hf_uri("HF://mlc-ai/Qwen3"),
-            Some("mlc-ai/Qwen3".to_string())
-        );
-        assert_eq!(parse_hf_uri("hf://org/repo"), Some("org/repo".to_string()));
-        assert_eq!(parse_hf_uri("file:///tmp/foo"), None);
-        assert_eq!(parse_hf_uri("mlc-ai/Qwen3"), None);
-    }
-
-    #[test]
     fn builds_cache_dir() {
         let repo = "mlc-ai/Qwen3-14B-q4f16_1-MLC";
         let dir = model_cache_dir(repo);
         let dir_str = dir.to_string_lossy();
-        assert!(dir_str.contains(".cache"));
-        assert!(dir_str.contains("mlc_llm"));
-        assert!(dir_str.contains("model_weights"));
-        assert!(dir_str.contains("hf"));
+        // Common suffix elements across platforms
+        assert!(dir_str.contains("huggingface"));
+        assert!(dir_str.contains("hub"));
         assert!(dir_str.contains("mlc-ai"));
         assert!(dir_str.contains("Qwen3-14B-q4f16_1-MLC"));
+
+        #[cfg(target_os = "macos")]
+        {
+            assert!(dir_str.contains("Library/"));
+            assert!(dir_str.contains("Caches"));
+        }
+
+        #[cfg(target_os = "linux")]
+        {
+            assert!(dir_str.contains(".cache"));
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            // We cannot rely on exact LOCALAPPDATA value in tests, but ensure "huggingface\\hub" is present
+            assert!(dir_str.to_lowercase().contains("huggingface"));
+            assert!(dir_str.to_lowercase().contains("hub"));
+        }
     }
 }

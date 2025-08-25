@@ -1,6 +1,7 @@
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpListener};
 use std::time::Duration;
 
+use crate::model_download::ensure_hf_model_cached;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter};
 use tauri_plugin_shell::{process::CommandEvent, ShellExt};
@@ -129,6 +130,9 @@ impl MLCServerManager {
         let model_path = config.model.clone().ok_or_else(|| {
             "No model configured; set MLC_MODEL or provide a model in config".to_string()
         })?;
+
+        // Ensure model is present in the local Hugging Face hub cache before starting the server
+        ensure_hf_model_cached(&self.app_handle, &model_path).await?;
 
         // Defensive stop of any existing process
         let _ = self.stop().await;
