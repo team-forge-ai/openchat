@@ -1,11 +1,12 @@
 # Priority
 
 - [x] wire in model downloading again
-- [] skeleton loading for new messages
+- [x] skeleton loading for new messages
 - [] add sonner progress bar for model downloads
 - [] create mcp server store
 - [] create model store
 - [] conversation timeout
+- [] where has reasoning gone?
 
 # Nice to have
 
