@@ -7,9 +7,10 @@ use crate::mcp::serde_utils::merge_auth_header;
 use crate::mcp::session::ensure_mcp_session;
 use crate::mcp::McpManager;
 use crate::mlc_server::{MLCServerManager, MLCServerStatus};
+use crate::model_download::ensure_hf_model_cached;
 use serde::Deserialize;
 use sqlx::SqlitePool;
-use tauri::State;
+use tauri::{AppHandle, State};
 
 type CmdResult<T> = Result<T, String>;
 
@@ -146,6 +147,15 @@ pub async fn mcp_call_tool(
 #[tauri::command]
 pub async fn get_env_var(name: String) -> CmdResult<Option<String>> {
     Ok(std::env::var(&name).ok())
+}
+
+// ------------------ Model Download Commands ------------------
+
+/// Downloads a Hugging Face model to the local cache if not already present.
+/// Emits `mlc-download-progress` events during the download process.
+#[tauri::command]
+pub async fn download_model(app: AppHandle, repo_id: String) -> CmdResult<()> {
+    ensure_hf_model_cached(&app, &repo_id).await
 }
 
 async fn ensure_session_for_id(

@@ -22,7 +22,6 @@ export function MLCServerProvider({ children }: MLCServerProviderProps) {
   const [status, setStatus] = useState<MLCStatus>({
     isReady: false,
     port: undefined,
-    modelPath: undefined,
     error: null,
   })
   const [error, setError] = useState<string | null>(null)

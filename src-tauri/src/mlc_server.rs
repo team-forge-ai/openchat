@@ -1,14 +1,10 @@
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpListener};
 use std::time::Duration;
 
-use crate::model_download::ensure_hf_model_cached;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter};
 use tauri_plugin_shell::{process::CommandEvent, ShellExt};
 use tokio::sync::{Mutex, RwLock};
-
-/// Default model used when the `MLC_MODEL` env var is not set.
-pub const DEFAULT_MLC_MODEL: &str = "lmstudio-community/Qwen3-30B-A3B-Instruct-2507-MLX-4bit";
 
 /// Event name emitted to the frontend whenever the status changes.
 pub const MLC_STATUS_CHANGED_EVENT: &str = "mlc-status-changed";
@@ -19,7 +15,6 @@ pub struct MLCServerStatus {
     pub is_running: bool,
     pub is_http_ready: bool,
     pub port: Option<u16>,
-    pub model_path: Option<String>,
     pub pid: Option<u32>,
     pub error: Option<String>,
 }
@@ -28,18 +23,13 @@ pub struct MLCServerStatus {
 pub struct MLCServerConfig {
     pub host: String,
     pub port: u16,
-    pub model: Option<String>,
 }
 
 impl Default for MLCServerConfig {
     fn default() -> Self {
-        let model = std::env::var("MLC_MODEL")
-            .ok()
-            .or_else(|| Some(DEFAULT_MLC_MODEL.to_string()));
         Self {
             host: "127.0.0.1".to_string(),
             port: 8000,
-            model,
         }
     }
 }
@@ -127,13 +117,6 @@ impl MLCServerManager {
     pub async fn start(self: &std::sync::Arc<Self>) -> Result<MLCServerStatus, String> {
         let config = { self.config.read().await.clone() };
 
-        let model_path = config.model.clone().ok_or_else(|| {
-            "No model configured; set MLC_MODEL or provide a model in config".to_string()
-        })?;
-
-        // Ensure model is present in the local Hugging Face hub cache before starting the server
-        ensure_hf_model_cached(&self.app_handle, &model_path).await?;
-
         // Defensive stop of any existing process
         let _ = self.stop().await;
 
@@ -149,10 +132,9 @@ impl MLCServerManager {
         });
 
         log::info!(
-            "Starting openchat-mlx-server: host={} port={} model={}",
+            "Starting openchat-mlx-server: host={} port={}",
             config.host,
-            port,
-            model_path
+            port
         );
 
         // Build and spawn sidecar using Tauri's shell plugin
@@ -161,14 +143,7 @@ impl MLCServerManager {
             .shell()
             .sidecar("openchat-mlx-server")
             .map_err(|e| format!("Failed to resolve openchat-mlx-server sidecar: {e}"))?
-            .args([
-                "--host",
-                &config.host,
-                "--port",
-                &port.to_string(),
-                "--model",
-                &model_path,
-            ]);
+            .args(["--host", &config.host, "--port", &port.to_string()]);
 
         if let Some(py) = python_path {
             sidecar_cmd = sidecar_cmd.env("OPENCHAT_MLX_SERVER_PYTHON", py);
@@ -194,7 +169,6 @@ impl MLCServerManager {
             is_running: true,
             is_http_ready: false,
             port: Some(port),
-            model_path: Some(model_path),
             pid: Some(pid),
             error: None,
         };

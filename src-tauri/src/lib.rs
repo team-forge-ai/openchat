@@ -87,6 +87,8 @@ pub fn run() {
             commands::mcp_call_tool,
             // Environment variables
             commands::get_env_var,
+            // Model download
+            commands::download_model,
         ])
         .on_menu_event(|app, event| {
             menu::MenuManager::handle_menu_event(app, event.id().as_ref());

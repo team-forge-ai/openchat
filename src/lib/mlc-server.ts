@@ -10,7 +10,6 @@ function fromWire(status: MLCServerStatusWire): MLCStatus {
   return {
     isReady: Boolean(status.is_running && status.is_http_ready),
     port: status.port,
-    modelPath: status.model_path,
     error: status.error ?? null,
   }
 }
@@ -100,13 +99,13 @@ class MLCServerService {
   /** Returns an OpenAI-compatible model instance bound to the current server. */
   get model() {
     const endpoint = this.endpoint
-    const modelPath = this.currentStatus?.modelPath
 
-    if (!endpoint || !modelPath) {
+    if (!endpoint) {
       throw new Error('MLC endpoint is not available')
     }
 
-    return createMlcClient({ modelId: modelPath, endpoint })
+    // Use a default model identifier since we're not specifying a specific model
+    return createMlcClient({ modelId: 'default', endpoint })
   }
 }
 

@@ -2,7 +2,6 @@
 export interface MLCStatus {
   isReady: boolean
   port?: number
-  modelPath?: string
   error?: string | null
 }
 
@@ -10,7 +9,6 @@ export interface MLCServerStatusWire {
   is_running: boolean
   is_http_ready: boolean
   port?: number
-  model_path?: string
   pid?: number | null
   error?: string | null
 }

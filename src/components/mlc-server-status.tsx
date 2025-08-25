@@ -58,12 +58,6 @@ export function MLCServerStatus() {
             </span>
             <span className="text-xs">Ready</span>
           </div>
-          <div className="flex gap-1">
-            <span className="font-semibold text-muted-foreground/80">
-              Model:
-            </span>
-            <span className="text-xs">{status.modelPath}</span>
-          </div>
         </div>
       )
     }
