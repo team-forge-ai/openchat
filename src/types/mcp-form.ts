@@ -12,9 +12,7 @@ export const McpServerFormSchema = z.discriminatedUnion('transport', [
   z.object({
     transport: z.literal('stdio'),
     ...common,
-    command: z.string().min(1, 'Command is required'),
-    args: z.array(z.string()).default([]),
-    cwd: z.string().optional().nullable(),
+    commandLine: z.string().min(1, 'Command line is required'),
     env: z.array(stringKV).default([]),
   }),
   z.object({

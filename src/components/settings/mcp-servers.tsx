@@ -6,7 +6,12 @@ import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import { useMcpServers } from '@/hooks/use-mcp-servers'
 import { mcpCheckServer } from '@/lib/mcp-bridge'
-import { formToConfig, formToDbInsert, rowToForm } from '@/lib/mcp-mappers'
+import {
+  configToForm,
+  formToConfig,
+  formToDbInsert,
+  rowToForm,
+} from '@/lib/mcp-mappers'
 import type { McpServerRow } from '@/types'
 import type { McpServerConfig } from '@/types/mcp'
 import type { McpServerFormValues } from '@/types/mcp-form'
@@ -108,32 +113,5 @@ export function McpServersSettings() {
 }
 
 function formValuesFromConfig(config: McpServerConfig): McpServerFormValues {
-  if (config.transport === 'stdio') {
-    return {
-      transport: 'stdio',
-      name: config.name,
-      description: config.description,
-      enabled: config.enabled,
-      command: config.command,
-      args: config.args ?? [],
-      cwd: config.cwd,
-      env: Object.entries(config.env ?? {}).map(([key, value]) => ({
-        key,
-        value,
-      })),
-    }
-  }
-  return {
-    transport: 'http',
-    name: config.name,
-    description: config.description,
-    enabled: config.enabled,
-    url: config.url,
-    headers: Object.entries(config.headers ?? {}).map(([key, value]) => ({
-      key,
-      value,
-    })),
-    auth: config.auth,
-    heartbeatSec: config.heartbeatSec ?? undefined,
-  }
+  return configToForm(config)
 }

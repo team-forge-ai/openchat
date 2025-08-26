@@ -35,8 +35,8 @@ export interface McpToolInfo {
 
 export interface McpCheckResult {
   ok: boolean
-  toolsCount?: number
-  tools?: McpToolInfo[]
+  toolsCount?: number | null
+  tools?: McpToolInfo[] | null
   warning?: string
   error?: string
 }

@@ -23,7 +23,7 @@ export async function getMcpServers(search?: string): Promise<McpServerRow[]> {
     })
   }
 
-  return await query.orderBy('updated_at', 'desc').execute()
+  return await query.orderBy('created_at', 'desc').execute()
 }
 
 /**

@@ -49,9 +49,7 @@ export function McpServerFormDialog({
       name: initial?.name ?? '',
       description: initial?.description ?? undefined,
       enabled: initial?.enabled ?? true,
-      command: '',
-      args: [],
-      cwd: undefined,
+      commandLine: '',
       env: [],
     }
   }, [initial])
@@ -83,8 +81,6 @@ export function McpServerFormDialog({
   const [saving, setSaving] = useState(false)
 
   const transport = form.watch('transport')
-  const args = form.watch('args')
-  const argsText = Array.isArray(args) ? args.join(' ') : ''
 
   const errors = form.formState.errors
   const stdioErrors = errors as FieldErrors<StdioValues>
@@ -98,9 +94,7 @@ export function McpServerFormDialog({
         name: values.name,
         description: values.description,
         enabled: !!values.enabled,
-        command: values.command || '',
-        args: values.args || [],
-        cwd: values.cwd,
+        commandLine: values.commandLine || '',
         env: values.env || [],
       }
       return formToConfig(config)
@@ -124,6 +118,8 @@ export function McpServerFormDialog({
     try {
       const result = await onTest(buildConfig())
       setTestResult(result)
+    } catch (error) {
+      console.error('Error testing MCP server', error)
     } finally {
       setTesting(false)
     }
@@ -186,40 +182,16 @@ export function McpServerFormDialog({
           {transport === 'stdio' ? (
             <div className="space-y-3">
               <label className="text-sm block">
-                <div className="mb-1">Command</div>
+                <div className="mb-1">Command Line</div>
                 <Input
-                  {...form.register('command')}
-                  placeholder="/usr/bin/node my-mcp-server.js"
+                  {...form.register('commandLine')}
+                  placeholder="/usr/bin/node my-mcp-server.js --flag value"
                 />
-                {transport === 'stdio' && stdioErrors.command?.message && (
+                {transport === 'stdio' && stdioErrors.commandLine?.message && (
                   <div className="text-xs text-destructive mt-1">
-                    {stdioErrors.command?.message}
+                    {stdioErrors.commandLine?.message}
                   </div>
                 )}
-              </label>
-              <label className="text-sm block">
-                <div className="mb-1">Args (space separated)</div>
-                <Input
-                  value={argsText}
-                  onChange={(e) => {
-                    const v = e.target.value
-                    const arr = v.trim() ? v.trim().split(/\s+/) : []
-                    form.setValue('args', arr, {
-                      shouldDirty: true,
-                      shouldValidate: true,
-                    })
-                  }}
-                  placeholder="--flag value"
-                />
-                {transport === 'stdio' && stdioErrors.args?.message && (
-                  <div className="text-xs text-destructive mt-1">
-                    {stdioErrors.args?.message}
-                  </div>
-                )}
-              </label>
-              <label className="text-sm block">
-                <div className="mb-1">Working directory</div>
-                <Input {...form.register('cwd')} placeholder="/path/to/dir" />
               </label>
 
               {/* ENV key/values */}

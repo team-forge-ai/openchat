@@ -99,8 +99,8 @@ const RustMcpToolInfoSchema = z.object({
 
 const RustMcpCheckResultSchema = z.object({
   ok: z.boolean(),
-  tools_count: z.number().optional(),
-  tools: z.array(RustMcpToolInfoSchema).optional(),
+  tools_count: z.number().nullable().optional(),
+  tools: z.array(RustMcpToolInfoSchema).nullable().optional(),
   warning: z.string().nullable().optional(),
   error: z.string().nullable().optional(),
 })

@@ -10,14 +10,17 @@ import type { McpServerFormValues } from '@/types/mcp-form'
  */
 export function rowToForm(row: McpServerRow): McpServerFormValues {
   if (row.transport === 'stdio') {
+    const command = row.command ?? ''
+    const args = parseStringArray(row.args)
+    const commandLine =
+      args.length > 0 ? `${command} ${args.join(' ')}` : command
+
     return {
       transport: 'stdio',
       name: row.name,
       description: row.description ?? undefined,
       enabled: !!row.enabled,
-      command: row.command ?? '',
-      args: parseStringArray(row.args),
-      cwd: row.cwd ?? undefined,
+      commandLine,
       env: parseStringRecord(row.env),
     }
   }
@@ -42,14 +45,16 @@ export function rowToForm(row: McpServerRow): McpServerFormValues {
  */
 export function configToForm(config: McpServerConfig): McpServerFormValues {
   if (config.transport === 'stdio') {
+    const args = config.args ?? []
+    const commandLine =
+      args.length > 0 ? `${config.command} ${args.join(' ')}` : config.command
+
     return {
       transport: 'stdio',
       name: config.name,
       description: config.description ?? undefined,
       enabled: config.enabled,
-      command: config.command,
-      args: config.args ?? [],
-      cwd: config.cwd ?? undefined,
+      commandLine,
       env: Object.entries(config.env ?? {}).map(([key, value]) => ({
         key,
         value: String(value ?? ''),
@@ -79,14 +84,16 @@ export function configToForm(config: McpServerConfig): McpServerFormValues {
  */
 export function formToConfig(values: McpServerFormValues): McpServerConfig {
   if (values.transport === 'stdio') {
+    const { command, args } = parseCommandLine(values.commandLine)
+
     return {
       transport: 'stdio',
       name: values.name,
       description: values.description ?? undefined,
       enabled: values.enabled,
-      command: values.command,
-      args: values.args ?? [],
-      cwd: values.cwd ?? undefined,
+      command,
+      args,
+      cwd: null,
       env: kvArrayToRecord(values.env),
     }
   }
@@ -117,12 +124,14 @@ export function formToDbInsert(values: McpServerFormValues) {
     transport: values.transport,
   }
   if (values.transport === 'stdio') {
+    const { command, args } = parseCommandLine(values.commandLine)
+
     return {
       ...base,
-      command: values.command,
-      args: JSON.stringify(values.args ?? []),
+      command,
+      args: JSON.stringify(args),
       env: JSON.stringify(kvArrayToRecord(values.env)),
-      cwd: values.cwd ?? null,
+      cwd: null,
     }
   }
   return {
@@ -189,4 +198,51 @@ function kvArrayToRecord(
     }
   }
   return r
+}
+
+/**
+ * Parses a command line string into command and args.
+ * Handles basic shell-style parsing with quoted arguments.
+ *
+ * @param commandLine The command line string to parse.
+ * @returns Object with command and args array.
+ */
+function parseCommandLine(commandLine: string): {
+  command: string
+  args: string[]
+} {
+  const trimmed = commandLine.trim()
+  if (!trimmed) {
+    return { command: '', args: [] }
+  }
+
+  // Simple parsing: split on spaces but respect quoted strings
+  const parts: string[] = []
+  let current = ''
+  let inQuotes = false
+  let quoteChar = ''
+
+  for (const char of trimmed) {
+    if (!inQuotes && (char === '"' || char === "'")) {
+      inQuotes = true
+      quoteChar = char
+    } else if (inQuotes && char === quoteChar) {
+      inQuotes = false
+      quoteChar = ''
+    } else if (!inQuotes && char === ' ') {
+      if (current) {
+        parts.push(current)
+        current = ''
+      }
+    } else {
+      current += char
+    }
+  }
+
+  if (current) {
+    parts.push(current)
+  }
+
+  const [command = '', ...args] = parts
+  return { command, args }
 }
