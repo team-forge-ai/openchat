@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { Switch } from '@/components/ui/switch'
 import { configToForm, formToConfig } from '@/lib/mcp-mappers'
 import type { McpServerConfig } from '@/types/mcp'
 import { McpServerFormSchema, type McpServerFormValues } from '@/types/mcp-form'
@@ -45,7 +46,7 @@ export function McpServerFormDialog({
       transport: 'stdio',
       name: initial?.name ?? '',
       description: initial?.description ?? undefined,
-      enabled: initial?.enabled ?? false,
+      enabled: initial?.enabled ?? true,
       command: '',
       args: [],
       cwd: undefined,
@@ -188,11 +189,6 @@ export function McpServerFormDialog({
           <label className="text-sm block">
             <div className="mb-1">Description</div>
             <Input {...form.register('description')} />
-          </label>
-
-          <label className="text-sm inline-flex items-center gap-2">
-            <input type="checkbox" {...form.register('enabled')} />
-            Enabled
           </label>
 
           {transport === 'stdio' ? (
@@ -375,35 +371,47 @@ export function McpServerFormDialog({
           )}
         </div>
 
-        <DialogFooter>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleTest}
-            disabled={testing}
-          >
-            {testing ? 'Testing…' : 'Test'}
-          </Button>
-          <Button
-            type="button"
-            onClick={async () => {
-              // If previously tested and failed while enabled, prompt to save disabled
-              const enabledNow = !!form.getValues().enabled
-              if (testResult.startsWith('Failed') && enabledNow) {
-                const confirmDisable = window.confirm(
-                  'Test failed. Save disabled?',
-                )
-                if (!confirmDisable) {
-                  return
-                }
-                form.setValue('enabled', false, { shouldDirty: true })
+        <DialogFooter className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Switch
+              checked={form.watch('enabled')}
+              onCheckedChange={(checked) =>
+                form.setValue('enabled', checked, { shouldDirty: true })
               }
-              await handleSave()
-            }}
-            disabled={saving || !(form.watch('name') || '').toString().trim()}
-          >
-            {saving ? 'Saving…' : 'Save'}
-          </Button>
+            />
+            <label className="text-sm">Enabled</label>
+          </div>
+          <div className="flex-1" />
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleTest}
+              disabled={testing}
+            >
+              {testing ? 'Testing…' : 'Test'}
+            </Button>
+            <Button
+              type="button"
+              onClick={async () => {
+                // If previously tested and failed while enabled, prompt to save disabled
+                const enabledNow = !!form.getValues().enabled
+                if (testResult.startsWith('Failed') && enabledNow) {
+                  const confirmDisable = window.confirm(
+                    'Test failed. Save disabled?',
+                  )
+                  if (!confirmDisable) {
+                    return
+                  }
+                  form.setValue('enabled', false, { shouldDirty: true })
+                }
+                await handleSave()
+              }}
+              disabled={saving || !(form.watch('name') || '').toString().trim()}
+            >
+              {saving ? 'Saving…' : 'Save'}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
