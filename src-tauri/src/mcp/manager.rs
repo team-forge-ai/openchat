@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
-use crate::mcp::transport::McpSession;
+use crate::mcp::transport::{
+    create_http_session, parse_tools_array, spawn_stdio_session, McpSession, McpTransport,
+};
 use crate::mcp::types::McpToolInfo;
 
 // (check_server is re-exported from mod.rs directly)
@@ -33,14 +35,8 @@ impl McpManager {
         if sessions.contains_key(&id) {
             return Ok(());
         }
-        let session = crate::mcp::transport::spawn_stdio_session(
-            command,
-            args,
-            Some(env),
-            cwd,
-            connect_timeout_ms,
-        )
-        .await?;
+        let session =
+            spawn_stdio_session(command, args, Some(env), cwd, connect_timeout_ms).await?;
         sessions.insert(id, session);
         Ok(())
     }
@@ -57,8 +53,7 @@ impl McpManager {
         if sessions.contains_key(&id) {
             return Ok(());
         }
-        let session =
-            crate::mcp::transport::create_http_session(url, headers, connect_timeout_ms).await?;
+        let session = create_http_session(url, headers, connect_timeout_ms).await?;
         sessions.insert(id, session);
         Ok(())
     }
@@ -70,11 +65,11 @@ impl McpManager {
         let result = s
             .send(
                 crate::mcp::constants::MCP_METHOD_TOOLS_LIST,
-                serde_json::json!({}),
+                serde_json::Value::Null,
                 timeout_ms,
             )
             .await?;
-        Ok(crate::mcp::transport::parse_tools_array(&result))
+        Ok(parse_tools_array(&result))
     }
 
     /// Calls a tool for `id` with JSON args; returns concatenated text content.
