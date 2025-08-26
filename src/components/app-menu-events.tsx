@@ -4,14 +4,14 @@ import { useAppActions } from '@/hooks/use-app-actions'
 import { MENU_NEW_CHAT, MENU_OPEN_SETTINGS, MENU_RELOAD } from '@/lib/events'
 
 export function AppMenuEvents(): null {
-  const { createNewConversation, openSettings } = useAppActions()
+  const { createNewConversation, toggleSettings } = useAppActions()
 
   useEffect(() => {
     const handleNewChat = () => {
       void createNewConversation()
     }
     const handleOpenSettings = () => {
-      openSettings()
+      toggleSettings()
     }
 
     window.addEventListener(MENU_NEW_CHAT, handleNewChat as EventListener)
@@ -32,7 +32,7 @@ export function AppMenuEvents(): null {
       )
       window.removeEventListener(MENU_RELOAD, handleReload as EventListener)
     }
-  }, [createNewConversation, openSettings])
+  }, [createNewConversation, toggleSettings])
 
   return null
 }
