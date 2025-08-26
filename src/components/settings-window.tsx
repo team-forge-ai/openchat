@@ -35,9 +35,9 @@ export const SettingsWindow: React.FC = () => {
 
         <section id="mcp-servers" className="space-y-6">
           <div>
-            <h2 className="text-2xl font-bold tracking-tight">MCP Servers</h2>
+            <h2 className="text-2xl font-bold tracking-tight">AI Tools</h2>
             <p className="text-muted-foreground">
-              Configure and validate MCP servers. These are stored locally.
+              Extend the capabilities of your AI with custom MCP tools.
             </p>
           </div>
           <Separator className="my-6" />

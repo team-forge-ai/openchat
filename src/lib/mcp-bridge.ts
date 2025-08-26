@@ -101,8 +101,8 @@ const RustMcpCheckResultSchema = z.object({
   ok: z.boolean(),
   tools_count: z.number().optional(),
   tools: z.array(RustMcpToolInfoSchema).optional(),
-  warning: z.string().optional(),
-  error: z.string().optional(),
+  warning: z.string().nullable().optional(),
+  error: z.string().nullable().optional(),
 })
 
 function normalizeCheckResult(raw: unknown): McpCheckResult {
@@ -111,9 +111,9 @@ function normalizeCheckResult(raw: unknown): McpCheckResult {
   return {
     ok: value.ok,
     toolsCount: value.tools_count,
-    tools: (value.tools as McpToolInfo[] | undefined) ?? undefined,
-    warning: value.warning,
-    error: value.error,
+    tools: value.tools,
+    warning: value.warning ?? undefined,
+    error: value.error ?? undefined,
   }
 }
 

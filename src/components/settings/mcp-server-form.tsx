@@ -15,15 +15,17 @@ import {
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { configToForm, formToConfig } from '@/lib/mcp-mappers'
-import type { McpServerConfig } from '@/types/mcp'
+import type { McpCheckResult, McpServerConfig } from '@/types/mcp'
 import { McpServerFormSchema, type McpServerFormValues } from '@/types/mcp-form'
+
+import { McpTestResult } from './mcp-test-result'
 
 type Props = {
   open: boolean
   onOpenChange: (open: boolean) => void
   initial?: Partial<McpServerConfig>
   onSave: (config: McpServerConfig) => Promise<void>
-  onTest: (config: McpServerConfig) => Promise<{ ok: boolean; message: string }>
+  onTest: (config: McpServerConfig) => Promise<McpCheckResult>
 }
 
 type Transport = 'stdio' | 'http'
@@ -76,19 +78,13 @@ export function McpServerFormDialog({
     }
   }, [open, defaultValues, form])
 
+  const [testing, setTesting] = useState(false)
+  const [testResult, setTestResult] = useState<McpCheckResult | null>(null)
+  const [saving, setSaving] = useState(false)
+
   const transport = form.watch('transport')
   const args = form.watch('args')
   const argsText = Array.isArray(args) ? args.join(' ') : ''
-
-  const [testing, setTesting] = useState(false)
-  const [testResult, setTestResult] = useState('')
-  const [saving, setSaving] = useState(false)
-
-  const formWatch = form.watch()
-
-  useEffect(() => {
-    setTestResult('')
-  }, [formWatch])
 
   const errors = form.formState.errors
   const stdioErrors = errors as FieldErrors<StdioValues>
@@ -126,12 +122,8 @@ export function McpServerFormDialog({
   const handleTest = async () => {
     setTesting(true)
     try {
-      const res = await onTest(buildConfig())
-      setTestResult(
-        res.ok
-          ? `OK${res.message ? `: ${res.message}` : ''}`
-          : `Failed: ${res.message}`,
-      )
+      const result = await onTest(buildConfig())
+      setTestResult(result)
     } finally {
       setTesting(false)
     }
@@ -366,9 +358,7 @@ export function McpServerFormDialog({
             </div>
           )}
 
-          {testResult && (
-            <div className="text-sm text-muted-foreground">{testResult}</div>
-          )}
+          {testResult && <McpTestResult result={testResult} />}
         </div>
 
         <DialogFooter className="flex items-center justify-between">
@@ -393,20 +383,7 @@ export function McpServerFormDialog({
             </Button>
             <Button
               type="button"
-              onClick={async () => {
-                // If previously tested and failed while enabled, prompt to save disabled
-                const enabledNow = !!form.getValues().enabled
-                if (testResult.startsWith('Failed') && enabledNow) {
-                  const confirmDisable = window.confirm(
-                    'Test failed. Save disabled?',
-                  )
-                  if (!confirmDisable) {
-                    return
-                  }
-                  form.setValue('enabled', false, { shouldDirty: true })
-                }
-                await handleSave()
-              }}
+              onClick={handleSave}
               disabled={saving || !(form.watch('name') || '').toString().trim()}
             >
               {saving ? 'Saving…' : 'Save'}

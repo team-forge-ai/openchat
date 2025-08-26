@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
+import { Switch } from '@/components/ui/switch'
 import { useMcpServers } from '@/hooks/use-mcp-servers'
 import { mcpCheckServer } from '@/lib/mcp-bridge'
 import { formToConfig, formToDbInsert, rowToForm } from '@/lib/mcp-mappers'
@@ -43,14 +44,8 @@ export function McpServersSettings() {
     }
   }
 
-  const handleTest = async (
-    config: McpServerConfig,
-  ): Promise<{ ok: boolean; message: string }> => {
-    const result = await mcpCheckServer(config)
-    if (result.ok) {
-      return { ok: true, message: `${result.toolsCount ?? 0} tools` }
-    }
-    return { ok: false, message: result.error || 'Unknown error' }
+  const handleTest = async (config: McpServerConfig) => {
+    return await mcpCheckServer(config)
   }
 
   return (
@@ -59,11 +54,11 @@ export function McpServersSettings() {
         <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search servers"
+          placeholder="Search tools"
           className="max-w-xs"
         />
         <div className="flex-1" />
-        <Button onClick={handleAdd}>Add Server</Button>
+        <Button onClick={handleAdd}>Add Tool</Button>
       </div>
       <Separator />
 
@@ -79,16 +74,15 @@ export function McpServersSettings() {
                 {s.transport} {s.description ? `• ${s.description}` : ''}
               </div>
             </div>
-            <label className="text-sm inline-flex items-center gap-2">
-              <input
-                type="checkbox"
+            <div className="flex items-center gap-2 mx-5">
+              <Switch
                 checked={!!s.enabled}
-                onChange={(e) =>
-                  setEnabled.mutate({ id: s.id, enabled: e.target.checked })
+                onCheckedChange={(checked) =>
+                  setEnabled.mutate({ id: s.id, enabled: checked })
                 }
               />
-              Enabled
-            </label>
+              <span className="text-sm">Enabled</span>
+            </div>
             <Button variant="outline" onClick={() => handleEdit(s)}>
               Edit
             </Button>
