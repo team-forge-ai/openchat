@@ -98,6 +98,60 @@ impl McpTransport for HttpSession {
         Ok(v.get("result").cloned().unwrap_or(serde_json::Value::Null))
     }
 
+    async fn send_notification(
+        &mut self,
+        method: &str,
+        params: Option<serde_json::Value>,
+        timeout_ms: u64,
+    ) -> Result<(), String> {
+        debug!(
+            "mcp.send_notification(http): method={} timeout_ms={} url={}",
+            method, timeout_ms, self.url
+        );
+
+        // Build JSON-RPC notification (no id field)
+        let mut req = serde_json::json!({
+            "jsonrpc": MCP_JSONRPC_VERSION,
+            "method": method,
+        });
+
+        if let Some(params_val) = params {
+            req["params"] = params_val;
+        }
+
+        // Build HTTP request
+        let mut request = self
+            .client
+            .post(self.url.as_str())
+            .json(&req)
+            .timeout(Duration::from_millis(timeout_ms));
+
+        // Apply headers if present
+        if let Some(hs) = self.headers.as_ref().and_then(|v| v.as_object()) {
+            let mut rb = request;
+            for (k, val) in hs.iter() {
+                if let Some(s) = val.as_str() {
+                    rb = rb.header(k, s);
+                }
+            }
+            request = rb;
+        }
+
+        // Send notification and get response (but don't expect meaningful response)
+        let resp = request.send().await.map_err(|e| e.to_string())?;
+        let status = resp.status();
+
+        if !status.is_success() {
+            warn!(
+                "mcp.send_notification(http): http error status={}",
+                status.as_u16()
+            );
+            return Err(format!("HTTP {}", status.as_u16()));
+        }
+
+        Ok(())
+    }
+
     fn transport_type(&self) -> &'static str {
         "http"
     }

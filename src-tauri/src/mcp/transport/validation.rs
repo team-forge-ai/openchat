@@ -1,6 +1,6 @@
 //! Server validation and connectivity checking for MCP
 
-use crate::mcp::constants::{MCP_METHOD_TOOLS_LIST};
+use crate::mcp::constants::MCP_METHOD_TOOLS_LIST;
 use crate::mcp::transport::config::TransportConfig;
 use crate::mcp::transport::http::create_http_session;
 use crate::mcp::transport::parsing::parse_tools_array;

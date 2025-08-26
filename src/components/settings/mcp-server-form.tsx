@@ -73,6 +73,7 @@ export function McpServerFormDialog({
   useEffect(() => {
     if (open) {
       form.reset(defaultValues)
+      setTestResult(null)
     }
   }, [open, defaultValues, form])
 

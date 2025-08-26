@@ -1,6 +1,8 @@
 //! STDIO transport implementation for MCP
 
-use crate::mcp::constants::{MCP_METHOD_INITIALIZE, MCP_PROTOCOL_VERSION};
+use crate::mcp::constants::{
+    MCP_METHOD_INITIALIZE, MCP_NOTIFICATION_INITIALIZED, MCP_PROTOCOL_VERSION,
+};
 use crate::mcp::transport::session::{McpSession, McpTransport};
 use log::{error, info};
 use std::process::Stdio;
@@ -128,8 +130,16 @@ pub async fn spawn_stdio_session(
     let stdin = child.stdin.take().ok_or("no stdin")?;
     let stdout = child.stdout.take().ok_or("no stdout")?;
     let mut session = McpSession::new_stdio(child, stdin, BufReader::new(stdout));
+
+    // Send initialize request and wait for response
     let _ = session
         .send(MCP_METHOD_INITIALIZE, init_params(), connect_timeout_ms)
         .await?;
+
+    // Send notifications/initialized notification (no response expected)
+    session
+        .send_notification(MCP_NOTIFICATION_INITIALIZED, None, connect_timeout_ms)
+        .await?;
+
     Ok(session)
 }

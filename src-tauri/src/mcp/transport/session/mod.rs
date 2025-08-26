@@ -16,6 +16,14 @@ pub trait McpTransport {
         timeout_ms: u64,
     ) -> Result<serde_json::Value, String>;
 
+    /// Sends a JSON-RPC notification (no response expected)
+    async fn send_notification(
+        &mut self,
+        method: &str,
+        params: Option<serde_json::Value>,
+        timeout_ms: u64,
+    ) -> Result<(), String>;
+
     /// Gets the transport type name for logging/debugging
     #[allow(dead_code)]
     fn transport_type(&self) -> &'static str;
@@ -39,6 +47,22 @@ impl McpTransport for McpSession {
         match self {
             McpSession::Stdio(session) => session.send(method, params, timeout_ms).await,
             McpSession::Http(session) => session.send(method, params, timeout_ms).await,
+        }
+    }
+
+    async fn send_notification(
+        &mut self,
+        method: &str,
+        params: Option<serde_json::Value>,
+        timeout_ms: u64,
+    ) -> Result<(), String> {
+        match self {
+            McpSession::Stdio(session) => {
+                session.send_notification(method, params, timeout_ms).await
+            }
+            McpSession::Http(session) => {
+                session.send_notification(method, params, timeout_ms).await
+            }
         }
     }
 

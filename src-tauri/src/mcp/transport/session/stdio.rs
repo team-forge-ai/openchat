@@ -117,6 +117,53 @@ impl McpTransport for StdioSession {
         Ok(v.get("result").cloned().unwrap_or(serde_json::Value::Null))
     }
 
+    async fn send_notification(
+        &mut self,
+        method: &str,
+        params: Option<serde_json::Value>,
+        timeout_ms: u64,
+    ) -> Result<(), String> {
+        debug!(
+            "mcp.send_notification(stdio): method={} timeout_ms={}",
+            method, timeout_ms
+        );
+
+        // Build JSON-RPC notification (no id field)
+        let mut req = serde_json::json!({
+            "jsonrpc": MCP_JSONRPC_VERSION,
+            "method": method,
+        });
+
+        if let Some(params_val) = params {
+            req["params"] = params_val;
+        }
+
+        // Serialize and send notification
+        let mut line = serde_json::to_string(&req).map_err(|e| e.to_string())?;
+        line.push('\n');
+
+        let write_res = timeout(
+            Duration::from_millis(timeout_ms),
+            self.stdin.write_all(line.as_bytes()),
+        )
+        .await;
+
+        match write_res {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => {
+                error!("mcp.send_notification(stdio): write error - {}", e);
+                Err(e.to_string())
+            }
+            Err(_) => {
+                warn!(
+                    "mcp.send_notification(stdio): write timeout (timeout_ms={})",
+                    timeout_ms
+                );
+                Err("write timeout".to_string())
+            }
+        }
+    }
+
     fn transport_type(&self) -> &'static str {
         "stdio"
     }
