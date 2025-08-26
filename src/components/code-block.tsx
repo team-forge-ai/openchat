@@ -2,6 +2,7 @@ import { lazy, memo, Suspense } from 'react'
 
 import { extractText } from '@/components/markdown/utils'
 import { CopyButton } from '@/components/ui/copy-button'
+import { useTheme } from '@/contexts/theme-context'
 import { cn } from '@/lib/utils'
 
 interface CodeBlockProps {
@@ -12,6 +13,7 @@ interface CodeBlockProps {
   showLineNumbers?: boolean
   lineNumbersStartAt?: number
   addDefaultStyles?: boolean
+  defaultColor?: string
 }
 
 // Lazy load the Shiki component for better performance
@@ -41,6 +43,9 @@ function CodeBlockSkeleton({
 }
 
 function CodeBlockComponent({ language, children, className }: CodeBlockProps) {
+  const { resolvedTheme: theme } = useTheme()
+  console.log(theme)
+
   const codeContent =
     typeof children === 'string' ? children : extractText(children)
 
@@ -66,10 +71,7 @@ function CodeBlockComponent({ language, children, className }: CodeBlockProps) {
       >
         <LazyShikiHighlighter
           language={language || 'plaintext'}
-          theme={{
-            light: 'vitesse-light',
-            dark: 'vitesse-dark',
-          }}
+          theme={theme === 'dark' ? 'vitesse-dark' : 'vitesse-light'}
           className={codeBlockClasses}
           showLanguage={false}
           addDefaultStyles={false}
