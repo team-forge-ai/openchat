@@ -12,13 +12,14 @@ import type {
 export function getStatusTooltipContent(
   serverStatus: ServerStatusInfo,
   downloadStatus: DownloadStatusInfo,
+  error?: string | null,
 ): ReactNode {
   // Error state
-  if (serverStatus.hasError) {
+  if (serverStatus.hasError && error) {
     return (
       <div className="space-y-1">
         <p className="font-semibold">Error:</p>
-        <p className="text-xs">{serverStatus.text}</p>
+        <p className="text-xs">{error}</p>
       </div>
     )
   }

@@ -11,11 +11,15 @@ import { useDownloadStatus, useServerStatus } from '@/hooks/use-server-status'
 import { getStatusTooltipContent } from '@/lib/server-status-utils'
 
 export function MLCServerStatus() {
-  const { restartServer } = useMLCServer()
+  const { restartServer, error } = useMLCServer()
   const serverStatus = useServerStatus()
   const downloadStatus = useDownloadStatus()
 
-  const tooltipContent = getStatusTooltipContent(serverStatus, downloadStatus)
+  const tooltipContent = getStatusTooltipContent(
+    serverStatus,
+    downloadStatus,
+    error,
+  )
 
   return (
     <TooltipProvider>

@@ -73,12 +73,13 @@ export function useDownloadStatus(): DownloadStatusInfo {
     }
 
     const { repoId, state } = activeDownloads[0]
-    const progressPercent = state.totalBytes
-      ? Math.min(
-          100,
-          Math.floor((state.receivedBytes / state.totalBytes) * 100),
-        )
-      : undefined
+    const progressPercent =
+      state.totalBytes && state.totalBytes > 0
+        ? Math.min(
+            100,
+            Math.floor((state.receivedBytes / state.totalBytes) * 100),
+          )
+        : undefined
 
     return {
       hasActiveDownload: true,

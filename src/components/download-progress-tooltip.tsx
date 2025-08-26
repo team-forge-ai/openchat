@@ -26,13 +26,14 @@ export function DownloadProgressTooltip({
       </div>
       <div className="flex items-center gap-2">
         <div className="h-1.5 w-36 bg-muted rounded overflow-hidden">
-          <div
-            className="h-full bg-orange-500"
-            style={{
-              width:
-                progressPercent !== undefined ? `${progressPercent}%` : '50%',
-            }}
-          />
+          {progressPercent !== undefined ? (
+            <div
+              className="h-full bg-orange-500 transition-all duration-300"
+              style={{ width: `${progressPercent}%` }}
+            />
+          ) : (
+            <div className="h-full bg-orange-500 animate-pulse w-full opacity-60" />
+          )}
         </div>
         {progressPercent !== undefined ? (
           <span>{progressPercent}%</span>
