@@ -33,7 +33,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
       )}
     >
       <div
-        className={`relative group max-w-[75%] ${
+        className={`relative group ${
           isUser
             ? 'rounded-2xl px-4 py-2 bg-slate-100 dark:bg-slate-900'
             : 'p-4'

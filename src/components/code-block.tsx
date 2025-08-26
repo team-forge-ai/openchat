@@ -1,7 +1,4 @@
-import { toJsxRuntime } from 'hast-util-to-jsx-runtime'
-import { memo, useEffect, useState } from 'react'
-import { Fragment, jsx, jsxs, type JSX } from 'react/jsx-runtime'
-//
+import { lazy, memo, Suspense } from 'react'
 
 import { extractText } from '@/components/markdown/utils'
 import { CopyButton } from '@/components/ui/copy-button'
@@ -11,51 +8,47 @@ interface CodeBlockProps {
   language?: string
   children: React.ReactNode
   className?: string
+  showLanguage?: boolean
+  showLineNumbers?: boolean
+  lineNumbersStartAt?: number
+  addDefaultStyles?: boolean
 }
 
-async function codeToReactNode(
-  code: string,
-  language?: string,
-): Promise<JSX.Element> {
-  const { codeToHast } = await import('shiki')
-  const hast = await codeToHast(code, {
-    lang: language || 'plaintext',
-    themes: {
-      light: 'vitesse-light',
-      dark: 'vitesse-dark',
-    },
-    defaultColor: false,
-    cssVariablePrefix: '--shiki-',
-  })
-  return toJsxRuntime(hast, { Fragment, jsxs, jsx }) as JSX.Element
-}
+// Lazy load the Shiki component for better performance
+const LazyShikiHighlighter = lazy(() =>
+  import('react-shiki').then((module) => ({
+    default: module.ShikiHighlighter,
+  })),
+)
 
-function CodeBlockComponent({ language, children, className }: CodeBlockProps) {
-  const [reactNode, setReactNode] = useState<JSX.Element | null>(null)
-  useEffect(() => {
-    let canceled = false
-    const run = async () => {
-      const reactNode = await codeToReactNode(
-        typeof children === 'string' ? children : '',
-        language,
-      )
-      if (canceled) {
-        return
-      }
-      setReactNode(reactNode)
-    }
-
-    void run()
-    return () => {
-      canceled = true
-    }
-  }, [language, children])
-
-  // Add a wrapper with overflow handling
+// Loading fallback component that matches the existing UI structure
+function CodeBlockSkeleton({
+  children,
+  className,
+}: {
+  children: React.ReactNode
+  className?: string
+}) {
   const codeBlockClasses = cn(
     'overflow-x-auto max-w-prose rounded-md',
     className,
   )
+
+  return (
+    <div className={codeBlockClasses}>
+      <code>
+        <pre className="whitespace-pre">{children}</pre>
+      </code>
+    </div>
+  )
+}
+
+function CodeBlockComponent({ language, children, className }: CodeBlockProps) {
+  const codeContent =
+    typeof children === 'string' ? children : extractText(children)
+
+  // Add a wrapper with overflow handling
+  const codeBlockClasses = cn('rounded-md text-xs', className)
 
   const getCopyText = () => extractText(children)
 
@@ -67,15 +60,26 @@ function CodeBlockComponent({ language, children, className }: CodeBlockProps) {
         className="absolute right-2 top-2 z-10"
       />
 
-      {reactNode ? (
-        <div className={codeBlockClasses}>{reactNode}</div>
-      ) : (
-        <div className={codeBlockClasses}>
-          <code>
-            <pre className="whitespace-pre">{children}</pre>
-          </code>
-        </div>
-      )}
+      <Suspense
+        fallback={
+          <CodeBlockSkeleton className={className}>
+            {children}
+          </CodeBlockSkeleton>
+        }
+      >
+        <LazyShikiHighlighter
+          language={language || 'plaintext'}
+          theme={{
+            light: 'vitesse-light',
+            dark: 'vitesse-dark',
+          }}
+          className={codeBlockClasses}
+          showLanguage={false}
+          addDefaultStyles={false}
+        >
+          {codeContent}
+        </LazyShikiHighlighter>
+      </Suspense>
     </div>
   )
 }
