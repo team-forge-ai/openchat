@@ -44,6 +44,7 @@
     "sql:allow-execute",
     "sql:allow-select",
     "sql:allow-close",
-    "clipboard-manager:allow-write-text"
+    "clipboard-manager:allow-write-text",
+    "core:webview:allow-print"
   ]
 }
