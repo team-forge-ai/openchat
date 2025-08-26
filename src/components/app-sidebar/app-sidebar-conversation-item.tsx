@@ -1,4 +1,4 @@
-import { Loader2, MoreVertical, Share2, Trash2 } from 'lucide-react'
+import { Copy, Loader2, MoreVertical, Share2, Trash2 } from 'lucide-react'
 
 import {
   AlertDialog,
@@ -22,6 +22,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar'
+import { useConversationExport } from '@/hooks/use-conversation-export'
 
 interface AppSidebarConversationItemProps {
   id: number
@@ -42,6 +43,7 @@ export function AppSidebarConversationItem({
   onDelete,
   isDeleting,
 }: AppSidebarConversationItemProps) {
+  const { copyAsMarkdown, isCopying } = useConversationExport()
   return (
     <SidebarMenuItem>
       <SidebarMenuButton
@@ -71,6 +73,14 @@ export function AppSidebarConversationItem({
           <DropdownMenuItem>
             <Share2 className="h-3.5 w-3.5" />
             <span>Share</span>
+          </DropdownMenuItem>
+
+          <DropdownMenuItem
+            onClick={() => copyAsMarkdown(id)}
+            disabled={isCopying}
+          >
+            <Copy className="h-3.5 w-3.5" />
+            <span>Copy as Markdown</span>
           </DropdownMenuItem>
 
           <AlertDialog>

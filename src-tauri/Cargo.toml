@@ -36,6 +36,7 @@ windows-sys = { version = "0.52", features = ["Win32_System_Threading"] }
 tauri-plugin-shell = "2.3.0"
 tauri-plugin-sql = { version = "2.3.0", features = ["sqlite"] }
 tauri-plugin-log = { version = "2.6.0", features = ["colored", "tracing"] }
+tauri-plugin-clipboard-manager = "2.3.0"
 
 # Download Hugging Face repositories (models) before starting mlc_llm
 hf_download = { git = "https://github.com/maccman/hf-download.git" }
