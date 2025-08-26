@@ -65,7 +65,7 @@ impl McpManager {
         let result = s
             .send(
                 crate::mcp::constants::MCP_METHOD_TOOLS_LIST,
-                serde_json::Value::Null,
+                serde_json::json!({}),
                 timeout_ms,
             )
             .await?;
