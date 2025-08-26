@@ -29,10 +29,7 @@ function CodeBlockSkeleton({
   children: React.ReactNode
   className?: string
 }) {
-  const codeBlockClasses = cn(
-    'overflow-x-auto max-w-prose rounded-md',
-    className,
-  )
+  const codeBlockClasses = cn(className)
 
   return (
     <div className={codeBlockClasses}>
@@ -48,7 +45,7 @@ function CodeBlockComponent({ language, children, className }: CodeBlockProps) {
     typeof children === 'string' ? children : extractText(children)
 
   // Add a wrapper with overflow handling
-  const codeBlockClasses = cn('rounded-md text-xs', className)
+  const codeBlockClasses = cn('text-xs', className)
 
   const getCopyText = () => extractText(children)
 
@@ -62,7 +59,7 @@ function CodeBlockComponent({ language, children, className }: CodeBlockProps) {
 
       <Suspense
         fallback={
-          <CodeBlockSkeleton className={className}>
+          <CodeBlockSkeleton className={codeBlockClasses}>
             {children}
           </CodeBlockSkeleton>
         }
