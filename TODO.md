@@ -2,12 +2,12 @@
 
 - [x] wire in model downloading again
 - [x] skeleton loading for new messages
-- [] add sonner progress bar for model downloads
+- [x] add sonner progress bar for model downloads
 - [] create mcp server store
 - [] create model store
 - [] conversation timeout
 - [x] where has reasoning gone?
-- [] internet connectino required
+- [x] internet connectino required
 - [x] code color not working
 
 # Nice to have

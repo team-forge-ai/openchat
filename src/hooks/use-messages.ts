@@ -173,6 +173,14 @@ export function useMessages(
         stopWhen: stepCountIs(10),
         onError: (error) => {
           console.error('[useMessages] Error streaming text', error)
+
+          // If assistant message was created, mark it as error
+          if (assistantMessageId !== null) {
+            void updateMessage(assistantMessageId, {
+              status: 'error',
+            })
+            void invalidateConverationQuery()
+          }
         },
         onFinish: () => {
           console.log('[useMessages] Streaming finished')
@@ -247,6 +255,27 @@ export function useMessages(
 
       void touchConversation(conversationId)
       void setConversationTitleIfUnset(queryClient, conversationId)
+    },
+    onError: (error) => {
+      console.error('[useMessages] Mutation error', error)
+
+      // Re-throw the error with a more user-friendly message
+      const isLocalServerError =
+        error instanceof Error &&
+        (error.message.includes('MLC server is not ready') ||
+          error.message.includes('endpoint') ||
+          error.message.includes('127.0.0.1') ||
+          error.message.includes('localhost'))
+
+      if (isLocalServerError) {
+        throw new Error(
+          'Local AI server is not ready. Please ensure the server is running.',
+        )
+      } else {
+        throw new Error(
+          'Failed to send message. This application works offline - please check your local server status.',
+        )
+      }
     },
     onSuccess: async (_data, variables) => {
       // Refresh caches when the round-trip completes

@@ -87,14 +87,20 @@ export function useMcp(): UseMcpResult {
     enabled: !!serversQ.data?.length,
     queryFn: async () => {
       const servers = serversQ.data ?? []
-      const tools = await Promise.all(
+      const tools = await Promise.allSettled(
         servers.map(async (s) => ({
           server: s,
           tools: await mcpListTools(s.id),
         })),
       )
 
+      // Filter out failed MCP server connections (e.g., HTTP servers when offline)
       return tools
+        .filter(
+          (result): result is PromiseFulfilledResult<ToolsByServer> =>
+            result.status === 'fulfilled',
+        )
+        .map((result) => result.value)
     },
   })
 

@@ -114,15 +114,30 @@ class MLCServerService {
       return []
     }
 
-    const response = await fetch(new URL('/v1/models', this.endpoint))
+    try {
+      const response = await fetch(new URL('/v1/models', this.endpoint), {
+        // Use shorter timeout for local server
+        signal: AbortSignal.timeout(10000),
+      })
 
-    if (!response.ok) {
-      throw new Error('Failed to fetch models')
+      if (!response.ok) {
+        throw new Error(
+          `Failed to fetch models: ${response.status} ${response.statusText}`,
+        )
+      }
+
+      const data: unknown = await response.json()
+      const parsedResponse = ModelsResponseSchema.parse(data)
+      return parsedResponse.data
+    } catch (error) {
+      console.warn(
+        '[MLCServer] Failed to fetch models from local server:',
+        error,
+      )
+      // Return empty array instead of throwing - this allows the app to work
+      // even if the models endpoint is temporarily unavailable
+      return []
     }
-
-    const data: unknown = await response.json()
-    const parsedResponse = ModelsResponseSchema.parse(data)
-    return parsedResponse.data
   }
 }
 
