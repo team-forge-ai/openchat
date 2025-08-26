@@ -4,7 +4,7 @@ use crate::mcp::constants::{
     MCP_METHOD_INITIALIZE, MCP_NOTIFICATION_INITIALIZED, MCP_PROTOCOL_VERSION,
 };
 use crate::mcp::transport::session::{McpSession, McpTransport};
-use log::{error, info};
+use log::{error, info, warn};
 use std::process::Stdio;
 use tokio::io::BufReader;
 use tokio::process::Command;
@@ -132,14 +132,26 @@ pub async fn spawn_stdio_session(
     let mut session = McpSession::new_stdio(child, stdin, BufReader::new(stdout));
 
     // Send initialize request and wait for response
-    let _ = session
+    if let Err(e) = session
         .send(MCP_METHOD_INITIALIZE, init_params(), connect_timeout_ms)
-        .await?;
+        .await
+    {
+        warn!(
+            "mcp: failed to send initialize request - {}, continuing anyway",
+            e
+        );
+    }
 
     // Send notifications/initialized notification (no response expected)
-    session
+    if let Err(e) = session
         .send_notification(MCP_NOTIFICATION_INITIALIZED, None, connect_timeout_ms)
-        .await?;
+        .await
+    {
+        warn!(
+            "mcp: failed to send initialized notification - {}, continuing anyway",
+            e
+        );
+    }
 
     Ok(session)
 }
