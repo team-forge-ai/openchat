@@ -51,6 +51,7 @@ alwaysApply: false
 - Use readonly for immutable properties
 - Leverage discriminated unions for type safety
 - Implement proper null checking
+- When making changes, don't worry about backwards compatibility. For example, don't alias types.
 
 ## Imports
 

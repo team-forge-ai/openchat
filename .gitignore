@@ -33,6 +33,7 @@ openchat-mlx-server-dist/
 openchat-mlx-server-macos-arm64.tar.gz
 
 src-tauri/binaries/openchat-mlx-server-aarch64-apple-darwin
+src-tauri/binaries/python3-aarch64-apple-darwin
 
 # Runtime files
 *.pid

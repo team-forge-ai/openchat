@@ -35,7 +35,7 @@ function NonMemoizedMarkdown({ children, className }: MarkdownProps) {
         'dark:prose-invert',
         'prose-headings:text-inherit prose-strong:text-inherit prose-em:text-inherit',
         // Add styling for code blocks to handle overflow
-        'prose-pre:overflow-x-auto prose-pre:max-w-full',
+        'prose-pre:overflow-x-auto prose-pre:max-w-full prose-pre:bg-transparent prose-pre:text-inherit',
         // Disable code block quotes
         'prose-code:before:content-none prose-code:after:content-none',
         'prose-blockquote:text-inherit prose-a:text-inherit',

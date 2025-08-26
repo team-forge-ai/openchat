@@ -1,17 +1,25 @@
 import { AppHeader } from '@/components/app-header'
+import { AppMenuEvents } from '@/components/app-menu-events'
 import { AppShortcuts } from '@/components/app-shortcuts'
 import { AppSidebar } from '@/components/app-sidebar'
 import { ChatWindow } from '@/components/chat-window'
 import { SettingsSidebar } from '@/components/settings-sidebar'
 import { SettingsWindow } from '@/components/settings-window'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
+import { Toaster } from '@/components/ui/sonner'
 import { AppContextProvider, useAppContext } from '@/contexts/app-context'
-import { MLXServerProvider } from '@/contexts/mlx-server-context'
+import { DownloadProgressProvider } from '@/contexts/download-progress-context'
+import { MLCServerProvider } from '@/contexts/mlc-server-context'
+import { useDownloadToasts } from '@/hooks/use-download-toast'
 
 import './App.css'
 
 function AppContent() {
   const { view } = useAppContext()
+
+  // Automatically manage download toasts
+  useDownloadToasts()
+
   return (
     <div className="h-screen flex flex-col select-none">
       <div className="flex-1 overflow-hidden flex flex-col">
@@ -35,12 +43,16 @@ function AppContent() {
 
 function App() {
   return (
-    <MLXServerProvider>
-      <AppContextProvider>
-        <AppShortcuts />
-        <AppContent />
-      </AppContextProvider>
-    </MLXServerProvider>
+    <MLCServerProvider>
+      <DownloadProgressProvider>
+        <AppContextProvider>
+          <AppMenuEvents />
+          <AppShortcuts />
+          <AppContent />
+          <Toaster />
+        </AppContextProvider>
+      </DownloadProgressProvider>
+    </MLCServerProvider>
   )
 }
 

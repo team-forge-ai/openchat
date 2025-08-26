@@ -4,11 +4,9 @@ alwaysApply: true
 
 ## Technologies used
 
-- **Desktop** - We use Tauri to build the desktop app.
-- **React** - Build interactive UIs with React components
-- **Tailwind CSS** - Utility-first CSS framework for rapid UI development
-- **TypeScript** - Full type safety across all packages
-- **ESLint & Prettier** - Code quality tools configured and ready to use
-- **Testing** - We use vitest for testing.
-- **DB** - We use sqlite for the database.
-- **Package Manager** - We use pnpm for TypeScript package management and Cargo for Rust.
+- **Desktop** - Tauri (Rust + TypeScript)
+- **Frontend** - React + TypeScript + Tailwind CSS + shadcn/ui
+- **Database** - SQLite with migrations
+- **Testing** - Vitest
+- **Code Quality** - ESLint + Prettier
+- **Package Management** - pnpm (TypeScript) + Cargo (Rust)

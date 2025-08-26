@@ -3,31 +3,31 @@
 [data-markdown-variant='default'] {
   & .shiki,
   & .shiki span {
-    color: var(--s-light);
-    background-color: var(--s-light-bg);
+    color: var(--shiki-light);
+    background-color: var(--shiki-light-bg);
   }
 }
 
 [data-markdown-variant='invert'] {
   & .shiki,
   & .shiki span {
-    color: var(--s-dark);
-    background-color: var(--s-dark-bg);
+    color: var(--shiki-dark);
+    background-color: var(--shiki-dark-bg);
   }
 }
 
 .dark [data-markdown-variant='invert'] {
   & .shiki,
   & .shiki span {
-    color: var(--s-light);
-    background-color: var(--s-light-bg);
+    color: var(--shiki-light);
+    background-color: var(--shiki-light-bg);
   }
 }
 
 .dark [data-markdown-variant='default'] {
   & .shiki,
   & .shiki span {
-    color: var(--s-dark);
-    background-color: var(--s-dark-bg);
+    color: var(--shiki-dark);
+    background-color: var(--shiki-dark-bg);
   }
 }

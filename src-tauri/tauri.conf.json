@@ -36,8 +36,8 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": ["models"],
-    "externalBin": ["binaries/openchat-mlx-server"]
+    "resources": [],
+    "externalBin": ["binaries/openchat-mlx-server", "binaries/python3"]
   },
   "plugins": {
     "sql": {

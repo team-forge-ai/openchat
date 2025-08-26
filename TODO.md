@@ -1,18 +1,21 @@
-- [x] only scroll the chat when a new message is received
-- chat message skeleton loading isn't working
-- [x] log all server info logs to stdout
-- [x] add status to message (pending|complete|error)
-- [x] hide msg timestamp when pending
-- [x] add a way of stopping execution
-- [x] plan settings
-- plan pdf extraction? mcp
-- plan mcp integration
-- add reasoning duration
-- request timeoued out after a while
-- seems to use an insane amount of resources. maybe lower context?
-- [x] icon idea: purple lilly
-- [x] Add project structure/desc to always.md
-- add full-text search
-- [x] title-case response from generated name
-- [x] add system prompt to settings
-- need to decide if I'm going to allow multiple or arb models
+# Priority
+
+- [] create mcp server store
+- [] create model store
+
+# Nice to have
+
+- [x] need to decide if I'm going to allow multiple or arb models
+- [] PDF export / print as pdf
+- [] plan pdf extraction? mcp
+- [] delete empty conversations
+
+# Done
+
+- [x] wire in model downloading again
+- [x] skeleton loading for new messages
+- [x] add sonner progress bar for model downloads
+- [x] conversation timeout
+- [x] where has reasoning gone?
+- [x] internet connectino required
+- [x] code color not working

@@ -16,7 +16,7 @@ export function SystemPromptSettings() {
         onBlur={() => setSystemPrompt(value)}
         placeholder={DEFAULT_SETTINGS_PROMPT}
         className={cn(
-          'w-full min-h-40 rounded-md border border-input bg-transparent p-3 text-sm',
+          'w-full rounded-md border border-input bg-transparent p-3 text-sm',
           'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] outline-none',
         )}
       />

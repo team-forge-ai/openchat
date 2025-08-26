@@ -2,11 +2,26 @@ import {
   createContext,
   useContext,
   useEffect,
+  useLayoutEffect,
   useState,
   type ReactNode,
 } from 'react'
 
 type Theme = 'dark' | 'light' | 'system'
+type Scheme = Exclude<Theme, 'system'>
+
+const DEFAULT_STORAGE_KEY = 'vite-ui-theme'
+
+function getSystemScheme(): Scheme {
+  return window.matchMedia('(prefers-color-scheme: dark)').matches
+    ? 'dark'
+    : 'light'
+}
+
+function applyThemeClass(root: HTMLElement, scheme: Scheme): void {
+  root.classList.remove('light', 'dark')
+  root.classList.add(scheme)
+}
 
 interface ThemeProviderProps {
   children: ReactNode
@@ -16,6 +31,7 @@ interface ThemeProviderProps {
 
 interface ThemeProviderState {
   theme: Theme
+  resolvedTheme: Scheme
   setTheme: (theme: Theme) => void
 }
 
@@ -26,7 +42,7 @@ const ThemeProviderContext = createContext<ThemeProviderState | undefined>(
 export function ThemeProvider({
   children,
   defaultTheme = 'system',
-  storageKey = 'vite-ui-theme',
+  storageKey = DEFAULT_STORAGE_KEY,
   ...props
 }: ThemeProviderProps) {
   const [theme, setTheme] = useState<Theme>(() => {
@@ -37,25 +53,36 @@ export function ThemeProvider({
     }
   })
 
-  useEffect(() => {
+  const resolvedTheme: Scheme = theme === 'system' ? getSystemScheme() : theme
+
+  useLayoutEffect(() => {
     const root = window.document.documentElement
+    const schemeToApply: Scheme = theme === 'system' ? getSystemScheme() : theme
+    applyThemeClass(root, schemeToApply)
+  }, [theme])
 
-    root.classList.remove('light', 'dark')
+  useEffect(() => {
+    const mediaQueryList = window.matchMedia('(prefers-color-scheme: dark)')
 
-    if (theme === 'system') {
-      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)')
-        .matches
-        ? 'dark'
-        : 'light'
-      root.classList.add(systemTheme)
-      return
+    const handleChange = (event: MediaQueryListEvent) => {
+      const scheme: Scheme = event.matches ? 'dark' : 'light'
+
+      if (theme === 'system') {
+        const root = window.document.documentElement
+        applyThemeClass(root, scheme)
+      }
     }
 
-    root.classList.add(theme)
+    mediaQueryList.addEventListener('change', handleChange)
+
+    return () => {
+      mediaQueryList.removeEventListener('change', handleChange)
+    }
   }, [theme])
 
   const value: ThemeProviderState = {
     theme,
+    resolvedTheme,
     setTheme: (nextTheme: Theme) => {
       try {
         localStorage.setItem(storageKey, nextTheme)

@@ -1,5 +1,5 @@
 ---
-description: How to generate and configure Tauri app icons across platforms (macOS, Windows, Linux; mobile placed directly into Xcode/Android projects).
+alwaysApply: false
 ---
 
 # Tauri App Icons

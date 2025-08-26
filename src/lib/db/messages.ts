@@ -18,6 +18,13 @@ export async function insertMessage(
   return Number(row.id)
 }
 
+/**
+ * Updates a message with the given attributes.
+ * No-op if `attrs` is empty.
+ *
+ * @param messageId The message identifier.
+ * @param attrs Attributes to update.
+ */
 export async function updateMessage(
   messageId: number,
   attrs: Updateable<DB['messages']>,
@@ -35,6 +42,13 @@ export async function updateMessage(
     .execute()
 }
 
+/**
+ * Returns all messages for a conversation in ascending id order.
+ * This variant uses the raw table shape for streaming/title generation.
+ *
+ * @param conversationId The conversation identifier.
+ * @returns Rows from `messages` for the conversation.
+ */
 export async function getMessagesForChat(
   conversationId: number,
 ): Promise<Selectable<DB['messages']>[]> {
@@ -47,6 +61,12 @@ export async function getMessagesForChat(
     .execute()
 }
 
+/**
+ * Returns messages mapped to the public `Message` type for UI usage.
+ *
+ * @param conversationId The conversation identifier.
+ * @returns Messages for the conversation.
+ */
 export async function getMessages(conversationId: number): Promise<Message[]> {
   const db = await getKysely()
   const rows = await db

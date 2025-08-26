@@ -1,4 +1,9 @@
-import { MessageSquare, Settings as SettingsIcon } from 'lucide-react'
+import {
+  Bot,
+  MessageSquare,
+  Settings as SettingsIcon,
+  ToolCase,
+} from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import {
@@ -23,6 +28,8 @@ type SettingsSection = {
 
 const settingsSections: SettingsSection[] = [
   { id: 'system-prompt', title: 'System Prompt', icon: SettingsIcon },
+  { id: 'model-selection', title: 'Model', icon: Bot },
+  { id: 'mcp-servers', title: 'AI Tools', icon: ToolCase },
 ]
 
 export function SettingsSidebar() {

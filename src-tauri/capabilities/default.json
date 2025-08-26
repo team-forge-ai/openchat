@@ -19,7 +19,10 @@
           "name": "binaries/openchat-mlx-server",
           "sidecar": true,
           "args": true
-        }
+        },
+        { "name": "/usr/bin/*", "args": true },
+        { "name": "/usr/local/bin/*", "args": true },
+        { "name": "/opt/homebrew/bin/*", "args": true }
       ]
     },
     {
@@ -29,7 +32,10 @@
           "name": "binaries/openchat-mlx-server",
           "sidecar": true,
           "args": true
-        }
+        },
+        { "name": "/usr/bin/*", "args": true },
+        { "name": "/usr/local/bin/*", "args": true },
+        { "name": "/opt/homebrew/bin/*", "args": true }
       ]
     },
     "shell:allow-kill",

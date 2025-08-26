@@ -1,7 +1,9 @@
 /**
- * Downloads a file from a URL
- * @param url - The URL of the file to download
- * @param filename - Optional filename for the downloaded file
+ * Triggers a browser download for the provided URL.
+ * Creates a temporary anchor element and clicks it programmatically.
+ *
+ * @param url The URL of the file to download.
+ * @param filename Optional filename hint; falls back to the last URL segment.
  */
 export function downloadFile(url: string, filename?: string): void {
   const lastPath = url.split('/').pop()

@@ -1,0 +1,55 @@
+---
+description: How to create and apply database migrations in this Tauri project
+---
+
+# Database Migrations Process
+
+When creating new database migrations in this Tauri project, follow these steps:
+
+## 1. Create the Migration SQL File
+
+- Add a new `.sql` file in `src-tauri/migrations/`
+- Use naming convention: `XXX_description.sql` (e.g., `010_add_model_to_app_settings.sql`)
+- Include clear comments explaining the migration purpose
+
+## 2. Register the Migration in Rust
+
+⚠️ **CRITICAL STEP**: You MUST add the migration to [src-tauri/src/migrations.rs](mdc:src-tauri/src/migrations.rs)
+
+Add a new `Migration` entry to the `migrations()` function:
+
+```rust
+Migration {
+    version: X, // Increment from the last version
+    description: "description_matching_filename",
+    sql: include_str!("../migrations/XXX_description.sql"),
+    kind: MigrationKind::Up,
+},
+```
+
+## 3. Migration File Requirements
+
+- Must be valid SQLite syntax
+- Include proper error handling (IF NOT EXISTS, etc.)
+- Add comments explaining the purpose
+- For schema changes, consider backwards compatibility
+
+## Example Migration Flow
+
+1. Create `src-tauri/migrations/010_add_model_to_app_settings.sql`
+2. Add the migration entry to `migrations.rs` with version 10
+3. The migration will be automatically applied on next app startup
+
+## Common Migration Types
+
+- **Add column**: `ALTER TABLE table_name ADD COLUMN column_name TYPE;`
+- **Create table**: `CREATE TABLE IF NOT EXISTS table_name (...);`
+- **Create index**: `CREATE INDEX IF NOT EXISTS idx_name ON table_name (column);`
+
+## Verification
+
+After creating a migration:
+
+- Check that it's listed in `migrations.rs`
+- Test the migration by running the app
+- Verify the schema changes are applied correctly

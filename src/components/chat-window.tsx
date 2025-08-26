@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 
 import { useAppContext } from '@/contexts/app-context'
-import { useMLXServer } from '@/contexts/mlx-server-context'
+import { useMLCServer } from '@/contexts/mlc-server-context'
 import { useConversations } from '@/hooks/use-conversations'
 import { useMessages } from '@/hooks/use-messages'
 
@@ -22,8 +22,8 @@ export const ChatWindow: React.FC = () => {
   } = useMessages(selectedConversationId)
 
   const { createConversation } = useConversations()
-  const { status: mlxStatus } = useMLXServer()
-  const isChatDisabled = !mlxStatus.isRunning || !mlxStatus.isReady
+  const { isReady } = useMLCServer()
+  const isChatDisabled = !isReady
 
   // Aggregate loading state: fetching or sending
   const isLoading = isLoadingMessages || isSendingMessage
@@ -51,6 +51,8 @@ export const ChatWindow: React.FC = () => {
         content: messageContent,
       })
     } catch (error) {
+      console.error('Error sending message', error)
+
       setError(
         error instanceof Error ? error.message : 'Failed to send message',
       )
@@ -60,7 +62,9 @@ export const ChatWindow: React.FC = () => {
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       <ChatMessagesList messages={messages} isLoading={isLoading} />
+
       {error && <ChatErrorBanner error={error} />}
+
       <ChatInput
         onSubmit={handleSubmit}
         disabled={isLoading || isChatDisabled}

@@ -1,10 +1,24 @@
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 
+/**
+ * Utility to merge Tailwind class names with conflict resolution.
+ *
+ * @param inputs Class name fragments.
+ * @returns A space-joined class string.
+ */
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+/**
+ * Converts a sentence to English title case while preserving acronyms and
+ * internal capitalization (e.g., iOS, OpenAI). Hyphenated words are handled
+ * and common small words remain lowercase unless first/last.
+ *
+ * @param input The string to convert.
+ * @returns The title-cased string.
+ */
 export function toTitleCase(input: string): string {
   if (!input) {
     return ''

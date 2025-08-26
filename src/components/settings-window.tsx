@@ -3,28 +3,46 @@ import React from 'react'
 import { Separator } from '@/components/ui/separator'
 import { SidebarInset } from '@/components/ui/sidebar'
 
+import { McpServersSettings } from './settings/mcp-servers'
+import { ModelSelection } from './settings/model-selection'
 import { SystemPromptSettings } from './settings/system-prompt'
 
 export const SettingsWindow: React.FC = () => {
   return (
-    <SidebarInset>
-      <div className="flex h-full flex-col overflow-hidden">
-        <div className="flex-1 flex flex-col overflow-y-auto">
-          <div className="py-8 px-6 md:px-8 space-y-12 max-w-5xl mx-auto w-full">
-            <section id="system-prompt" className="space-y-6">
-              <div>
-                <h2 className="text-2xl font-bold tracking-tight">
-                  System Prompt
-                </h2>
-                <p className="text-muted-foreground">
-                  This prompt will be used as the system role for future chats.
-                </p>
-              </div>
-              <Separator className="my-6" />
-              <SystemPromptSettings />
-            </section>
+    <SidebarInset className="flex-1 overflow-y-auto">
+      <div className="py-8 px-6 md:px-8 space-y-12 max-w-5xl mx-auto w-full">
+        <section id="system-prompt" className="space-y-6">
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight">System Prompt</h2>
+            <p className="text-muted-foreground">
+              This prompt will be used as the system role for future chats.
+            </p>
           </div>
-        </div>
+          <Separator className="my-6" />
+          <SystemPromptSettings />
+        </section>
+
+        <section id="model-selection" className="space-y-6">
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight">Model</h2>
+            <p className="text-muted-foreground">
+              Choose which model to use for new conversations.
+            </p>
+          </div>
+          <Separator className="my-6" />
+          <ModelSelection />
+        </section>
+
+        <section id="mcp-servers" className="space-y-6">
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight">AI Tools</h2>
+            <p className="text-muted-foreground">
+              Extend the capabilities of your AI with custom MCP tools.
+            </p>
+          </div>
+          <Separator className="my-6" />
+          <McpServersSettings />
+        </section>
       </div>
     </SidebarInset>
   )
