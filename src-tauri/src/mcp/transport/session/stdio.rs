@@ -64,10 +64,10 @@ impl McpTransport for StdioSession {
         let mut line = serde_json::to_string(&req).map_err(|e| e.to_string())?;
         line.push('\n');
 
-        let write_res = timeout(
-            Duration::from_millis(timeout_ms),
-            self.stdin.write_all(line.as_bytes()),
-        )
+        let write_res = timeout(Duration::from_millis(timeout_ms), async {
+            self.stdin.write_all(line.as_bytes()).await?;
+            self.stdin.flush().await
+        })
         .await;
 
         match write_res {
@@ -142,10 +142,10 @@ impl McpTransport for StdioSession {
         let mut line = serde_json::to_string(&req).map_err(|e| e.to_string())?;
         line.push('\n');
 
-        let write_res = timeout(
-            Duration::from_millis(timeout_ms),
-            self.stdin.write_all(line.as_bytes()),
-        )
+        let write_res = timeout(Duration::from_millis(timeout_ms), async {
+            self.stdin.write_all(line.as_bytes()).await?;
+            self.stdin.flush().await
+        })
         .await;
 
         match write_res {
