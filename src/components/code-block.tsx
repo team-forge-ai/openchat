@@ -44,7 +44,6 @@ function CodeBlockSkeleton({
 
 function CodeBlockComponent({ language, children, className }: CodeBlockProps) {
   const { resolvedTheme: theme } = useTheme()
-  console.log(theme)
 
   const codeContent =
     typeof children === 'string' ? children : extractText(children)
