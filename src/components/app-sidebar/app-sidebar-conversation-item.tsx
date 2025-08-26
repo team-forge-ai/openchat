@@ -1,4 +1,4 @@
-import { Copy, Loader2, MoreVertical, Share2, Trash2 } from 'lucide-react'
+import { Copy, Loader2, MoreVertical, Trash2 } from 'lucide-react'
 
 import {
   AlertDialog,
@@ -70,11 +70,6 @@ export function AppSidebarConversationItem({
           </SidebarMenuAction>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem>
-            <Share2 className="h-3.5 w-3.5" />
-            <span>Share</span>
-          </DropdownMenuItem>
-
           <DropdownMenuItem
             onClick={() => copyAsMarkdown(id)}
             disabled={isCopying}
