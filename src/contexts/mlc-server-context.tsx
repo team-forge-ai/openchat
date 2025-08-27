@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 
-import { mlxServer } from '@/lib/mlc-server'
+import { mlcServer } from '@/lib/mlc-server'
 import type { MLCStatus } from '@/types/mlc-server'
 
 interface MLCServerContextValue {
@@ -34,14 +34,25 @@ export function MLCServerProvider({ children }: MLCServerProviderProps) {
     const setup = async () => {
       try {
         // Initialize service layer event listeners
-        await mlxServer.initializeEventListeners()
+        await mlcServer.initializeEventListeners()
 
         // Get initial status using the service layer
-        const initialStatus = await mlxServer.fetchStatus()
+        const initialStatus = await mlcServer.fetchStatus()
         setStatus(initialStatus)
 
+        // If server is not ready, start it
+        if (!initialStatus.isReady) {
+          console.log('MLC server not ready, starting...')
+          try {
+            await mlcServer.start()
+          } catch (err) {
+            console.error('Failed to start MLC server:', err)
+            setError(err instanceof Error ? err.message : String(err))
+          }
+        }
+
         // Subscribe to status changes through service layer
-        removeStatusListener = mlxServer.addStatusListener((status) => {
+        removeStatusListener = mlcServer.addStatusListener((status) => {
           setStatus(status)
           setError(null) // Clear error when status updates successfully
         })
@@ -63,10 +74,10 @@ export function MLCServerProvider({ children }: MLCServerProviderProps) {
     setError(null)
 
     try {
-      await mlxServer.restart()
+      await mlcServer.restart()
 
       // Get updated status after restart
-      const newStatus = await mlxServer.fetchStatus()
+      const newStatus = await mlcServer.fetchStatus()
 
       setStatus(newStatus)
       console.log('MLC server restarted successfully:', newStatus)

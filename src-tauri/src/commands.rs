@@ -24,6 +24,13 @@ pub async fn mlc_get_status(
 }
 
 #[tauri::command]
+pub async fn mlc_start(
+    manager: State<'_, std::sync::Arc<MLCServerManager>>,
+) -> CmdResult<MLCServerStatus> {
+    manager.start().await
+}
+
+#[tauri::command]
 pub async fn mlc_restart(
     manager: State<'_, std::sync::Arc<MLCServerManager>>,
 ) -> CmdResult<MLCServerStatus> {

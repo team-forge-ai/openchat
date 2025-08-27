@@ -24,6 +24,7 @@ class MLCServerService {
   private currentStatus: MLCStatus | null = null
   private tauriUnlisten: UnlistenFn | null = null
   private listeners = new Set<(status: MLCStatus) => void>()
+  private startPromise: Promise<MLCStatus> | null = null
 
   async initializeEventListeners(): Promise<void> {
     if (this.tauriUnlisten) {
@@ -51,6 +52,33 @@ class MLCServerService {
   /** Retrieves the latest status via Tauri command and caches it. */
   async fetchStatus(): Promise<MLCStatus> {
     const wire = await invoke<MLCServerStatusWire>('mlc_get_status')
+    const status = fromWire(wire)
+    this.currentStatus = status
+
+    return status
+  }
+
+  /** Starts the MLC server process and returns the immediate status. */
+  async start(): Promise<MLCStatus> {
+    // If already starting, return the existing promise
+    if (this.startPromise) {
+      return await this.startPromise
+    }
+
+    // Create and cache the start promise
+    this.startPromise = this.performStart()
+
+    try {
+      const result = await this.startPromise
+      return result
+    } finally {
+      // Clear the promise once completed (success or failure)
+      this.startPromise = null
+    }
+  }
+
+  private async performStart(): Promise<MLCStatus> {
+    const wire = await invoke<MLCServerStatusWire>('mlc_start')
     const status = fromWire(wire)
     this.currentStatus = status
 
@@ -142,5 +170,5 @@ class MLCServerService {
 }
 
 /** Singleton service entry point for interacting with the local MLC server. */
-export const mlxServer = new MLCServerService()
+export const mlcServer = new MLCServerService()
 export type { MLCStatus }

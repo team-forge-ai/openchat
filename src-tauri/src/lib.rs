@@ -57,11 +57,10 @@ pub fn run() {
                 .map_err(|e| format!("Failed to get app data dir: {e}"))?;
             setup_sqlite_pool(app, &app_data_dir)?;
 
-            // Set up MLC server manager in app state and auto-start
+            // Set up MLC server manager in app state
             let handle = app.handle().clone();
             let manager: Arc<crate::mlc_server::MLCServerManager> =
                 Arc::new(crate::mlc_server::MLCServerManager::new(handle));
-            let manager_for_start = Arc::clone(&manager);
             app.manage(manager);
 
             // Set up MCP manager state
@@ -71,16 +70,12 @@ pub fn run() {
             // --- Application menu ---
             menu::MenuManager::setup_app_menu(app)?;
 
-            // Auto-start the server in the background
-            tauri::async_runtime::spawn(async move {
-                let _ = manager_for_start.restart().await;
-            });
-
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             // MLC server management
             commands::mlc_get_status,
+            commands::mlc_start,
             commands::mlc_restart,
             // MCP commands
             commands::mcp_check_server,
