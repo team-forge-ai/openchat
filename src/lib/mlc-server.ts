@@ -1,19 +1,15 @@
-import { invoke } from '@tauri-apps/api/core'
 import type { UnlistenFn } from '@tauri-apps/api/event'
-import { listen } from '@tauri-apps/api/event'
 
-import { EVENT_MLC_STATUS_CHANGED } from '@/lib/events'
+import {
+  mlcGetStatus,
+  mlcRestart,
+  mlcStart,
+  type MlcServerStatus,
+} from '@/lib/commands'
+import { subscribeToMlcStatusChanges } from '@/lib/events'
 import { createMlcClient } from '@/lib/mlc-client'
-import type { MLCServerStatusWire, MLCStatus, Model } from '@/types/mlc-server'
+import type { Model } from '@/types/mlc-server'
 import { ModelsResponseSchema } from '@/types/mlc-server'
-
-function fromWire(status: MLCServerStatusWire): MLCStatus {
-  return {
-    isReady: Boolean(status.is_running && status.is_http_ready),
-    port: status.port,
-    error: status.error ?? null,
-  }
-}
 
 /**
  * Service responsible for tracking MLC server status via Tauri events and
@@ -21,45 +17,40 @@ function fromWire(status: MLCServerStatusWire): MLCStatus {
  * endpoint/model access, and a readiness promise).
  */
 class MLCServerService {
-  private currentStatus: MLCStatus | null = null
+  private currentStatus: MlcServerStatus | null = null
   private tauriUnlisten: UnlistenFn | null = null
-  private listeners = new Set<(status: MLCStatus) => void>()
-  private startPromise: Promise<MLCStatus> | null = null
+  private listeners = new Set<(status: MlcServerStatus) => void>()
+  private startPromise: Promise<MlcServerStatus> | null = null
 
   async initializeEventListeners(): Promise<void> {
     if (this.tauriUnlisten) {
       return
     }
-    this.tauriUnlisten = await listen<MLCServerStatusWire>(
-      EVENT_MLC_STATUS_CHANGED,
-      (event) => {
-        const status = fromWire(event.payload)
-        this.currentStatus = status
+    this.tauriUnlisten = await subscribeToMlcStatusChanges((status) => {
+      this.currentStatus = status
 
-        for (const handler of this.listeners) {
-          handler(status)
-        }
-      },
-    )
+      for (const handler of this.listeners) {
+        handler(status)
+      }
+    })
   }
 
   /** Adds a status listener. Returns a disposer to unsubscribe. */
-  addStatusListener(handler: (status: MLCStatus) => void): () => void {
+  addStatusListener(handler: (status: MlcServerStatus) => void): () => void {
     this.listeners.add(handler)
     return () => this.listeners.delete(handler)
   }
 
   /** Retrieves the latest status via Tauri command and caches it. */
-  async fetchStatus(): Promise<MLCStatus> {
-    const wire = await invoke<MLCServerStatusWire>('mlc_get_status')
-    const status = fromWire(wire)
+  async fetchStatus(): Promise<MlcServerStatus> {
+    const status = await mlcGetStatus()
     this.currentStatus = status
 
     return status
   }
 
   /** Starts the MLC server process and returns the immediate status. */
-  async start(): Promise<MLCStatus> {
+  async start(): Promise<MlcServerStatus> {
     // If already starting, return the existing promise
     if (this.startPromise) {
       return await this.startPromise
@@ -77,18 +68,16 @@ class MLCServerService {
     }
   }
 
-  private async performStart(): Promise<MLCStatus> {
-    const wire = await invoke<MLCServerStatusWire>('mlc_start')
-    const status = fromWire(wire)
+  private async performStart(): Promise<MlcServerStatus> {
+    const status = await mlcStart()
     this.currentStatus = status
 
     return status
   }
 
   /** Restarts the MLC server process and returns the immediate status. */
-  async restart(): Promise<MLCStatus> {
-    const wire = await invoke<MLCServerStatusWire>('mlc_restart')
-    const status = fromWire(wire)
+  async restart(): Promise<MlcServerStatus> {
+    const status = await mlcRestart()
     this.currentStatus = status
 
     return status
@@ -96,7 +85,27 @@ class MLCServerService {
 
   /** True when the server is running and an HTTP port is available. */
   get isReady(): boolean {
-    return Boolean(this.currentStatus?.isReady && this.currentStatus?.port)
+    return Boolean(
+      this.currentStatus?.isRunning &&
+        this.currentStatus?.isHttpReady &&
+        this.currentStatus?.port,
+    )
+  }
+
+  /** Gets the current cached status or null if not available */
+  get status(): MlcServerStatus {
+    if (this.currentStatus) {
+      return this.currentStatus
+    }
+
+    // Fallback for when status hasn't been fetched yet
+    return {
+      isRunning: false,
+      isHttpReady: false,
+      port: undefined,
+      pid: null,
+      error: null,
+    }
   }
 
   /** Returns the base HTTP endpoint for the local MLC server, or null. */
@@ -108,15 +117,19 @@ class MLCServerService {
   }
 
   /** Resolves once the server is ready; caches current readiness when true. */
-  get waitForReady(): Promise<MLCStatus> {
-    if (this.currentStatus?.isReady && this.currentStatus?.port) {
+  get waitForReady(): Promise<MlcServerStatus> {
+    if (
+      this.currentStatus?.isRunning &&
+      this.currentStatus?.isHttpReady &&
+      this.currentStatus?.port
+    ) {
       return Promise.resolve(this.currentStatus)
     }
 
-    return new Promise<MLCStatus>((resolve) => {
+    return new Promise<MlcServerStatus>((resolve) => {
       let done = false
       const unlisten = this.addStatusListener((s) => {
-        if (!done && s.isReady && s.port) {
+        if (!done && s.isRunning && s.isHttpReady && s.port) {
           done = true
           unlisten()
           resolve(s)
@@ -171,4 +184,4 @@ class MLCServerService {
 
 /** Singleton service entry point for interacting with the local MLC server. */
 export const mlcServer = new MLCServerService()
-export type { MLCStatus }
+export type { MlcServerStatus }

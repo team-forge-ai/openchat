@@ -52,7 +52,7 @@ export function ModelManagerStatus() {
       }
     }
 
-    if (!status.server.isReady) {
+    if (!status.server.isRunning || !status.server.isHttpReady) {
       return {
         type: 'starting' as const,
         text: 'Starting server...',

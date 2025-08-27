@@ -1,5 +1,6 @@
 import { createOpenAI } from '@ai-sdk/openai'
-import { invoke } from '@tauri-apps/api/core'
+
+import { getEnvVar } from '@/lib/commands'
 
 /**
  * Creates an OpenAI model instance using the `OPENAI_API_KEY` provided by
@@ -9,9 +10,7 @@ import { invoke } from '@tauri-apps/api/core'
  * @throws If the API key is not available.
  */
 export async function createOpenAiModel() {
-  const apiKey = await invoke<string | null>('get_env_var', {
-    name: 'OPENAI_API_KEY',
-  })
+  const apiKey = await getEnvVar('OPENAI_API_KEY')
 
   if (!apiKey) {
     throw new Error('OPENAI_API_KEY environment variable is not set')

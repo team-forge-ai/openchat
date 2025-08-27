@@ -49,7 +49,7 @@ export function getModelManagerTooltipContent(
   }
 
   // Server not ready
-  if (!status.server.isReady) {
+  if (!status.server.isRunning || !status.server.isHttpReady) {
     return <div className="space-y-1">Status: Server starting...</div>
   }
 

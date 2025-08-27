@@ -1,7 +1,7 @@
 import React from 'react'
 
-import { subscribeDownloadProgress } from '@/lib/download-progress'
-import type { DownloadProgressEvent } from '@/types/download'
+import type { DownloadProgressEvent } from '@/lib/events'
+import { subscribeToDownloadProgress } from '@/lib/events'
 
 type Status = 'idle' | 'downloading' | 'failed' | 'completed'
 
@@ -34,32 +34,32 @@ function reducer(
     case 'event': {
       const event = action.evt
       switch (event.type) {
-        case 'repo_discovered':
+        case 'repoDiscovered':
           return {
             ...state,
             status: 'downloading',
             totalBytes: event.totalBytes,
           }
-        case 'file_started':
+        case 'fileStarted':
           return {
             ...state,
             status: 'downloading',
             lastFile: event.path,
           }
-        case 'bytes_transferred':
+        case 'bytesTransferred':
           return {
             ...state,
             status: 'downloading',
             receivedBytes: state.receivedBytes + event.bytes,
           }
-        case 'file_completed':
+        case 'fileCompleted':
           return {
             ...state,
             status: 'downloading',
             filesCompleted: state.filesCompleted + 1,
             lastFile: event.path,
           }
-        case 'file_failed':
+        case 'fileFailed':
           return {
             ...state,
             status: 'failed',
@@ -104,9 +104,9 @@ export function DownloadProgressProvider({
     let pendingBytes = 0
     let unsub: null | (() => void) = null
     const attach = async () => {
-      unsub = await subscribeDownloadProgress((evt) => {
+      unsub = await subscribeToDownloadProgress((evt) => {
         const repoId = evt.repoId
-        if (evt.type === 'bytes_transferred') {
+        if (evt.type === 'bytesTransferred') {
           pendingBytes += evt.bytes
           if (!raf) {
             raf = requestAnimationFrame(() => {

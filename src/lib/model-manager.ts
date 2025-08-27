@@ -1,10 +1,10 @@
 import { getModelOrDefault } from '@/lib/db/app-settings'
-import { mlcServer, type MLCStatus } from '@/lib/mlc-server'
+import { mlcServer, type MlcServerStatus } from '@/lib/mlc-server'
 import { modelStore, type ModelStatus } from '@/lib/model-store'
 
 export interface ModelManagerStatus {
   /** MLX server status */
-  server: MLCStatus
+  server: MlcServerStatus
   /** Model store status */
   model: ModelStatus
   /** Overall initialization status */
@@ -33,23 +33,16 @@ class ModelManagerService {
 
   /** Gets the current combined status */
   getStatus(): ModelManagerStatus {
-    // Get current status by calling fetchStatus, but don't await it
-    // We'll use the cached status from the mlcServer
-    const serverStatus: MLCStatus = {
-      isReady: mlcServer.isReady,
-      port: mlcServer.endpoint
-        ? Number(new URL(mlcServer.endpoint).port)
-        : undefined,
-      error: null, // MLCServer doesn't expose current error directly
-    }
-    const modelStatus = modelStore.getStatus()
+    const serverStatus = mlcServer.status
+    const modelStatus = modelStore.status
 
     return {
       server: serverStatus,
       model: modelStatus,
       isInitialized: this.isInitialized,
       isReady: Boolean(
-        serverStatus.isReady &&
+        serverStatus.isRunning &&
+          serverStatus.isHttpReady &&
           modelStatus.currentModel &&
           !modelStatus.isLoading &&
           !modelStatus.error,

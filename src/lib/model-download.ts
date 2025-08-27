@@ -1,9 +1,9 @@
-import { invoke } from '@tauri-apps/api/core'
+import { downloadModel as downloadModelCommand } from '@/lib/commands'
 
 /**
  * Downloads a Hugging Face model to the local cache if not already present.
  * Emits `mlc-download-progress` events during the download process which can
- * be listened to using `subscribeDownloadProgress` from `@/lib/download-progress`.
+ * be listened to using `subscribeToDownloadProgress` from `@/lib/events`.
  *
  * @param repoId The Hugging Face model repository ID (e.g., "mlc-ai/Qwen2.5-7B-Instruct-q4f16_1-MLC")
  * @returns Promise that resolves when the download is complete or if the model is already cached
@@ -12,10 +12,10 @@ import { invoke } from '@tauri-apps/api/core'
  * @example
  * ```typescript
  * import { downloadModel } from '@/lib/model-download'
- * import { subscribeDownloadProgress } from '@/lib/download-progress'
+ * import { subscribeToDownloadProgress } from '@/lib/events'
  *
  * // Subscribe to progress events
- * const unsubscribe = await subscribeDownloadProgress((event) => {
+ * const unsubscribe = await subscribeToDownloadProgress((event) => {
  *   console.log('Download progress:', event)
  * })
  *
@@ -30,5 +30,5 @@ import { invoke } from '@tauri-apps/api/core'
  * ```
  */
 export async function downloadModel(repoId: string): Promise<void> {
-  await invoke('download_model', { repoId })
+  await downloadModelCommand(repoId)
 }

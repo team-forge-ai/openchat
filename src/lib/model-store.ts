@@ -33,7 +33,7 @@ class ModelStoreService {
   }
 
   /** Gets the current model status */
-  getStatus(): ModelStatus {
+  get status(): ModelStatus {
     return {
       currentModel: this.currentModel,
       isLoading: this.isLoading,
@@ -97,7 +97,8 @@ class ModelStoreService {
   }
 
   private notifyListeners(): void {
-    const status = this.getStatus()
+    const status = this.status
+
     for (const handler of this.listeners) {
       handler(status)
     }
