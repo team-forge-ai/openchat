@@ -1,6 +1,7 @@
 import {
   AlertTriangle,
   Bot,
+  Download,
   MessageSquare,
   Settings as SettingsIcon,
   ToolCase,
@@ -30,6 +31,7 @@ type SettingsSection = {
 const settingsSections: SettingsSection[] = [
   { id: 'system-prompt', title: 'System Prompt', icon: SettingsIcon },
   { id: 'model-selection', title: 'Model', icon: Bot },
+  { id: 'model-download', title: 'Download Model', icon: Download },
   { id: 'mcp-servers', title: 'AI Tools', icon: ToolCase },
   { id: 'danger-zone', title: 'Danger Zone', icon: AlertTriangle },
 ]

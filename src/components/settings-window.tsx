@@ -5,6 +5,7 @@ import { SidebarInset } from '@/components/ui/sidebar'
 
 import { DangerZone } from './settings/danger-zone'
 import { McpServersSettings } from './settings/mcp-servers'
+import { ModelDownload } from './settings/model-download'
 import { ModelSelection } from './settings/model-selection'
 import { SystemPromptSettings } from './settings/system-prompt'
 
@@ -32,6 +33,20 @@ export const SettingsWindow: React.FC = () => {
           </div>
           <Separator className="my-6" />
           <ModelSelection />
+        </section>
+
+        <section id="model-download" className="space-y-6">
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight">
+              Download Model
+            </h2>
+            <p className="text-muted-foreground">
+              Download new models from Hugging Face to use in your
+              conversations.
+            </p>
+          </div>
+          <Separator className="my-6" />
+          <ModelDownload />
         </section>
 
         <section id="mcp-servers" className="space-y-6">
