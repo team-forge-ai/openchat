@@ -10,6 +10,68 @@ import { useModelManager } from '@/contexts/model-manager-context'
 import { useDownloadStatus } from '@/hooks/use-download-status'
 import { getModelManagerTooltipContent } from '@/lib/server-status-utils'
 
+// Fun status message collections for the main display
+const ERROR_MESSAGES = [
+  'AI hiccup',
+  'Neural glitch',
+  'Brain freeze',
+  'Oops, AI stumbled',
+  'Digital hiccup',
+  'AI needs coffee',
+]
+
+const READY_MESSAGES = [
+  'AI awakened',
+  'Brain online',
+  'Ready to think',
+  'Consciousness active',
+  'AI standing by',
+  'Neural networks live',
+]
+
+const DOWNLOAD_MESSAGES = [
+  'Downloading AI brain...',
+  'Fetching neural data...',
+  'Acquiring intelligence...',
+  'Streaming consciousness...',
+  'Downloading wisdom...',
+  'Pulling AI memories...',
+]
+
+const LOADING_MESSAGES = [
+  'Waking up the AI...',
+  'Booting consciousness...',
+  'Loading neural pathways...',
+  'Awakening digital mind...',
+  'Initializing intelligence...',
+  'Starting AI brain...',
+]
+
+const SERVER_STARTING_MESSAGES = [
+  'Booting neural networks...',
+  'Starting AI engines...',
+  'Firing up intelligence...',
+  'Powering AI systems...',
+  'Activating neural cores...',
+  'Spinning up consciousness...',
+]
+
+const INITIALIZATION_MESSAGES = [
+  'Summoning artificial intelligence...',
+  'Weaving digital consciousness...',
+  'Birthing AI thoughts...',
+  'Manifesting intelligence...',
+  'Awakening silicon dreams...',
+  'Creating digital awareness...',
+]
+
+/**
+ * Randomly selects a message from an array
+ */
+function getRandomMessage(messages: string[]): string {
+  return messages[Math.floor(Math.random() * messages.length)]
+}
+
 export function ModelManagerStatus() {
   const { status, error, restartServer } = useModelManager()
   const downloadStatus = useDownloadStatus()
@@ -19,7 +81,7 @@ export function ModelManagerStatus() {
     if (error) {
       return {
         type: 'error' as const,
-        text: 'AI error',
+        text: getRandomMessage(ERROR_MESSAGES),
         iconColor: 'text-red-500',
         canRestart: true,
       }
@@ -28,7 +90,7 @@ export function ModelManagerStatus() {
     if (status.isReady) {
       return {
         type: 'ready' as const,
-        text: 'AI ready',
+        text: getRandomMessage(READY_MESSAGES),
         iconColor: 'text-green-500',
         canRestart: false,
       }
@@ -37,7 +99,7 @@ export function ModelManagerStatus() {
     if (downloadStatus.hasActiveDownload) {
       return {
         type: 'starting' as const,
-        text: 'Downloading model...',
+        text: getRandomMessage(DOWNLOAD_MESSAGES),
         iconColor: 'text-blue-500',
         canRestart: false,
       }
@@ -46,7 +108,7 @@ export function ModelManagerStatus() {
     if (status.model.isLoading) {
       return {
         type: 'starting' as const,
-        text: 'Loading model...',
+        text: getRandomMessage(LOADING_MESSAGES),
         iconColor: 'text-orange-500',
         canRestart: false,
       }
@@ -55,7 +117,7 @@ export function ModelManagerStatus() {
     if (!status.server.isRunning || !status.server.isHttpReady) {
       return {
         type: 'starting' as const,
-        text: 'Starting server...',
+        text: getRandomMessage(SERVER_STARTING_MESSAGES),
         iconColor: 'text-orange-500',
         canRestart: false,
       }
@@ -63,7 +125,7 @@ export function ModelManagerStatus() {
 
     return {
       type: 'starting' as const,
-      text: 'Initializing...',
+      text: getRandomMessage(INITIALIZATION_MESSAGES),
       iconColor: 'text-orange-500',
       canRestart: false,
     }
