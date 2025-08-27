@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react'
 
-import { DownloadProgressTooltip } from '@/components/download-progress-tooltip'
 import type { DownloadStatusInfo } from '@/hooks/use-download-status'
 import type { ModelManagerStatus } from '@/lib/model-manager'
 
@@ -45,7 +44,11 @@ export function getModelManagerTooltipContent(
 
   // Download in progress
   if (downloadStatus.hasActiveDownload) {
-    return <DownloadProgressTooltip downloadStatus={downloadStatus} />
+    return (
+      <div className="space-y-1">
+        Status: Downloading {downloadStatus.repoId ?? 'model'}...
+      </div>
+    )
   }
 
   // Server not ready

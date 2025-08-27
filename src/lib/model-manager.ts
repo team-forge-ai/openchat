@@ -1,6 +1,10 @@
+import { generateText } from 'ai'
+
 import { getModelOrDefault } from '@/lib/db/app-settings'
 import { mlcServer, type MlcServerStatus } from '@/lib/mlc-server'
 import { modelStore, type ModelStatus } from '@/lib/model-store'
+
+import { createMlcClient } from './mlc-client'
 
 export interface ModelManagerStatus {
   /** MLX server status */
@@ -9,10 +13,14 @@ export interface ModelManagerStatus {
   model: ModelStatus
   /** Overall initialization status */
   isInitialized: boolean
-  /** Whether the system is ready for chat (server ready + model loaded) */
+  /** Whether the model has been tested and can receive messages */
+  isModelTested: boolean
+  /** Whether the system is ready for chat (server ready + model loaded + tested) */
   isReady: boolean
   /** Combined error from server or model operations */
   error: string | null
+  /** Error from model testing, if any */
+  testError: string | null
 }
 
 /**
@@ -22,6 +30,8 @@ export interface ModelManagerStatus {
  */
 class ModelManagerService {
   private isInitialized = false
+  private isModelTested = false
+  private testError: string | null = null
   private listeners = new Set<(status: ModelManagerStatus) => void>()
   private initializationPromise: Promise<void> | null = null
 
@@ -40,14 +50,18 @@ class ModelManagerService {
       server: serverStatus,
       model: modelStatus,
       isInitialized: this.isInitialized,
+      isModelTested: this.isModelTested,
       isReady: Boolean(
         serverStatus.isRunning &&
           serverStatus.isHttpReady &&
           modelStatus.currentModel &&
           !modelStatus.isLoading &&
-          !modelStatus.error,
+          !modelStatus.error &&
+          this.isModelTested &&
+          !this.testError,
       ),
       error: modelStatus.error,
+      testError: this.testError,
     }
   }
 
@@ -96,12 +110,12 @@ class ModelManagerService {
         getModelOrDefault(),
       ])
 
-      // 4. If there's a configured model, load it
+      // 4. If there's a configured model, load it and test it
       // Don't await this - let it load in background
       // The UI can show loading state via the model store status
-      void modelStore.loadModel(currentModel).catch((error) => {
+      void this.loadAndTestModel(currentModel).catch((error) => {
         console.error(
-          `[ModelManager] Failed to load model ${currentModel}:`,
+          `[ModelManager] Failed to load and test model ${currentModel}:`,
           error,
         )
       })
@@ -116,12 +130,90 @@ class ModelManagerService {
   }
 
   /**
+   * Loads a model and then tests it to ensure it's fully ready.
+   * This is a helper method used during initialization.
+   */
+  private async loadAndTestModel(repoId: string): Promise<void> {
+    // First, wait for the MLX server to be fully ready
+    await mlcServer.waitForReady
+
+    // Then load the model
+    await modelStore.loadModel(repoId)
+
+    // Finally, test the model
+    await this.testModel(repoId)
+  }
+
+  /**
+   * Tests the model by sending a simple message to verify it can respond.
+   * This helps ensure the model is fully loaded and ready for use.
+   */
+  async testModel(modelId: string): Promise<void> {
+    this.testError = null
+    this.isModelTested = false
+    this.notifyListeners()
+
+    try {
+      // Double-check server readiness (should already be ready from caller)
+      if (!mlcServer.isReady) {
+        await mlcServer.waitForReady
+      }
+
+      const model = this.createClient(modelId)
+
+      // Send a simple test message to verify the model is responding
+      const result = await generateText({
+        model,
+        prompt: 'Hello',
+        maxOutputTokens: 5,
+      })
+
+      if (!result.text || result.text.trim().length === 0) {
+        throw new Error('Model test failed: received empty response')
+      }
+
+      this.isModelTested = true
+      console.log(`[ModelManager] Model test successful for ${modelId}`)
+    } catch (error) {
+      this.testError = error instanceof Error ? error.message : String(error)
+      console.error(`[ModelManager] Model test failed for ${modelId}:`, error)
+      throw error
+    } finally {
+      this.notifyListeners()
+    }
+  }
+
+  private createClient(modelId: string) {
+    const endpoint = mlcServer.endpoint
+
+    if (!endpoint) {
+      throw new Error('MLC endpoint is not available')
+    }
+
+    if (!modelId) {
+      throw new Error('Model ID is required')
+    }
+
+    return createMlcClient({ modelId, endpoint })
+  }
+
+  /**
    * Switches to a new model by updating settings and loading it.
    * This does not update the database - that should be done separately
    * via the settings hooks.
    */
   async switchModel(repoId: string): Promise<void> {
-    return await modelStore.loadModel(repoId)
+    // Reset test state when switching models
+    this.isModelTested = false
+    this.testError = null
+    this.notifyListeners()
+
+    // Ensure server is ready before loading and testing
+    await mlcServer.waitForReady
+    await modelStore.loadModel(repoId)
+
+    // Test the newly loaded model
+    await this.testModel(repoId)
   }
 
   /**
@@ -162,10 +254,17 @@ class ModelManagerService {
   get client() {
     if (!this.isReady) {
       throw new Error(
-        'Model manager is not ready. Server or model not available.',
+        'Model manager is not ready. Server, model, or model test not available.',
       )
     }
-    return mlcServer.client
+
+    const currentModel = modelStore.status.currentModel
+
+    if (!currentModel) {
+      throw new Error('No model is currently loaded')
+    }
+
+    return this.createClient(currentModel)
   }
 
   private notifyListeners(): void {
@@ -183,6 +282,8 @@ class ModelManagerService {
     ])
     this.listeners.clear()
     this.isInitialized = false
+    this.isModelTested = false
+    this.testError = null
   }
 }
 

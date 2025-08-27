@@ -7,7 +7,6 @@ import {
   type MlcServerStatus,
 } from '@/lib/commands'
 import { subscribeToMlcStatusChanges } from '@/lib/events'
-import { createMlcClient } from '@/lib/mlc-client'
 import type { Model } from '@/types/mlc-server'
 import { ModelsResponseSchema } from '@/types/mlc-server'
 
@@ -136,18 +135,6 @@ class MLCServerService {
         }
       })
     })
-  }
-
-  /** Returns an OpenAI-compatible model instance bound to the current server. */
-  get client() {
-    const endpoint = this.endpoint
-
-    if (!endpoint) {
-      throw new Error('MLC endpoint is not available')
-    }
-
-    // Use a default model identifier since we're not specifying a specific model
-    return createMlcClient({ modelId: 'default', endpoint })
   }
 
   async fetchModels(): Promise<Model[]> {
