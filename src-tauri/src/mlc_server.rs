@@ -108,17 +108,28 @@ impl MLCServerManager {
         }
     }
 
-    /// Restarts the server by delegating to `start`.
+    /// Restarts the server by forcing a stop and then start, bypassing any short-circuit logic.
     pub async fn restart(self: &std::sync::Arc<Self>) -> Result<MLCServerStatus, String> {
+        log::info!("Restarting MLX server (forced restart)");
+
+        // Force stop of any existing process
+        let _ = self.stop().await;
+
+        // Start the server without short-circuit checks
         self.start().await
     }
 
     /// Starts the `openchat-mlx-server` process and wires up health checks.
+    /// Short-circuits if the server is already running and HTTP ready.
     pub async fn start(self: &std::sync::Arc<Self>) -> Result<MLCServerStatus, String> {
-        let config = { self.config.read().await.clone() };
+        // Short-circuit if server is already running and ready
+        let current_status = self.get_status().await;
+        if current_status.is_running {
+            log::info!("MLX server is already running, short-circuiting start request");
+            return Ok(current_status);
+        }
 
-        // Defensive stop of any existing process
-        let _ = self.stop().await;
+        let config = { self.config.read().await.clone() };
 
         // Find an available port near the desired one
         let desired_port = config.port;
