@@ -66,12 +66,21 @@ function getRandomMessage(messages: string[]): string {
   return messages[Math.floor(Math.random() * messages.length)]
 }
 
+export interface RandomTooltipMessages {
+  ready: string
+  download: string
+  serverStarting: string
+  modelLoading: string
+  initialization: string
+}
+
 /**
  * Generates tooltip content based on model manager and download status
  */
 export function getModelManagerTooltipContent(
   status: ModelManagerStatus,
   downloadStatus: DownloadStatusInfo,
+  randomMessages?: RandomTooltipMessages,
 ): ReactNode {
   // Error state
   if (status.error) {
@@ -83,6 +92,15 @@ export function getModelManagerTooltipContent(
     )
   }
 
+  // Use provided random messages or generate new ones
+  const messages = randomMessages || {
+    ready: getRandomMessage(READY_MESSAGES),
+    download: getRandomMessage(DOWNLOAD_MESSAGES),
+    serverStarting: getRandomMessage(SERVER_STARTING_MESSAGES),
+    modelLoading: getRandomMessage(MODEL_LOADING_MESSAGES),
+    initialization: getRandomMessage(INITIALIZATION_MESSAGES),
+  }
+
   // Ready state
   if (status.isReady) {
     return (
@@ -91,7 +109,7 @@ export function getModelManagerTooltipContent(
           <span className="font-semibold text-muted-foreground/80">
             Status:
           </span>
-          <span className="text-xs">{getRandomMessage(READY_MESSAGES)}</span>
+          <span className="text-xs">{messages.ready}</span>
         </div>
         {status.model.currentModel && (
           <div className="flex gap-1">
@@ -109,29 +127,20 @@ export function getModelManagerTooltipContent(
   if (downloadStatus.hasActiveDownload) {
     return (
       <div className="space-y-1">
-        Status: {getRandomMessage(DOWNLOAD_MESSAGES)}{' '}
-        {downloadStatus.repoId ?? 'your AI'}...
+        Status: {messages.download} {downloadStatus.repoId ?? 'your AI'}...
       </div>
     )
   }
 
   // Server not ready
   if (!status.server.isRunning || !status.server.isHttpReady) {
-    return (
-      <div className="space-y-1">
-        Status: {getRandomMessage(SERVER_STARTING_MESSAGES)}
-      </div>
-    )
+    return <div className="space-y-1">Status: {messages.serverStarting}</div>
   }
 
   // Model loading
   if (status.model.isLoading) {
-    return (
-      <div className="space-y-1">
-        Status: {getRandomMessage(MODEL_LOADING_MESSAGES)}
-      </div>
-    )
+    return <div className="space-y-1">Status: {messages.modelLoading}</div>
   }
 
-  return getRandomMessage(INITIALIZATION_MESSAGES)
+  return messages.initialization
 }

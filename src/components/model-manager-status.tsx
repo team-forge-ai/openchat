@@ -1,3 +1,5 @@
+import { useMemo } from 'react'
+
 import { ServerRestartButton } from '@/components/server-restart-button'
 import { ServerStatusIndicator } from '@/components/server-status-indicator'
 import {
@@ -8,7 +10,10 @@ import {
 } from '@/components/ui/tooltip'
 import { useModelManager } from '@/contexts/model-manager-context'
 import { useDownloadStatus } from '@/hooks/use-download-status'
-import { getModelManagerTooltipContent } from '@/lib/server-status-utils'
+import {
+  getModelManagerTooltipContent,
+  type RandomTooltipMessages,
+} from '@/lib/server-status-utils'
 
 // Fun status message collections for the main display
 const ERROR_MESSAGES = [
@@ -76,12 +81,82 @@ export function ModelManagerStatus() {
   const { status, error, restartServer } = useModelManager()
   const downloadStatus = useDownloadStatus()
 
+  // Memoize random messages to keep them stable during component lifecycle
+  const randomMessages = useMemo(
+    () => ({
+      error: getRandomMessage(ERROR_MESSAGES),
+      ready: getRandomMessage(READY_MESSAGES),
+      download: getRandomMessage(DOWNLOAD_MESSAGES),
+      loading: getRandomMessage(LOADING_MESSAGES),
+      serverStarting: getRandomMessage(SERVER_STARTING_MESSAGES),
+      initialization: getRandomMessage(INITIALIZATION_MESSAGES),
+    }),
+    [],
+  )
+
+  // Memoize tooltip messages to keep them stable during component lifecycle
+  const tooltipMessages = useMemo(
+    (): RandomTooltipMessages => ({
+      ready: getRandomMessage([
+        'Your AI is alive and ready to chat!',
+        'Neural networks activated and standing by!',
+        'Artificial consciousness online!',
+        'Digital brain fully operational!',
+        'AI systems green across the board!',
+        'Ready to process your thoughts!',
+        'Intelligence successfully summoned!',
+        'Your personal AI assistant is awake!',
+      ]),
+      download: getRandomMessage([
+        'Downloading the digital brain of',
+        'Acquiring neural pathways for',
+        'Fetching billions of parameters for',
+        'Streaming consciousness data for',
+        'Pulling synaptic weights for',
+        'Downloading artificial memories for',
+        'Collecting training wisdom for',
+        'Gathering intelligence clusters for',
+      ]),
+      serverStarting: getRandomMessage([
+        'Firing up the AI engines...',
+        'Initializing neural processing cores...',
+        'Booting artificial consciousness...',
+        'Warming up the digital brain...',
+        'Starting cognitive processing units...',
+        'Activating intelligence servers...',
+        'Spinning up neural networks...',
+        'Powering on AI infrastructure...',
+      ]),
+      modelLoading: getRandomMessage([
+        'Loading billions of neural connections...',
+        'Awakening artificial memories...',
+        'Initializing cognitive pathways...',
+        'Building neural architecture...',
+        'Activating synaptic networks...',
+        'Constructing digital consciousness...',
+        'Assembling intelligence matrices...',
+        'Calibrating neural responses...',
+      ]),
+      initialization: getRandomMessage([
+        'Weaving digital consciousness...',
+        'Summoning artificial intelligence...',
+        'Orchestrating neural symphony...',
+        'Breathing life into algorithms...',
+        'Awakening silicon dreams...',
+        'Birthing digital thoughts...',
+        'Cultivating artificial wisdom...',
+        'Manifesting computational consciousness...',
+      ]),
+    }),
+    [],
+  )
+
   // Derive display properties from model manager status
   const getStatusDisplay = () => {
     if (error) {
       return {
         type: 'error' as const,
-        text: getRandomMessage(ERROR_MESSAGES),
+        text: randomMessages.error,
         iconColor: 'text-red-500',
         canRestart: true,
       }
@@ -90,7 +165,7 @@ export function ModelManagerStatus() {
     if (status.isReady) {
       return {
         type: 'ready' as const,
-        text: getRandomMessage(READY_MESSAGES),
+        text: randomMessages.ready,
         iconColor: 'text-green-500',
         canRestart: false,
       }
@@ -99,7 +174,7 @@ export function ModelManagerStatus() {
     if (downloadStatus.hasActiveDownload) {
       return {
         type: 'starting' as const,
-        text: getRandomMessage(DOWNLOAD_MESSAGES),
+        text: randomMessages.download,
         iconColor: 'text-blue-500',
         canRestart: false,
       }
@@ -108,7 +183,7 @@ export function ModelManagerStatus() {
     if (status.model.isLoading) {
       return {
         type: 'starting' as const,
-        text: getRandomMessage(LOADING_MESSAGES),
+        text: randomMessages.loading,
         iconColor: 'text-orange-500',
         canRestart: false,
       }
@@ -117,7 +192,7 @@ export function ModelManagerStatus() {
     if (!status.server.isRunning || !status.server.isHttpReady) {
       return {
         type: 'starting' as const,
-        text: getRandomMessage(SERVER_STARTING_MESSAGES),
+        text: randomMessages.serverStarting,
         iconColor: 'text-orange-500',
         canRestart: false,
       }
@@ -125,14 +200,18 @@ export function ModelManagerStatus() {
 
     return {
       type: 'starting' as const,
-      text: getRandomMessage(INITIALIZATION_MESSAGES),
+      text: randomMessages.initialization,
       iconColor: 'text-orange-500',
       canRestart: false,
     }
   }
 
   const statusDisplay = getStatusDisplay()
-  const tooltipContent = getModelManagerTooltipContent(status, downloadStatus)
+  const tooltipContent = getModelManagerTooltipContent(
+    status,
+    downloadStatus,
+    tooltipMessages,
+  )
 
   return (
     <TooltipProvider>
