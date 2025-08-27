@@ -1,4 +1,4 @@
-import { downloadModel } from '@/lib/model-download'
+import { downloadModel } from './commands'
 
 export interface ModelStatus {
   /** Currently loaded model repository ID, or null if none is loaded */

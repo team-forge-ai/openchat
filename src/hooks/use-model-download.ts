@@ -3,7 +3,7 @@ import { useCallback, useMemo } from 'react'
 
 import type { DownloadProgressState } from '@/contexts/download-progress-context'
 import { useDownloadProgress } from '@/contexts/download-progress-context'
-import { downloadModel } from '@/lib/model-download'
+import { downloadModel } from '@/lib/commands'
 
 interface UseModelDownloadResult {
   /** Download progress state for the model */
