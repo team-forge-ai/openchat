@@ -1,6 +1,6 @@
 import { AlertCircle, CheckCircle, Loader2 } from 'lucide-react'
 
-import type { ServerStatusType } from '@/hooks/use-server-status'
+type ServerStatusType = 'error' | 'ready' | 'starting' | 'offline'
 
 interface ServerStatusIndicatorProps {
   statusType: ServerStatusType

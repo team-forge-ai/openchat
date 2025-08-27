@@ -15,7 +15,7 @@ import {
 } from '@/lib/db/messages'
 import { createMcpToolsMap } from '@/lib/mcp-tools'
 import { createMlcClient } from '@/lib/mlc-client'
-import { mlxServer } from '@/lib/mlc-server'
+import { mlcServer } from '@/lib/mlc-server'
 import { DEFAULT_SETTINGS_PROMPT, SYSTEM_PROMPT } from '@/lib/prompt'
 import { setConversationTitleIfUnset } from '@/lib/set-conversation-title'
 import type { Message } from '@/types'
@@ -158,7 +158,7 @@ export function useMessages(
       await invalidateConverationQuery()
 
       // Create model instance with the configured model ID
-      const endpoint = mlxServer.endpoint
+      const endpoint = mlcServer.endpoint
       if (!endpoint) {
         throw new Error('MLC server is not ready')
       }

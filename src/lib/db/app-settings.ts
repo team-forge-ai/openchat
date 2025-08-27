@@ -1,5 +1,6 @@
 import { sql } from 'kysely'
 
+import { DEFAULT_MODEL } from '@/hooks/use-model'
 import { getKysely } from '@/lib/kysely'
 
 const SINGLETON_ID = 1
@@ -24,6 +25,11 @@ export async function getModel(): Promise<string | null> {
     .executeTakeFirst()
 
   return row?.model ?? null
+}
+
+export async function getModelOrDefault(): Promise<string> {
+  const model = await getModel()
+  return model ?? DEFAULT_MODEL
 }
 
 /**

@@ -9,7 +9,7 @@ import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { Toaster } from '@/components/ui/sonner'
 import { AppContextProvider, useAppContext } from '@/contexts/app-context'
 import { DownloadProgressProvider } from '@/contexts/download-progress-context'
-import { MLCServerProvider } from '@/contexts/mlc-server-context'
+import { ModelManagerProvider } from '@/contexts/model-manager-context'
 import { useDownloadToasts } from '@/hooks/use-download-toast'
 
 import './App.css'
@@ -43,7 +43,7 @@ function AppContent() {
 
 function App() {
   return (
-    <MLCServerProvider>
+    <ModelManagerProvider>
       <DownloadProgressProvider>
         <AppContextProvider>
           <AppMenuEvents />
@@ -52,7 +52,7 @@ function App() {
           <Toaster />
         </AppContextProvider>
       </DownloadProgressProvider>
-    </MLCServerProvider>
+    </ModelManagerProvider>
   )
 }
 

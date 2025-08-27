@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import { useMcpServers } from '@/hooks/use-mcp-servers'
-import { mcpCheckServer } from '@/lib/mcp-bridge'
+import { mcpCheckServer, type McpServerConfig } from '@/lib/commands'
 import {
   configToForm,
   formToConfig,
@@ -13,7 +13,6 @@ import {
   rowToForm,
 } from '@/lib/mcp-mappers'
 import type { McpServerRow } from '@/types'
-import type { McpServerConfig } from '@/types/mcp'
 import type { McpServerFormValues } from '@/types/mcp-form'
 
 import { McpServerFormDialog } from './mcp-server-form'

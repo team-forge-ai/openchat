@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { DEFAULT_MODEL } from '@/hooks/use-model'
 import { getModel } from '@/lib/db/app-settings'
 import { createMlcClient } from '@/lib/mlc-client'
-import { mlxServer } from '@/lib/mlc-server'
+import { mlcServer } from '@/lib/mlc-server'
 import { toTitleCase } from '@/lib/utils'
 
 /**
@@ -42,7 +42,7 @@ export async function generateConversationTitle(
   // Get the configured model or use the provided override
   const configuredModelId = modelId || (await getModel()) || DEFAULT_MODEL
 
-  const endpoint = mlxServer.endpoint
+  const endpoint = mlcServer.endpoint
   if (!endpoint) {
     throw new Error('MLC server is not ready')
   }

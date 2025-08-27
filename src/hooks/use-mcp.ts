@@ -16,10 +16,9 @@
 import type { UseMutationResult } from '@tanstack/react-query'
 import { useMutation, useQuery } from '@tanstack/react-query'
 
+import { mcpCallTool, mcpListTools, type McpToolInfo } from '@/lib/commands'
 import { getMcpServers } from '@/lib/db/mcp-servers'
-import { mcpCallTool, mcpListTools } from '@/lib/mcp-bridge'
 import type { McpServerRow } from '@/types'
-import type { McpToolInfo } from '@/types/mcp'
 
 /**
  * Parameters for invoking an MCP tool via the `call` mutation.

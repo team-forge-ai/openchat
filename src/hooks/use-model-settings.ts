@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { getModel, setModel } from '@/lib/db/app-settings'
-import { mlxServer } from '@/lib/mlc-server'
+import { mlcServer } from '@/lib/mlc-server'
 import type { Model } from '@/types/mlc-server'
 
 interface UseModelSettingsResult {
@@ -44,8 +44,8 @@ export function useModelSettings(): UseModelSettingsResult {
     error,
   } = useQuery({
     queryKey: ['mlx-models'],
-    queryFn: () => mlxServer.fetchModels(),
-    enabled: mlxServer.isReady,
+    queryFn: () => mlcServer.fetchModels(),
+    enabled: mlcServer.isReady,
     staleTime: 5 * 60 * 1000, // 5 minutes
   })
 
@@ -65,7 +65,7 @@ export function useModelSettings(): UseModelSettingsResult {
     availableModels,
     isLoadingCurrent,
     isLoadingModels,
-    isServerReady: mlxServer.isReady,
+    isServerReady: mlcServer.isReady,
     error: error,
     updateModel: updateModelMutation.mutateAsync,
     isUpdating: updateModelMutation.isPending,

@@ -1,14 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import {
+  mcpCheckServer,
+  type McpCheckResult,
+  type McpServerConfig,
+} from '@/lib/commands'
+import {
   deleteMcpServer,
   getMcpServers,
   insertMcpServer,
   setMcpServerEnabled,
   updateMcpServer,
 } from '@/lib/db/mcp-servers'
-import { mcpCheckServer } from '@/lib/mcp-bridge'
-import type { McpCheckResult, McpServerConfig } from '@/types/mcp'
 
 /**
  * useMcpServers
