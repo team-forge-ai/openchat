@@ -1,4 +1,4 @@
-import { MLCServerStatus } from '@/components/mlc-server-status'
+import { ModelManagerStatus } from '@/components/model-manager-status'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 
 export function AppHeader() {
@@ -9,7 +9,7 @@ export function AppHeader() {
     >
       <SidebarTrigger className="-ml-2" />
       <div className="flex-1" />
-      <MLCServerStatus />
+      <ModelManagerStatus />
     </header>
   )
 }

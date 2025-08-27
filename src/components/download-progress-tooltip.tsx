@@ -1,4 +1,4 @@
-import type { DownloadStatusInfo } from '@/hooks/use-server-status'
+import type { DownloadStatusInfo } from '@/hooks/use-download-status'
 
 interface DownloadProgressTooltipProps {
   downloadStatus: DownloadStatusInfo

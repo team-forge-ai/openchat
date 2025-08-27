@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 
 import { useAppContext } from '@/contexts/app-context'
-import { useMLCServer } from '@/contexts/mlc-server-context'
+import { useModelManager } from '@/contexts/model-manager-context'
 import { useConversations } from '@/hooks/use-conversations'
 import { useMessages } from '@/hooks/use-messages'
 
@@ -22,7 +22,7 @@ export const ChatWindow: React.FC = () => {
   } = useMessages(selectedConversationId)
 
   const { createConversation } = useConversations()
-  const { isReady } = useMLCServer()
+  const { isReady } = useModelManager()
   const isChatDisabled = !isReady
 
   // Aggregate loading state: fetching or sending
