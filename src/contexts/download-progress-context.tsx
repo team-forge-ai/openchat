@@ -36,7 +36,7 @@ function reducer(
       switch (event.type) {
         case 'repoDiscovered':
           return {
-            ...state,
+            ...initialState,
             status: 'downloading',
             totalBytes: event.totalBytes,
           }
