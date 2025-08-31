@@ -2,6 +2,8 @@
 
 Private, local-first AI chat desktop app built with Tauri (Rust) + React + TypeScript. OpenChat runs a local MLC server process and chats with models entirely on your machine.
 
+<img width="2846" height="2046" alt="Welcome to OpenChat!" src="https://github.com/user-attachments/assets/228a684f-c0ff-4418-9121-fd219b42ccb9" />
+
 ## Features
 
 - **Local Inference**: Chat with a variety of LLMs running locally via MLC LLM.
@@ -90,6 +92,14 @@ You can configure OpenChat by navigating to the settings view ( `⌘/Ctrl + ,` )
 ## Privacy
 
 All inference happens locally against your MLC server. No chat data leaves your machine unless an MCP server you configure sends requests externally.
+
+## Screenshots
+
+<img width="2846" height="2046" alt="Chat with a model" src="https://github.com/user-attachments/assets/d94a9caf-e9aa-4e5b-a8ae-19d938107d3d" />
+
+<img width="2846" height="2046" alt="Settings" src="https://github.com/user-attachments/assets/2c4ed531-23b8-4763-983f-eb981682d6ca" />
+
+<img width="2846" height="2046" alt="MCP Servers" src="https://github.com/user-attachments/assets/0f2b0166-11ec-4edd-aa1c-d17b0ef9dbb3" />
 
 ## License
 
