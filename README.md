@@ -16,7 +16,11 @@ Private, local-first AI chat desktop app built with Tauri (Rust) + React + TypeS
 - **AI Tools (MCP)**: Extend AI capabilities by adding tools via the Model Context Protocol (MCP).
 - **Model Management**: Download new models from Hugging Face and switch between them from within the app.
 
-## Quick Start
+## Download
+
+You can download the latest release from the [Releases](https://github.com/openai-chat/openchat/releases) page.
+
+## Developer Quick Start
 
 ### Prerequisites
 
