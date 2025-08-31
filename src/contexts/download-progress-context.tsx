@@ -12,6 +12,7 @@ export interface DownloadProgressState {
   filesCompleted: number
   filesFailed: number
   lastFile?: string
+  progressPercent: number
 }
 
 const initialState: DownloadProgressState = {
@@ -20,6 +21,7 @@ const initialState: DownloadProgressState = {
   receivedBytes: 0,
   filesCompleted: 0,
   filesFailed: 0,
+  progressPercent: 0,
 }
 
 type Action = { type: 'reset' } | { type: 'event'; evt: DownloadProgressEvent }
@@ -39,6 +41,7 @@ function reducer(
             ...initialState,
             status: 'downloading',
             totalBytes: event.totalBytes,
+            progressPercent: 0,
           }
         case 'fileStarted':
           return {
@@ -51,6 +54,7 @@ function reducer(
             ...state,
             status: 'downloading',
             receivedBytes: state.receivedBytes + event.bytes,
+            progressPercent: event.progressPercent,
           }
         case 'fileCompleted':
           return {
@@ -67,7 +71,7 @@ function reducer(
             lastFile: event.path,
           }
         case 'completed':
-          return { ...state, status: 'completed' }
+          return { ...state, status: 'completed', progressPercent: 100 }
         default:
           return state
       }

@@ -26,6 +26,7 @@ pub enum DownloadProgressPayload {
         repo_id: String,
         path: String,
         bytes: u64,
+        progress_percent: u8,
     },
     FileCompleted {
         repo_id: String,
@@ -121,7 +122,7 @@ pub async fn ensure_hf_model_cached(app: &AppHandle, repo_id: &str) -> Result<()
             }
             ProgressEvent::BytesTransferred { path, bytes } => {
                 let total = total_bytes_to_download_cb.load(Ordering::Relaxed);
-                if total > 0 {
+                let progress_percent = if total > 0 {
                     let current = downloaded_bytes_cb.fetch_add(bytes as u64, Ordering::Relaxed) + bytes as u64;
                     let percent = (((current as f64) / (total as f64)) * 100.0).floor() as u64;
                     let last = last_logged_percent_cb.load(Ordering::Relaxed);
@@ -131,13 +132,17 @@ pub async fn ensure_hf_model_cached(app: &AppHandle, repo_id: &str) -> Result<()
                             "download[{repo_id_owned}]: {percent}% ({current}/{total} bytes)"
                         );
                     }
-                }
+                    percent.min(100) as u8
+                } else {
+                    0
+                };
                 let _ = progress_app.emit(
                     "mlc-download-progress",
                     DownloadProgressPayload::BytesTransferred {
                         repo_id: repo_id_owned.clone(),
                         path,
                         bytes: bytes as u64,
+                        progress_percent,
                     },
                 );
             }

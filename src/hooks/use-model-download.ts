@@ -35,6 +35,7 @@ export function useModelDownload(repoId: string): UseModelDownloadResult {
     filesCompleted: 0,
     filesFailed: 0,
     lastFile: undefined,
+    progressPercent: 0,
   }
 
   const downloadMutation = useMutation({
@@ -68,13 +69,8 @@ export function useModelDownload(repoId: string): UseModelDownloadResult {
   )
 
   const downloadProgress = useMemo(() => {
-    if (!downloadState.totalBytes || downloadState.totalBytes === 0) {
-      return 0
-    }
-    return Math.floor(
-      (downloadState.receivedBytes / downloadState.totalBytes) * 100,
-    )
-  }, [downloadState.receivedBytes, downloadState.totalBytes])
+    return downloadState.progressPercent
+  }, [downloadState.progressPercent])
 
   return {
     downloadState,

@@ -42,7 +42,7 @@ export const SettingsWindow: React.FC = () => {
             </h2>
             <p className="text-muted-foreground">
               Download new models from Hugging Face to use in your
-              conversations.
+              conversations. Must be MLX compatible.
             </p>
           </div>
           <Separator className="my-6" />

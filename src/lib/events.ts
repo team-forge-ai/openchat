@@ -49,6 +49,7 @@ export interface BytesTransferredEvent {
   repoId: string
   path: string
   bytes: number
+  progressPercent: number
 }
 
 export interface FileCompletedEvent {
@@ -96,6 +97,7 @@ interface DownloadProgressWire {
   error?: string
   files_downloaded?: number
   bytes_downloaded?: number
+  progress_percent?: number
 }
 
 // ==================== Conversion Utilities ====================
@@ -138,6 +140,7 @@ function convertDownloadProgressEvent(
         ...baseFields,
         path: wire.path!,
         bytes: wire.bytes!,
+        progressPercent: wire.progress_percent!,
       }
     case 'file_completed':
       return {
