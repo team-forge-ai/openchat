@@ -16,11 +16,29 @@ Private, local-first AI chat desktop app built with Tauri (Rust) + React + TypeS
 - **AI Tools (MCP)**: Extend AI capabilities by adding tools via the Model Context Protocol (MCP).
 - **Model Management**: Download new models from Hugging Face and switch between them from within the app.
 
-## Download
+## Usage
+
+### Download
 
 You can download the latest release from the [Releases](https://github.com/openai-chat/openchat/releases) page.
 
+### System Requirements
+
+- Apple Silicon
+- macOS 15.5+
+- 32GB of RAM
+
+### App damaged error
+
+If you see a "OpenChat is damaged and can't be opened" error, run this to override the gatekeeper:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/OpenChat.app
+```
+
 ## Developer Quick Start
+
+The following instructions are just for developers who want to contribute to the project.
 
 ### Prerequisites
 
