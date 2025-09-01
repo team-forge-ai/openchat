@@ -20,7 +20,7 @@ Private, local-first AI chat desktop app built with Tauri (Rust) + React + TypeS
 
 ### Download
 
-You can download the latest release from the [Releases](https://github.com/openai-chat/openchat/releases) page.
+You can download the latest release from the [Releases](https://github.com/team-forge-ai/openchat/releases) page.
 
 ### System Requirements
 
